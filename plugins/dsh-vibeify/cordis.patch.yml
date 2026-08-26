@@ -1,0 +1,10 @@
+# Register Vibeify's ChatGPT-authenticated Codex provider on the host plane.
+# The package's dsh.client declaration independently adds the Web UI layer.
+- id: agent-default-model
+  config:
+    provider: codex-chatgpt
+    model: chatgpt-account-default
+
+- insert:
+    - id: llm-codex-chatgpt
+      name: dsh-vibeify

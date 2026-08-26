@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-25",
+  "currency": "USD",
+  "pricingUnit": "per 1M tokens",
+  "sources": {
+    "deepSeekPricing": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "dshCatalog": "https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/llm/llm-deepseek/src/index.ts"
+  },
+  "lead": {
+    "provider": "codex-chatgpt",
+    "model": "chatgpt-account-default",
+    "billing": "ChatGPT-authenticated subscription route; the bridge removes OpenAI API keys"
+  },
+  "qualityPolicy": {
+    "mode": "codex-lead-quota-efficient",
+    "automaticDelegationsPerTurn": 1,
+    "quotaObjective": "Preserve the user's Codex plan quota by assigning suitable bounded work to a cheaper DeepSeek worker when equivalent quality can be demonstrated.",
+    "leadInvariant": "ChatGPT Codex always remains the lead agent: it plans, chooses any worker, verifies the evidence, integrates the result, and answers the user.",
+    "rule": "Prefer a lower-cost DeepSeek worker when the task is bounded and Codex can demonstrate that its result meets the same acceptance criteria without lowering the bar.",
+    "fallback": "If verification fails, context transfer is lossy, or quality parity is uncertain, Codex must redo or complete the work itself.",
+    "primaryPolicy": "Never select or recommend DeepSeek as the primary agent under this policy; DeepSeek models are workers behind the Codex lead."
+  },
+  "models": [
+    {
+      "provider": "deepseek-official",
+      "id": "deepseek-v4-flash",
+      "name": "DeepSeek-V4-Flash",
+      "tier": "economy",
+      "modalities": ["text"],
+      "contextWindow": 1000000,
+      "maxOutputTokens": 384000,
+      "delegatedMaxTokensPerStep": 32768,
+      "useFor": [
+        "bounded repository reconnaissance",
+        "classification and extraction",
+        "routine independent review",
+        "summarisation with source material supplied"
+      ],
+      "avoidFor": [
+        "sole acceptance of a high-risk change",
+        "tasks whose correctness cannot be independently checked"
+      ],
+      "pricing": {
+        "inputCacheHit": 0.0028,
+        "inputCacheMiss": 0.14,
+        "output": 0.28
+      }
+    },
+    {
+      "provider": "deepseek-official",
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek-V4-Pro",
+      "tier": "quality",
+      "modalities": ["text"],
+      "contextWindow": 1000000,
+      "maxOutputTokens": 384000,
+      "delegatedMaxTokensPerStep": 32768,
+      "useFor": [
+        "harder independent reasoning",
+        "architecture and code-review second opinions",
+        "work where Flash rework risk outweighs Pro's extra cost"
+      ],
+      "avoidFor": [
+        "routine work that Flash can satisfy and Codex can verify",
+        "sole acceptance of an irreversible or safety-critical decision"
+      ],
+      "pricing": {
+        "inputCacheHit": 0.003625,
+        "inputCacheMiss": 0.435,
+        "output": 0.87
+      }
+    },
+    {
+      "provider": "deepseek-official",
+      "id": "deepseek-v4-flash-vision-exp",
+      "name": "DeepSeek-V4-Flash-Vision-Exp",
+      "tier": "experimental-vision",
+      "modalities": ["text", "image"],
+      "delegatedMaxTokensPerStep": 16384,
+      "useFor": [
+        "explicitly requested DeepSeek analysis of current image attachments"
+      ],
+      "avoidFor": [
+        "automatic image forwarding",
+        "cost-based routing while official pricing remains unpublished"
+      ],
+      "pricing": null
+    }
+  ]
+}

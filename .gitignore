@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.env.*
+*.log
+*.tgz
+node_modules/
+coverage/
+dist/
+tmp/
+private/
+session-*.json*

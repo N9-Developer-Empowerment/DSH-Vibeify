@@ -1,0 +1,35 @@
+{
+  "name": "dsh-vibeify",
+  "version": "0.6.0",
+  "description": "Install, operate, diagnose, and personalize DeepSeek Harness with ChatGPT-authenticated Codex as the permanent lead agent.",
+  "author": {
+    "name": "Errol Elliott"
+  },
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "deepseek-harness",
+    "dsh",
+    "vibe"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DSH Vibeify",
+    "shortDescription": "Codex-led DSH with clearer controls and selectable VIBEs.",
+    "longDescription": "Guides installation and operation of the DSH Vibeify bundle: ChatGPT-authenticated Codex remains lead, connected Codex apps use protected approvals, DeepSeek models are optional bounded workers, and the Web UI gains visible progress, queue/steer controls, and user-selectable VIBE themes.",
+    "developerName": "Errol Elliott",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Install",
+      "Diagnose",
+      "Customize",
+      "Agent routing"
+    ],
+    "defaultPrompt": [
+      "Install DSH Vibeify safely.",
+      "Check my DSH Vibeify setup.",
+      "Explain Codex and DeepSeek routing."
+    ],
+    "brandColor": "#7C3AED"
+  }
+}

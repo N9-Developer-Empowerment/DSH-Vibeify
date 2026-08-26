@@ -2,6 +2,8 @@
 
 **One lead agent. More ways to work. Your own VIBE.**
 
+![DSH Vibeify — one lead agent connected to specialist workers](docs/assets/dsh-vibeify-social-preview.png)
+
 [Visit the DSH Vibeify website](https://dsh-vibeify.ezzye.chatgpt.site) · [Read the installation guide](docs/INSTALL.md)
 
 DSH Vibeify turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into a clearer, more personal workspace led by Codex.

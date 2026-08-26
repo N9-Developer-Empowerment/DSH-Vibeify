@@ -1,7 +1,7 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.6.0",
-  "description": "A VIBE-customizable DeepSeek Harness bundle with ChatGPT-authenticated Codex as lead and optional DeepSeek workers.",
+  "version": "0.7.0",
+  "description": "A VIBE-customizable DeepSeek Harness bundle where DeepSeek executes eligible work under a ChatGPT-authenticated Codex lead.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -13,15 +13,18 @@
     ".codex-plugin/plugin.json",
     "assets/",
     "client.js",
+    "codex-capability.js",
+    "codex-settings.js",
     "cordis.patch.yml",
+    "delegation-contract.js",
     "index.js",
     "model-routing-policy.json",
     "routing-policy.js",
     "skills/"
   ],
   "scripts": {
-    "check": "node --check index.js && node --check client.js",
-    "test": "node --test routing-policy.test.js"
+    "check": "node --check index.js && node --check client.js && node --check codex-capability.js && node --check codex-settings.js && node --check delegation-contract.js && node --check routing-policy.js",
+    "test": "node --test *.test.js"
   },
   "keywords": [
     "codex",
@@ -59,9 +62,11 @@
   "peerDependencies": {
     "@deepseek-ai/dsh-agent": "^0.1.1-rc.2",
     "@deepseek-ai/dsh-llm": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
     "@deepseek-ai/dsh-sdk-protocol": "^0.1.1-rc.2",
     "@deepseek-ai/dsh-subagent": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-user-approval": "^0.1.1-rc.2"
+    "@deepseek-ai/dsh-user-approval": "^0.1.1-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.1"
   },
   "engines": {
     "node": ">=22"

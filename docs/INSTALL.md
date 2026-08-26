@@ -14,7 +14,7 @@ The tested combination is:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0` inside the bridge
-- DSH Vibeify `0.6.0`
+- DSH Vibeify `0.7.0`
 
 ## 1. Obtain this repository
 
@@ -91,11 +91,11 @@ git checkout <reviewed-commit>
 ./scripts/install-vibeify.sh
 ```
 
-## 5. Optional DeepSeek workers
+## 5. Enable DeepSeek-first execution
 
 Start DSH, open **Settings → Models**, enter the DeepSeek credential there, and save it. Do not place the key in this repository, shell history, screenshots, or support logs.
 
-DeepSeek workers are optional. Codex remains the default lead even when a DeepSeek key is configured.
+DeepSeek credentials are separate from ChatGPT/Codex. When a key is configured, Vibeify asks DeepSeek to perform most eligible bounded execution work. Codex remains the lead and independently validates the returned artifacts or evidence. Without a DeepSeek key, the same Codex lead still works but cannot offload those packets.
 
 ## 6. Start and verify
 
@@ -112,7 +112,24 @@ In a new session, ask:
 Report your Codex model, reasoning effort, access mode, and available DSH worker routes. Do not make a paid worker call.
 ```
 
-Expected lead status: `GPT-5.6 Sol · Extra High · Full Access`.
+Expected lead status: `Frontier (recommended) · GPT-5.6 Sol · Extra High · Full Access`.
+
+## 7. Choose the Codex capability level
+
+Open **Settings → Codex** in DSH:
+
+- **Frontier (recommended):** GPT-5.6 Sol · Extra High. This is the default and preserves the strongest lead for planning and verification.
+- **Maximum:** GPT-5.6 Sol · Max for the hardest quality-first work.
+- **Balanced:** GPT-5.6 Terra · High for a lighter lead.
+- **Efficient:** GPT-5.6 Luna · High for routine, highly checkable work.
+
+The capability setting changes the Codex model and reasoning effort together. It never makes DeepSeek the lead. Lower levels are explicit trade-offs; test them on representative tasks before relying on them for high-value work. Changes apply to subsequent Codex turns.
+
+To verify both routing and the active lead without making a paid worker call, ask:
+
+```text
+Report your Codex capability level, model, reasoning effort, access mode, and available DSH worker routes. Explain the DeepSeek-first acceptance contract. Do not call a paid worker.
+```
 
 ## Optional: install the Codex helper plugin
 

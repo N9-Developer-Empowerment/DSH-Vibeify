@@ -1,6 +1,6 @@
 # DSH Vibeify
 
-**One lead agent. More ways to work. Your own VIBE.**
+**DeepSeek does the work. Codex makes sure it is right. Your own VIBE.**
 
 ![DSH Vibeify — one lead agent connected to specialist workers](docs/assets/dsh-vibeify-social-preview.png)
 
@@ -8,7 +8,7 @@
 
 DSH Vibeify turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into a clearer, more personal workspace led by Codex.
 
-You keep talking to Codex as your main agent. Codex can use DeepSeek models for carefully bounded pieces of work when doing so will not reduce quality. It then checks the work, brings everything together, and remains responsible for the result.
+You keep talking to Codex as your lead agent. Codex plans the job and defines what “done well” means. DeepSeek then performs most eligible implementation, research, test, documentation, and analysis work. Codex inspects the real artifacts or evidence, validates the result, fixes any gaps, brings everything together, and remains responsible for the answer.
 
 The project also improves the everyday experience: more useful progress in Chat, visible approvals, Queue and Steer controls, image support, and visual themes called **VIBEs**.
 
@@ -21,14 +21,14 @@ The project also improves the everyday experience: more useful progress in Chat,
 Think of DSH as a control room for AI agents. DSH Vibeify changes that control room in three important ways:
 
 1. **Codex stays in charge.** It plans, checks, integrates, and answers.
-2. **Other models can help safely.** They receive small tasks that Codex can independently verify.
+2. **DeepSeek does most suitable execution.** It receives clear work packets that Codex can independently verify.
 3. **The workspace feels understandable.** You see more of what is happening and can choose a look that suits you.
 
 It does not silently replace Codex with another model, send your images elsewhere, approve emails or other external actions for you, or promise savings at the expense of quality.
 
 ### I want to try it
 
-You need a Mac or other DSH-supported computer, Node.js 22 or newer, Git, and a ChatGPT account with Codex access. A DeepSeek API key is optional.
+You need a Mac or other DSH-supported computer, Node.js 22 or newer, Git, and a ChatGPT account with Codex access. Add a DeepSeek API key to get the DeepSeek-first cost benefit; without it, Codex remains usable on its own.
 
 ```bash
 git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
@@ -47,8 +47,9 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 ## What you get
 
 - **Codex remains the lead.** The default route uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process.
-- **Optional specialist workers.** DeepSeek Flash, Pro, and experimental Vision routes are available for bounded, independently checkable work.
-- **A quality-first routing policy.** If equivalent quality cannot be demonstrated, Codex does the work itself.
+- **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
+- **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
+- **A Codex capability setting.** Open **Settings → Codex** to choose Efficient, Balanced, Frontier, or Maximum. Frontier—GPT-5.6 Sol with Extra High reasoning—is the quality-preserving default.
 - **Clearer live work.** Chat receives useful progress, and Queue or Steer controls remain available while the agent is busy.
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
 - **Connected Codex apps.** Installed tools can be surfaced through their normal Codex approval boundaries; desktop-only capabilities still require the appropriate host connection.
@@ -57,14 +58,18 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 
 ## What “lower cost without lower quality” means
 
-Codex cannot see the exact quota remaining on your ChatGPT plan. Vibeify therefore does not wait for a quota alarm or automatically move whole jobs elsewhere.
+Codex cannot see the exact quota remaining on your ChatGPT plan. Vibeify therefore does not wait for a quota alarm. It reduces lead-agent consumption structurally: Codex spends its capability on planning, routing, judgment, validation, and the final result, while DeepSeek performs most eligible execution work.
 
-Instead, Codex may send one well-defined task to a cheaper worker when:
+Codex sends one or more well-defined execution packets to a cheaper worker when:
 
 - the task is self-contained;
 - its result can be checked independently;
 - the selected model has the right capability; and
 - the same acceptance bar can be maintained.
+
+Codex does not simply ask whether the worker says it succeeded. It inspects the actual diff, files, test results, sources, or other task evidence. Passing work is reused; Codex repairs only failed or unverifiable parts instead of pointlessly repeating everything.
+
+No system can promise identical quality on every unseen task. Vibeify preserves the quality *process*: the default Codex lead remains the frontier preset, acceptance criteria do not change, and unverifiable work stays with or returns to Codex. Choosing a lower Codex capability level is an explicit user trade-off and should be evaluated on representative work.
 
 DeepSeek API calls are billed separately by DeepSeek. Pricing and model availability change, so the live DSH catalogue is consulted before making cost claims.
 
@@ -86,6 +91,9 @@ DSH-Vibeify/
 │   ├── .codex-plugin/plugin.json      # Codex plugin manifest
 │   ├── cordis.patch.yml               # DSH bundle configuration
 │   ├── index.js                       # Codex adapter and worker routing
+│   ├── codex-capability.js            # lead capability presets
+│   ├── codex-settings.js              # live DSH settings integration
+│   ├── delegation-contract.js         # worker/acceptance boundary
 │   ├── client.js                      # progress, approvals and VIBEs
 │   └── skills/dsh-vibeify/SKILL.md    # Codex operational guidance
 └── scripts/                            # installer, migration and doctor
@@ -95,7 +103,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.6.0`
+- DSH Vibeify `0.7.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

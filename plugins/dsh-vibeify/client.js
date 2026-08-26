@@ -1,9 +1,10 @@
 window.__ModuleLoader__.load({
 	id: "dsh-vibeify",
-	factory: () => {
+	factory: (require) => {
 		const module = { exports: {} };
 		const exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
+		const React = require("react");
 
 		const WATCHED_TYPES = new Set([
 			"approval/requested",
@@ -14,6 +15,35 @@ window.__ModuleLoader__.load({
 		const CONVERSATION_SETTINGS_NAMESPACE = "ui-conversation";
 		const BUSY_ENTER_FIELD = "busyEnter";
 		const BUSY_ENTER_BEHAVIORS = new Set(["queue", "steer"]);
+		const CODEX_SETTINGS_NAMESPACE = "llm-codex-chatgpt";
+		const CODEX_CAPABILITY_STYLE_ID = "dsh-vibeify-codex-capability-style";
+		const CODEX_CAPABILITY_OPTIONS = Object.freeze([
+			{
+				id: "efficient",
+				label: "Efficient",
+				model: "GPT-5.6 Luna · High",
+				description: "A lighter Codex governor for routine, highly checkable work.",
+			},
+			{
+				id: "balanced",
+				label: "Balanced",
+				model: "GPT-5.6 Terra · High",
+				description: "Strong planning and verification with a lighter lead model.",
+			},
+			{
+				id: "frontier",
+				label: "Frontier",
+				model: "GPT-5.6 Sol · Extra High",
+				description: "Recommended SOTA lead for planning, judgment, integration, and verification.",
+				recommended: true,
+			},
+			{
+				id: "maximum",
+				label: "Maximum",
+				model: "GPT-5.6 Sol · Max",
+				description: "Maximum supported reasoning for the hardest quality-first work.",
+			},
+		]);
 		const LIVE_CONTROLS_ID = "dsh-codex-live-controls";
 		const LIVE_CONTROLS_STYLE_ID = "dsh-codex-live-controls-style";
 		const VIBE_STORAGE_KEY = "dsh-vibeify.theme";
@@ -126,11 +156,111 @@ window.__ModuleLoader__.load({
 			}
 		}
 
+		function inferredCapability(value) {
+			if (CODEX_CAPABILITY_OPTIONS.some(({ id }) => id === value?.capabilityLevel)) {
+				return value.capabilityLevel;
+			}
+			if (value?.capabilityLevel === "custom") return "custom";
+			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "xhigh") return "frontier";
+			if (value?.model === "gpt-5.6-terra" && value?.reasoningEffort === "high") return "balanced";
+			if (value?.model === "gpt-5.6-luna" && value?.reasoningEffort === "high") return "efficient";
+			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "max") return "maximum";
+			return "custom";
+		}
+
+		function capabilitySection(settings) {
+			return function CodexCapabilitySection() {
+				const snapshot = React.useSyncExternalStore(
+					(listener) => settings.subscribe(listener),
+					() => settings.getSnapshot(),
+				);
+				const selected = inferredCapability(snapshot.value);
+				const [pending, setPending] = React.useState(null);
+				const [error, setError] = React.useState("");
+				const choose = async (capabilityLevel) => {
+					setPending(capabilityLevel);
+					setError("");
+					try {
+						await settings.set("capabilityLevel", capabilityLevel);
+					} catch {
+						setError("The capability setting could not be saved. Your previous setting is unchanged.");
+					} finally {
+						setPending(null);
+					}
+				};
+				return React.createElement("section", { className: "dsh-vibeify-capability" },
+					React.createElement("div", { className: "dsh-vibeify-capability-intro" },
+						React.createElement("p", { className: "dsh-vibeify-capability-kicker" }, "CODEX LEAD"),
+						React.createElement("h2", null, "Capability level"),
+						React.createElement("p", null, "Codex always plans, manages, verifies, integrates, and answers. This setting changes the Codex model and reasoning used for that lead role; DeepSeek still performs eligible execution work."),
+					),
+					React.createElement("div", { className: "dsh-vibeify-capability-grid" },
+						...CODEX_CAPABILITY_OPTIONS.map((option) => React.createElement("button", {
+							key: option.id,
+							type: "button",
+							className: "dsh-vibeify-capability-card",
+							"aria-pressed": String(selected === option.id),
+							disabled: pending !== null,
+							onClick: () => choose(option.id),
+						},
+						React.createElement("span", { className: "dsh-vibeify-capability-title" },
+							option.label,
+							option.recommended ? React.createElement("span", { className: "dsh-vibeify-capability-badge" }, "Recommended") : null,
+						),
+						React.createElement("span", { className: "dsh-vibeify-capability-model" }, option.model),
+						React.createElement("span", { className: "dsh-vibeify-capability-description" }, option.description),
+						)),
+					),
+					selected === "custom" ? React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Custom model/reasoning values are active. Choose a preset here to manage them as one capability level.") : null,
+					error.length > 0 ? React.createElement("p", { role: "alert", className: "dsh-vibeify-capability-error" }, error) : null,
+					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Frontier is the quality-preserving default. Lower levels are optional trade-offs and should be evaluated on your own work. Changes apply to subsequent Codex turns."),
+				);
+			};
+		}
+
 		function apply(ctx) {
 			const sessions = ctx.get("sessions");
 			const conversationSettings = ctx.settingsScope.bind({
 				namespace: CONVERSATION_SETTINGS_NAMESPACE,
 			});
+			const codexSettings = ctx.settingsScope.bind({
+				namespace: CODEX_SETTINGS_NAMESPACE,
+			});
+
+			ctx.effect(() => {
+				const style = document.createElement("style");
+				style.id = CODEX_CAPABILITY_STYLE_ID;
+				style.textContent = `
+.dsh-vibeify-capability { color: var(--dsw-alias-label-primary); padding: 4px 0 24px; }
+.dsh-vibeify-capability-intro { max-width: 620px; margin-bottom: 18px; }
+.dsh-vibeify-capability-kicker { margin: 0 0 4px; color: var(--dsw-alias-state-business-primary); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.dsh-vibeify-capability h2 { margin: 0 0 7px; font-size: 22px; line-height: 1.25; }
+.dsh-vibeify-capability p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.55; }
+.dsh-vibeify-capability-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.dsh-vibeify-capability-card { box-sizing: border-box; min-height: 142px; cursor: pointer; color: var(--dsw-alias-label-primary); text-align: left; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 7px; font: inherit; }
+.dsh-vibeify-capability-card:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.dsh-vibeify-capability-card[aria-pressed="true"] { border-color: var(--dsw-alias-state-business-primary); box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary); }
+.dsh-vibeify-capability-card:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
+.dsh-vibeify-capability-card:disabled { cursor: wait; opacity: .65; }
+.dsh-vibeify-capability-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 650; }
+.dsh-vibeify-capability-badge { color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 700; }
+.dsh-vibeify-capability-model { color: var(--dsw-alias-label-primary); font-size: 13px; font-weight: 550; }
+.dsh-vibeify-capability-description { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.45; }
+.dsh-vibeify-capability-note { margin-top: 14px !important; }
+.dsh-vibeify-capability-error { margin-top: 12px !important; color: var(--dsw-alias-label-error, #b42318) !important; }
+@media (max-width: 720px) { .dsh-vibeify-capability-grid { grid-template-columns: 1fr; } }
+`;
+				document.getElementById(CODEX_CAPABILITY_STYLE_ID)?.remove();
+				document.head.appendChild(style);
+				return () => style.remove();
+			}, "dsh-vibeify: Codex capability settings styles");
+
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "codex-capability",
+				order: 15,
+				label: "Codex",
+			}, capabilitySection(codexSettings)));
 
 			ctx.effect(() => {
 				let disposed = false;
@@ -584,7 +714,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["sessions", "settingsScope"];
+		exports.inject = ["sessions", "settingsScope", "slots"];
 		return module.exports;
 	},
 });

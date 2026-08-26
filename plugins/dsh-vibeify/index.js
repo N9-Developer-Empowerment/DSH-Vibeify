@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { LlmAdapter, LlmError } from "@deepseek-ai/dsh-llm";
 import { JsonRpcLineTransport } from "@deepseek-ai/dsh-sdk-protocol";
@@ -21,31 +21,19 @@ import {
   modelLabel,
   policyModel,
   reasoningLabel,
-  runtimeSettingsFromYaml,
   runtimeStatus,
   summarizeTokenUsage,
 } from "./routing-policy.js";
+import { Config, installCodexRuntimeSettings } from "./codex-settings.js";
+import { buildDelegationPacket, delegationResultForCodex } from "./delegation-contract.js";
 
 const PROVIDER = "codex-chatgpt";
 const MODEL = "chatgpt-account-default";
-const BRIDGE_VERSION = "0.6.0";
-const DSH_SETTINGS_PATH = join(homedir(), ".dsh", "settings.yaml");
+const BRIDGE_VERSION = "0.7.0";
 const DSH_DELEGATION_TIMEOUT_MS = 5 * 60 * 1000;
 const MODEL_CATALOG_TOOL_NAME = "dsh_model_catalog";
 const DSH_DELEGATE_TOOL_NAME = "delegate_to_dsh_model";
 const ROUTING_POLICY = loadRoutingPolicy();
-
-function currentRuntimeSettings() {
-  try {
-    return runtimeSettingsFromYaml(readFileSync(DSH_SETTINGS_PATH, "utf8"));
-  } catch (error) {
-    throw new LlmError(
-      `codex-chatgpt: could not read runtime settings from ${DSH_SETTINGS_PATH}`,
-      "INVALID_REQUEST",
-      { cause: error },
-    );
-  }
-}
 const MODEL_CATALOG_TOOL = {
   type: "function",
   name: MODEL_CATALOG_TOOL_NAME,
@@ -64,7 +52,7 @@ function delegateTool(catalog) {
   return {
     type: "function",
     name: DSH_DELEGATE_TOOL_NAME,
-    description: "Delegate one bounded, independent task to an available native DSH model. Use only when the result can be independently checked without reducing the acceptance bar. The call may incur that provider's separate charges. Codex remains responsible for final synthesis and verification.",
+    description: "Send one bounded execution packet to an available native DSH model. Provide the task, Codex-defined acceptance contract, and required evidence separately. The worker may implement or analyze, but Codex must inspect artifacts/evidence, validate acceptance, integrate, and answer. The call may incur separate provider charges.",
     inputSchema: {
       type: "object",
       properties: {
@@ -72,7 +60,19 @@ function delegateTool(catalog) {
           type: "string",
           minLength: 1,
           maxLength: 20000,
-          description: "A self-contained task with relevant context, acceptance criteria, and expected evidence.",
+          description: "The self-contained execution task and relevant context. Do not include leadership or final acceptance.",
+        },
+        acceptance: {
+          type: "string",
+          minLength: 1,
+          maxLength: 8000,
+          description: "The exact acceptance criteria Codex will independently validate after the worker returns.",
+        },
+        evidence: {
+          type: "string",
+          minLength: 1,
+          maxLength: 8000,
+          description: "The artifacts, commands, test results, citations, or structured findings the worker must return for Codex verification.",
         },
         label: {
           type: "string",
@@ -89,12 +89,8 @@ function delegateTool(catalog) {
           type: "boolean",
           description: "Forward every image attached to the current user message. Set true only when the user explicitly asks to send those images to the selected image-capable provider.",
         },
-        user_requested_multiple: {
-          type: "boolean",
-          description: "Set true only when the user explicitly requested multiple external-model delegations in this turn; otherwise the quality-first policy permits one.",
-        },
       },
-      required: ["task", "route"],
+      required: ["task", "acceptance", "evidence", "route"],
       additionalProperties: false,
     },
   };
@@ -203,17 +199,6 @@ function recoveredSubagentOutput(run, result) {
     output: recovered === undefined ? "" : renderSubagentOutput(recovered),
     recovered: recovered !== undefined,
   };
-}
-
-function codexDelegationResult(output, route, costSummary) {
-  return [
-    `DSH delegation to ${route} succeeded and returned ${output.length} characters.`,
-    costSummary,
-    "Use the complete result below as the subagent's answer, but independently verify it before acceptance.",
-    "<<<DSH_SUBAGENT_RESULT>>>",
-    output,
-    "<<<END_DSH_SUBAGENT_RESULT>>>",
-  ].join("\n");
 }
 
 function latestUserContent(messages) {
@@ -798,6 +783,14 @@ class CodexWire {
           if (task.length > 20000) {
             return { success: false, contentItems: [{ type: "inputText", text: "DSH delegation task is too long." }] };
           }
+          const acceptance = asString(args.acceptance, "DSH delegation acceptance contract").trim();
+          if (acceptance.length > 8000) {
+            return { success: false, contentItems: [{ type: "inputText", text: "DSH delegation acceptance contract is too long." }] };
+          }
+          const evidence = asString(args.evidence, "DSH delegation evidence request").trim();
+          if (evidence.length > 8000) {
+            return { success: false, contentItems: [{ type: "inputText", text: "DSH delegation evidence request is too long." }] };
+          }
           const route = asString(args.route, "DSH model route");
           this.dshCatalog = await this.getModelCatalog();
           const selected = this.dshCatalog.models.find((model) =>
@@ -809,16 +802,10 @@ class CodexWire {
           if (args.include_current_images !== undefined && typeof args.include_current_images !== "boolean") {
             return { success: false, contentItems: [{ type: "inputText", text: "include_current_images must be true or false." }] };
           }
-          if (args.user_requested_multiple !== undefined && typeof args.user_requested_multiple !== "boolean") {
-            return { success: false, contentItems: [{ type: "inputText", text: "user_requested_multiple must be true or false." }] };
-          }
-          if (
-            this.delegationsThisTurn >= ROUTING_POLICY.qualityPolicy.automaticDelegationsPerTurn
-            && args.user_requested_multiple !== true
-          ) {
+          if (this.delegationsThisTurn >= ROUTING_POLICY.qualityPolicy.maximumDelegationsPerTurn) {
             return {
               success: false,
-              contentItems: [{ type: "inputText", text: "The quality-first policy permits one automatic external-model delegation per turn. Continue with Codex unless the user explicitly requested multiple model opinions." }],
+              contentItems: [{ type: "inputText", text: `The governance policy permits at most ${ROUTING_POLICY.qualityPolicy.maximumDelegationsPerTurn} DeepSeek execution packets per turn. Continue with Codex and do not manufacture further model calls.` }],
             };
           }
           const includeCurrentImages = args.include_current_images === true;
@@ -842,13 +829,14 @@ class CodexWire {
             return { success: false, contentItems: [{ type: "inputText", text: "The parent Codex turn is no longer active." }] };
           }
           const images = includeCurrentImages ? [...this.turnImages] : [];
+          const packet = buildDelegationPacket({ task, acceptance, evidence });
           this.delegationsThisTurn += 1;
           this.emitProgress(images.length === 0
-            ? `Starting DSH subagent (${route})…\n`
-            : `Sending ${images.length} current ${images.length === 1 ? "image" : "images"} to DSH subagent (${route})…\n`);
+            ? `DeepSeek is executing “${label}” (${route}); Codex will verify it…\n`
+            : `Sending ${images.length} current ${images.length === 1 ? "image" : "images"} to DeepSeek for “${label}” (${route}); Codex will verify it…\n`);
           try {
             const result = await this.delegateToDsh({
-              task,
+              task: packet,
               label,
               provider: selected.provider,
               model: selected.id,
@@ -859,7 +847,7 @@ class CodexWire {
             const output = renderSubagentOutput(result.output);
             const outputDetail = output.length === 0 ? "no text" : `${output.length} characters`;
             const recoveryDetail = result.recoveredFromSession === true ? ", recovered from the child session" : "";
-            this.emitProgress(`DSH subagent finished (${result.stopReason}; ${outputDetail}${recoveryDetail}). ${result.costSummary}\n`);
+            this.emitProgress(`DeepSeek worker finished (${result.stopReason}; ${outputDetail}${recoveryDetail}). Codex is validating the acceptance contract. ${result.costSummary}\n`);
             if (result.stopReason !== "completed") {
               const diagnostic = typeof result.diagnostic === "string" && result.diagnostic.length > 0
                 ? result.diagnostic
@@ -880,7 +868,10 @@ class CodexWire {
             }
             return {
               success: true,
-              contentItems: [{ type: "inputText", text: codexDelegationResult(output, route, result.costSummary) }],
+              contentItems: [{
+                type: "inputText",
+                text: delegationResultForCodex({ output, route, costSummary: result.costSummary }),
+              }],
             };
           } catch (error) {
             this.logger.warn(`codex-chatgpt: DSH subagent failed: ${String(error)}`);
@@ -1345,10 +1336,11 @@ class CodexChatGptAdapter extends LlmAdapter {
 const name = "llm-codex-chatgpt-local";
 const inject = ["llm", "sessions", "attachments", "agents", "approval", "subagents"];
 
-function apply(ctx) {
-  const adapter = new CodexChatGptAdapter(ctx, currentRuntimeSettings);
+function apply(ctx, config) {
+  const getRuntimeSettings = installCodexRuntimeSettings(ctx, config);
+  const adapter = new CodexChatGptAdapter(ctx, getRuntimeSettings);
   ctx.llm.registerAdapter([PROVIDER], adapter);
   ctx.effect(() => async () => adapter.closeAll(), "codex-chatgpt app-server cleanup");
 }
 
-export { apply, inject, name };
+export { Config, apply, inject, name };

@@ -20,6 +20,7 @@ const policy = loadRoutingPolicy();
 
 test("DSH settings select GPT-5.6 Sol with Extra High reasoning", () => {
   assert.deepEqual(DEFAULT_CODEX_RUNTIME_SETTINGS, {
+    capabilityLevel: "frontier",
     model: "gpt-5.6-sol",
     reasoningEffort: "xhigh",
   });
@@ -46,7 +47,7 @@ test("DSH Full Access suppresses command prompts but retains app confirmations",
     label: "Full Access",
   });
   assert.equal(runtimeStatus({ ...DEFAULT_CODEX_RUNTIME_SETTINGS, access }),
-    "GPT-5.6 Sol · Extra High · Full Access");
+    "Frontier (recommended) · GPT-5.6 Sol · Extra High · Full Access");
 });
 
 test("connected-app confirmations accept only deterministic form values", () => {
@@ -105,12 +106,16 @@ test("policy contains every installed native DeepSeek route", () => {
 
 test("developer instructions preserve Codex leadership, quota, quality, and billing distinctions", () => {
   const text = buildDeveloperRoutingInstructions(policy);
-  assert.match(text, /independently verifiable/);
+  assert.match(text, /DeepSeek-first execution under Codex governance/);
+  assert.match(text, /Use DeepSeek for an eligible execution packet by default/);
+  assert.match(text, /A worker's prose is not acceptance/);
+  assert.match(text, /Passing work should be reused/);
   assert.match(text, /always remains the lead agent/);
   assert.match(text, /finite Codex plan quota/);
   assert.match(text, /removes OpenAI API keys/);
   assert.match(text, /DeepSeek is separately API-billed/);
   assert.match(text, /Never hand leadership to another model/);
+  assert.match(text, /at most 4 execution packets per user turn/);
 });
 
 test("live catalogue merges registered routes with verified policy", async () => {

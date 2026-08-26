@@ -24,7 +24,9 @@ Vibeify enables installed app tools and lets read-only work proceed normally. Wr
 
 `model-routing-policy.json` records dated pricing assumptions. Prices and model availability can change. Vibeify must refresh the live DSH catalogue before making a cost claim, state that DeepSeek charges are separate, and fall back to Codex whenever equal quality cannot be demonstrated.
 
-Vibeify cannot read exact remaining Codex quota. It optimizes conservatively by moving only bounded and independently verifiable worker effort.
+Vibeify cannot read exact remaining Codex quota. It optimizes structurally: Codex retains planning, approval, judgment, verification, integration, and the final response, while eligible bounded execution goes to DeepSeek. A worker result is labelled unverified until Codex inspects artifacts or evidence against the original acceptance contract.
+
+The Frontier Codex capability preset is the default. Efficient and Balanced deliberately trade some lead capability for lower resource use; the user must opt into them and evaluate them on representative tasks. They are not part of a blanket “no quality loss” claim.
 
 ## Secrets and logs
 

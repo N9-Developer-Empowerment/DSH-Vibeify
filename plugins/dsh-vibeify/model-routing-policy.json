@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "verifiedAt": "2026-08-25",
   "currency": "USD",
   "pricingUnit": "per 1M tokens",
@@ -13,13 +13,34 @@
     "billing": "ChatGPT-authenticated subscription route; the bridge removes OpenAI API keys"
   },
   "qualityPolicy": {
-    "mode": "codex-lead-quota-efficient",
-    "automaticDelegationsPerTurn": 1,
-    "quotaObjective": "Preserve the user's Codex plan quota by assigning suitable bounded work to a cheaper DeepSeek worker when equivalent quality can be demonstrated.",
+    "mode": "codex-led-deepseek-first",
+    "maximumDelegationsPerTurn": 4,
+    "quotaObjective": "Preserve the user's Codex plan quota by assigning most suitable, bounded execution work to a cheaper DeepSeek worker while Codex retains the judgment needed to keep the same acceptance bar.",
     "leadInvariant": "ChatGPT Codex always remains the lead agent: it plans, chooses any worker, verifies the evidence, integrates the result, and answers the user.",
-    "rule": "Prefer a lower-cost DeepSeek worker when the task is bounded and Codex can demonstrate that its result meets the same acceptance criteria without lowering the bar.",
-    "fallback": "If verification fails, context transfer is lossy, or quality parity is uncertain, Codex must redo or complete the work itself.",
-    "primaryPolicy": "Never select or recommend DeepSeek as the primary agent under this policy; DeepSeek models are workers behind the Codex lead."
+    "rule": "Use DeepSeek for an eligible execution packet by default when Codex can independently inspect its artifacts or evidence against explicit acceptance criteria.",
+    "fallback": "If verification fails, context transfer is lossy, or quality parity is uncertain, Codex repairs or completes only the failed or unverifiable part itself.",
+    "primaryPolicy": "Never select or recommend DeepSeek as the primary agent under this policy; DeepSeek models are workers behind the Codex lead.",
+    "delegationDefault": "For a non-trivial task, plan first, then delegate eligible implementation, repository reconnaissance, test drafting, documentation drafting, extraction, and structured analysis packets to DeepSeek. Codex may keep a packet when delegation overhead or unverifiable context would outweigh the worker benefit.",
+    "verificationContract": "A worker's prose is not acceptance. Codex must inspect the changed artifacts or cited evidence and rerun, reproduce, or otherwise directly validate the packet's acceptance criteria before integration. Passing work should be reused rather than gratuitously repeated.",
+    "codexResponsibilities": [
+      "understand user intent and plan the work",
+      "decompose bounded execution packets and select a suitable route",
+      "retain approval, privacy, billing, and authority decisions",
+      "inspect actual artifacts and validate the acceptance contract",
+      "repair integration gaps and produce the final answer"
+    ],
+    "workerResponsibilities": [
+      "bounded repository reconnaissance",
+      "routine implementation and refactoring under an existing plan",
+      "focused tests and documentation drafts",
+      "structured extraction, comparison, and independent review"
+    ],
+    "neverDelegate": [
+      "leadership, final synthesis, or final acceptance",
+      "protected external writes or authorization-bearing decisions",
+      "credentials, private inputs, or current images without explicit user permission",
+      "a packet whose correctness Codex cannot independently verify"
+    ]
   },
   "models": [
     {

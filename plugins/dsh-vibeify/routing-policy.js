@@ -1,26 +1,19 @@
 import { readFileSync } from "node:fs";
+export {
+  CODEX_CAPABILITY_CHOICES,
+  CODEX_CAPABILITY_PRESETS,
+  CODEX_MODEL_CHOICES,
+  CODEX_REASONING_CHOICES,
+  DEFAULT_CODEX_RUNTIME_SETTINGS,
+  capabilityLabel,
+  modelLabel,
+  reasoningLabel,
+  resolveCodexRuntimeSettings,
+  runtimeSettingsFromYaml,
+  runtimeStatus,
+} from "./codex-capability.js";
 
 const DEFAULT_POLICY_URL = new URL("./model-routing-policy.json", import.meta.url);
-
-export const DEFAULT_CODEX_RUNTIME_SETTINGS = Object.freeze({
-  model: "gpt-5.6-sol",
-  reasoningEffort: "xhigh",
-});
-
-export const CODEX_MODEL_CHOICES = Object.freeze([
-  { id: "gpt-5.6-sol", label: "GPT-5.6 Sol" },
-  { id: "gpt-5.6-terra", label: "GPT-5.6 Terra" },
-  { id: "gpt-5.6-luna", label: "GPT-5.6 Luna" },
-]);
-
-export const CODEX_REASONING_CHOICES = Object.freeze([
-  { id: "low", label: "Low" },
-  { id: "medium", label: "Medium" },
-  { id: "high", label: "High" },
-  { id: "xhigh", label: "Extra High" },
-  { id: "max", label: "Max" },
-  { id: "ultra", label: "Ultra" },
-]);
 
 const VALID_SANDBOX_MODES = new Set([
   "read-only",
@@ -37,49 +30,6 @@ export const FULL_ACCESS_APPROVAL_POLICY = Object.freeze({
     mcp_elicitations: true,
   }),
 });
-
-function choiceLabel(choices, id) {
-  return choices.find((choice) => choice.id === id)?.label ?? id;
-}
-
-export function modelLabel(model) {
-  return choiceLabel(CODEX_MODEL_CHOICES, model);
-}
-
-export function reasoningLabel(reasoningEffort) {
-  return choiceLabel(CODEX_REASONING_CHOICES, reasoningEffort);
-}
-
-function scalar(value) {
-  const trimmed = value.trim();
-  if (
-    trimmed.length >= 2
-    && ((trimmed.startsWith('"') && trimmed.endsWith('"'))
-      || (trimmed.startsWith("'") && trimmed.endsWith("'")))
-  ) return trimmed.slice(1, -1);
-  return trimmed;
-}
-
-export function runtimeSettingsFromYaml(document) {
-  const configured = { ...DEFAULT_CODEX_RUNTIME_SETTINGS };
-  let inSection = false;
-  for (const line of document.split(/\r?\n/u)) {
-    if (/^\S/u.test(line)) {
-      inSection = line.trim() === "llm-codex-chatgpt:";
-      continue;
-    }
-    if (!inSection) continue;
-    const match = /^\s{2}(model|reasoningEffort):\s*(.+?)\s*$/u.exec(line);
-    if (match !== null) configured[match[1]] = scalar(match[2]);
-  }
-  if (!CODEX_MODEL_CHOICES.some(({ id }) => id === configured.model)) {
-    throw new Error(`unsupported DSH Codex model ${configured.model}`);
-  }
-  if (!CODEX_REASONING_CHOICES.some(({ id }) => id === configured.reasoningEffort)) {
-    throw new Error(`unsupported DSH Codex reasoning effort ${configured.reasoningEffort}`);
-  }
-  return configured;
-}
 
 export function latestSessionPolicy(events, type, field) {
   for (let index = (events?.length ?? 0) - 1; index >= 0; index -= 1) {
@@ -156,10 +106,6 @@ export function acceptedElicitationContent(requestedSchema) {
   return content;
 }
 
-export function runtimeStatus({ model, reasoningEffort, access }) {
-  return `${modelLabel(model)} · ${reasoningLabel(reasoningEffort)} · ${access.label}`;
-}
-
 function requireObject(value, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`model routing policy: ${label} must be an object`);
@@ -191,7 +137,7 @@ function validatePricing(pricing, label) {
 
 function validatePolicy(policy) {
   const value = requireObject(policy, "root");
-  if (value.schemaVersion !== 1) throw new Error("model routing policy: unsupported schemaVersion");
+  if (value.schemaVersion !== 2) throw new Error("model routing policy: unsupported schemaVersion");
   requireString(value.verifiedAt, "verifiedAt");
   requireString(value.currency, "currency");
   requireString(value.pricingUnit, "pricingUnit");
@@ -204,8 +150,18 @@ function validatePolicy(policy) {
   requireString(quality.rule, "qualityPolicy.rule");
   requireString(quality.fallback, "qualityPolicy.fallback");
   requireString(quality.primaryPolicy, "qualityPolicy.primaryPolicy");
-  if (!Number.isSafeInteger(quality.automaticDelegationsPerTurn) || quality.automaticDelegationsPerTurn < 0) {
-    throw new Error("model routing policy: automaticDelegationsPerTurn must be a non-negative safe integer");
+  requireString(quality.delegationDefault, "qualityPolicy.delegationDefault");
+  requireString(quality.verificationContract, "qualityPolicy.verificationContract");
+  if (!Number.isSafeInteger(quality.maximumDelegationsPerTurn) || quality.maximumDelegationsPerTurn < 0) {
+    throw new Error("model routing policy: maximumDelegationsPerTurn must be a non-negative safe integer");
+  }
+  for (const list of ["codexResponsibilities", "workerResponsibilities", "neverDelegate"]) {
+    if (!Array.isArray(quality[list]) || quality[list].length === 0) {
+      throw new Error(`model routing policy: qualityPolicy.${list} must be a non-empty array`);
+    }
+    for (const [index, item] of quality[list].entries()) {
+      requireString(item, `qualityPolicy.${list}[${index}]`);
+    }
   }
   if (!Array.isArray(value.models) || value.models.length === 0) {
     throw new Error("model routing policy: models must be a non-empty array");
@@ -296,16 +252,22 @@ export function catalogForModel(catalog) {
 export function buildDeveloperRoutingInstructions(policy) {
   const names = policy.models.map((model) => `${model.name} (${model.tier})`).join(", ");
   return [
-    "DSH Codex-lead, quota-efficient resource routing:",
+    "DSH DeepSeek-first execution under Codex governance:",
     `- ${policy.qualityPolicy.leadInvariant}`,
     `- ${policy.qualityPolicy.quotaObjective}`,
     `- Available native DeepSeek policy routes: ${names}. Use dsh_model_catalog for the live installed catalogue, exact capabilities, and verified prices before making a cost-based routing decision.`,
     `- ${policy.qualityPolicy.rule}`,
     `- ${policy.qualityPolicy.fallback}`,
     `- ${policy.qualityPolicy.primaryPolicy}`,
-    `- Prefer DeepSeek-V4-Flash for bounded, independently verifiable work. Use Pro when Flash's likely rework or reasoning risk outweighs the price difference. Use the experimental vision route only when the user explicitly asks to forward current images.`,
-    `- Keep planning, final synthesis, acceptance, authorization-bearing decisions, and any uncertain work with Codex. Do not lower tests, review depth, evidence requirements, or safety boundaries to save quota.`,
-    `- Limit automatic external-model delegation to ${policy.qualityPolicy.automaticDelegationsPerTurn} call per user turn unless the user explicitly asks for multiple independent models. Do not run both Flash and Pro gratuitously.`,
+    `- ${policy.qualityPolicy.delegationDefault}`,
+    `- Before delegation, Codex must define the bounded task, unchanged authority boundary, acceptance criteria, and evidence request. Give them to delegate_to_dsh_model as separate fields.`,
+    `- Codex responsibilities: ${policy.qualityPolicy.codexResponsibilities.join("; ")}.`,
+    `- DeepSeek worker responsibilities: ${policy.qualityPolicy.workerResponsibilities.join("; ")}.`,
+    `- Never delegate: ${policy.qualityPolicy.neverDelegate.join("; ")}.`,
+    `- ${policy.qualityPolicy.verificationContract}`,
+    `- Prefer DeepSeek-V4-Flash for routine execution packets. Use Pro only when Flash's likely rework or reasoning risk outweighs the price difference. Use the experimental vision route only when the user explicitly asks to forward current images.`,
+    `- Keep planning, final synthesis, acceptance, authorization-bearing decisions, and uncertain semantic judgment with Codex. Do not lower tests, review depth, evidence requirements, or safety boundaries to save quota.`,
+    `- Delegate at most ${policy.qualityPolicy.maximumDelegationsPerTurn} execution packets per user turn. Decompose clean independent packets, but do not split work merely to manufacture model calls and do not run Flash and Pro gratuitously.`,
     `- This Codex route uses ChatGPT authentication and removes OpenAI API keys. The optimization target is the user's finite Codex plan quota. DeepSeek is separately API-billed, so use it when its low measured API cost and demonstrable quality parity justify moving bounded worker effort away from Codex.`,
     `- Never hand leadership to another model. Use delegate_to_dsh_model for worker tasks, then independently assess the evidence and deliver the answer as Codex lead.`,
     `- Tell the user which model is delegated, why it is suitable, and how its output will be verified. Treat returned cost as an estimate from provider-reported token counts and the dated local price policy.`,

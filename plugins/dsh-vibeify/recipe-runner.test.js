@@ -53,6 +53,10 @@ test("manual magazine update envelope is immutable and shaped by earlier questio
   assert.match(envelope.prompt, /<vibe-chunk/);
   assert.match(envelope.prompt, /music or audio route/i);
   assert.match(envelope.prompt, /questionnaire/i);
+  assert.match(envelope.prompt, /two locally prepared pages/i);
+  assert.match(envelope.prompt, /at least three useful bounded lanes concurrently/i);
+  assert.match(envelope.prompt, /Never publish a worker report/i);
+  assert.match(envelope.prompt, /60–140 words/i);
   assert.match(envelope.prompt, /More original creators/);
   assert.match(envelope.prompt, /Codex remains lead/i);
   assert.match(envelope.prompt, /exactly one user-requested update/i);

@@ -1,5 +1,5 @@
 export const CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
-export const CONTENT_STORE_VERSION = 3;
+export const CONTENT_STORE_VERSION = 4;
 export const CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_STREAM_CHUNKS = 160;
 export const MAX_STREAM_ANSWERS = 32;
@@ -32,6 +32,17 @@ function cleanToken(value) {
   return token !== null && TOKEN.test(token) ? token : null;
 }
 
+function internalAgentMaterial(title, markdown) {
+  const heading = String(title ?? "").trim();
+  const body = String(markdown ?? "");
+  return /^worker report\b/i.test(heading)
+    || /^work(?:er)? role\s*:/im.test(body)
+    || /no final copy written\s*\(per task\)/i.test(body)
+    || /codex can re-verify/i.test(body)
+    || /^(?:#\s*)?vibe (?:continuous edition refill|magazine update)\b/i.test(heading)
+    || /^update `?refill-[a-z0-9_-]+`? completed\b/im.test(body);
+}
+
 function cleanChunk(candidate, now) {
   if (candidate === null || typeof candidate !== "object") return null;
   const id = cleanId(candidate.id);
@@ -42,6 +53,7 @@ function cleanChunk(candidate, now) {
   const topicId = candidate.topicId === undefined ? null : cleanToken(candidate.topicId);
   const publishedAt = Number(candidate.publishedAt);
   if (id === null || kind === null || source === null || title === null || markdown === null) return null;
+  if (source === "chat-directed" && internalAgentMaterial(title, markdown)) return null;
   if (!Number.isFinite(publishedAt) || publishedAt <= 0 || publishedAt > now + 5 * 60 * 1000) return null;
   if (now - publishedAt > CONTENT_TTL_MS) return null;
   return Object.freeze({ id, kind, source, title, markdown, topicId, publishedAt });
@@ -65,7 +77,7 @@ function readStore(storage, now = Date.now()) {
   if (storage === null || storage === undefined || typeof storage.getItem !== "function") return emptyStore();
   try {
     const parsed = JSON.parse(storage.getItem(CONTENT_STORE_KEY) ?? "null");
-    if (parsed === null || typeof parsed !== "object" || ![2, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
+    if (parsed === null || typeof parsed !== "object" || ![2, 3, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
     const chunks = [];
     const seen = new Set();
     for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {

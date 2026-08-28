@@ -3,8 +3,9 @@ import React from "react";
 import { createExperienceCatalog } from "./catalog.js";
 import { createEditorialEdition } from "./editorial.js";
 import {
-  STREAM_BATCH_SIZE,
+  GENERATED_STREAM_BATCH_SIZE,
   createBundledStream,
+  createInstantUpdateChunks,
   newestFirst,
   questionnaireIntroduction,
   questionnaireOptions,
@@ -165,7 +166,7 @@ function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
             style={{ objectPosition: episode.photo.focalPoint }}
             loading={index < 2 ? "eager" : "lazy"}
             decoding="async"
-            fetchPriority={index === 0 ? "high" : "auto"}
+            fetchpriority={index === 0 ? "high" : "auto"}
           />
           <span className="vfx-visual-shade" />
           <figcaption>Photograph · <a href={episode.photo.sourceUrl} target="_blank" rel="noreferrer">{episode.photo.photographer}</a></figcaption>
@@ -229,19 +230,23 @@ function ExperienceShell() {
     setUpdateState("starting");
     const answerLabels = Object.values(answersRef.current).slice(-12);
     const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
+    const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
+    window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+      detail: { runId, chunks: instantChunks, durationMs: 0, source: "instant-reserve" },
+    }));
     const chatTopics = chunksRef.current
       .filter(({ source }) => source === "chat-directed")
       .slice(-12)
       .map(({ title }) => title);
     const prompt = buildContinuousStreamPrompt({
       runId,
-      batchSize: STREAM_BATCH_SIZE,
+      batchSize: GENERATED_STREAM_BATCH_SIZE,
       answerLabels,
-      recentTitles,
+      recentTitles: [...recentTitles, ...instantChunks.map(({ title }) => title)],
       chatTopics,
       editorialProfile: editorialProfileRef.current,
     });
-    const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: STREAM_BATCH_SIZE, answerLabels });
+    const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: GENERATED_STREAM_BATCH_SIZE, answerLabels });
     record("magazine-update-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
   }, [record]);
@@ -470,7 +475,7 @@ function ExperienceShell() {
           <section className="vfx-edition-intro">
             <span>Newest first · {editorialProfile.label}</span>
             <h1>Your conversation, edited into a better view.</h1>
-            <p>Completed answers from every Chat thread arrive here automatically. Pull down or choose Update when you want one new editorial pass; no background refill starts by itself.</p>
+            <p>Completed answers from every Chat thread arrive here automatically. Pull down or choose Update for an immediate visual page and question; short pieces then stream in while deeper pages are checked. No next update starts by itself.</p>
             {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
           </section>
           <div className="vfx-chunks">

@@ -310,7 +310,7 @@ window.__ModuleLoader__.load({
 			}
 
 			// client-src/experience/feed.js
-			var STREAM_BATCH_SIZE = 8;
+			var GENERATED_STREAM_BATCH_SIZE = 6;
 			var QUESTIONNAIRES = Object.freeze([
 			  Object.freeze({
 			    id: "direction",
@@ -359,6 +359,47 @@ window.__ModuleLoader__.load({
 			function isoDay(value) {
 			  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new TypeError("edition key must be an ISO calendar date");
 			  return value;
+			}
+			function hashText(value) {
+			  let hash2 = 2166136261;
+			  for (const character of String(value)) {
+			    hash2 ^= character.codePointAt(0);
+			    hash2 = Math.imul(hash2, 16777619);
+			  }
+			  return hash2 >>> 0;
+			}
+			function createInstantUpdateChunks(catalog, runId, recentTitles = [], publishedAt = Date.now()) {
+			  if (!Array.isArray(catalog?.episodes) || catalog.episodes.length === 0) throw new TypeError("instant update requires an editorial catalogue");
+			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("instant update run id is invalid");
+			  if (!Number.isFinite(publishedAt) || publishedAt <= 0) throw new TypeError("instant update publication time is invalid");
+			  const recent = new Set((Array.isArray(recentTitles) ? recentTitles : []).map((title) => String(title).trim().toLowerCase()));
+			  const available = catalog.episodes.filter(({ title }) => !recent.has(title.toLowerCase()));
+			  const candidates = available.length > 0 ? available : catalog.episodes;
+			  const episode = candidates[hashText(runId) % candidates.length];
+			  const note = episode.editorialNotes[hashText(`${runId}:note`) % episode.editorialNotes.length];
+			  const question = QUESTIONNAIRES[hashText(`${runId}:question`) % QUESTIONNAIRES.length];
+			  return Object.freeze([
+			    Object.freeze({
+			      id: `${runId}-instant-question-${question.id}`,
+			      kind: "questionnaire",
+			      source: "fresh-stream",
+			      title: question.title,
+			      markdown: question.markdown,
+			      topicId: null,
+			      publishedAt
+			    }),
+			    Object.freeze({
+			      id: `${runId}-instant-${episode.id}`,
+			      kind: "image",
+			      source: "fresh-stream",
+			      title: episode.title,
+			      markdown: `${episode.description}
+
+			**${note}.**`,
+			      topicId: episode.id,
+			      publishedAt: publishedAt + 1
+			    })
+			  ]);
 			}
 			function createBundledStream(catalog, editionKey, count = 36) {
 			  if (catalog === null || typeof catalog !== "object" || !Array.isArray(catalog.episodes) || catalog.episodes.length < 3) {
@@ -421,7 +462,7 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/content-store.js
 			var CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
-			var CONTENT_STORE_VERSION = 3;
+			var CONTENT_STORE_VERSION = 4;
 			var CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
 			var MAX_STREAM_CHUNKS = 160;
 			var MAX_STREAM_ANSWERS = 32;
@@ -446,6 +487,11 @@ window.__ModuleLoader__.load({
 			  const token = cleanText(value, 64);
 			  return token !== null && TOKEN.test(token) ? token : null;
 			}
+			function internalAgentMaterial(title, markdown) {
+			  const heading = String(title ?? "").trim();
+			  const body = String(markdown ?? "");
+			  return /^worker report\b/i.test(heading) || /^work(?:er)? role\s*:/im.test(body) || /no final copy written\s*\(per task\)/i.test(body) || /codex can re-verify/i.test(body) || /^(?:#\s*)?vibe (?:continuous edition refill|magazine update)\b/i.test(heading) || /^update `?refill-[a-z0-9_-]+`? completed\b/im.test(body);
+			}
 			function cleanChunk(candidate, now) {
 			  if (candidate === null || typeof candidate !== "object") return null;
 			  const id = cleanId(candidate.id);
@@ -456,6 +502,7 @@ window.__ModuleLoader__.load({
 			  const topicId = candidate.topicId === void 0 ? null : cleanToken(candidate.topicId);
 			  const publishedAt = Number(candidate.publishedAt);
 			  if (id === null || kind === null || source === null || title === null || markdown === null) return null;
+			  if (source === "chat-directed" && internalAgentMaterial(title, markdown)) return null;
 			  if (!Number.isFinite(publishedAt) || publishedAt <= 0 || publishedAt > now + 5 * 60 * 1e3) return null;
 			  if (now - publishedAt > CONTENT_TTL_MS) return null;
 			  return Object.freeze({ id, kind, source, title, markdown, topicId, publishedAt });
@@ -476,7 +523,7 @@ window.__ModuleLoader__.load({
 			  if (storage2 === null || storage2 === void 0 || typeof storage2.getItem !== "function") return emptyStore();
 			  try {
 			    const parsed = JSON.parse(storage2.getItem(CONTENT_STORE_KEY) ?? "null");
-			    if (parsed === null || typeof parsed !== "object" || ![2, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
+			    if (parsed === null || typeof parsed !== "object" || ![2, 3, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
 			    const chunks = [];
 			    const seen = /* @__PURE__ */ new Set();
 			    for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {
@@ -628,13 +675,15 @@ window.__ModuleLoader__.load({
 			  const editorialContext = `Reader-selected editorial direction \u2014 ${editorial.label}: ${editorial.direction} Treat this as explicit editorial configuration, not as evidence of identity or protected traits. Keep exact custom wording with the Codex lead; when delegating, translate it into bounded generic topic lanes without quoting the reader's text into a worker packet.`;
 			  return `# VIBE magazine update
 
-			You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. Add ${count} complete, worthwhile semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
+			You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. The browser has also released two locally prepared pages for this update immediately: one visual short and one questionnaire. Do not duplicate or count those two pages. Add ${count} further complete, worthwhile generated semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
 
 			## Editorial contract
 
-			- Start by releasing one compact text chunk that can be useful without research: an honest editor's observation, question, small practical idea, or cultural connection. Do not use current facts in that first chunk unless already verified.
+			- Release the first generated text chunk before waiting for tools or workers: an honest editor's observation, small practical idea, or cultural connection that can be useful without research. Keep it to roughly 60\u2013140 words and do not use current facts unless already verified.
 			- Then widen the mix. Across the batch include several of: a short article, a recommendation set, credited visual culture, a music or audio route, a video route, an interactive questionnaire, and a deeper sourced piece. Text should arrive first because it is fastest; richer media may follow.
 			- Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
+			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
+			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 			- A later deeper chunk may begin with natural editorial continuity such as \u201CI dug further into this\u2026\u201D or \u201CA few pages later, the stronger route is\u2026\u201D. It must add knowledge rather than revise or silently replace an earlier chunk.
 			- The stream is append-only in storage and newest-first in presentation. Never instruct the interface to replace, correct in place, hide, delete, or silently revise an earlier item. New chunks appear above earlier material. If later checking changes the picture, publish a new clearly contextualised follow-up.
 			- Do not expose internal freshness labels, cache state, worker state, token streaming, source lanes, or timing. The page should read as one uninterrupted editorial experience. Honesty lives in the claims, dates, links, and provenance\u2014not in a loading dashboard.
@@ -655,7 +704,7 @@ window.__ModuleLoader__.load({
 
 			## Execution method
 
-			Codex remains lead and final acceptance authority. Use bounded independent workers when the live host policy permits it and their work can be verified: a fast opening-copy lane, separate source or culture lanes, a music/video discovery lane, and a questionnaire/editorial-continuity lane can run independently. More lanes are welcome when they reduce time to the next verified chunk, but never spawn workers merely to simulate activity. Codex checks every worker artifact or cited source before publication and repairs any unverifiable part itself.
+			Codex remains lead and final acceptance authority. After releasing the first generated chunk, start at least three useful bounded lanes concurrently when the live host policy permits it: (1) a quick recommendation or practical lane, (2) a visual-culture, music, or video lane, and (3) a deeper sourced lane. Add a fourth independent lane when it materially improves variety or time-to-next-page. Give every lane a self-contained task and require evidence; do not make one lane wait for another. Publish each lane's finished reader-facing chunk as soon as Codex verifies it, while slower lanes continue. Never wait for every worker before releasing the first completed lane, and never spawn workers merely to simulate activity. Codex checks every worker artifact or cited source before publication and repairs any unverifiable part itself.
 
 			Questionnaire choices remain with the Codex lead. Use them to select or prioritise a bounded lane, but do not copy private answer labels or other reader input into a worker packet merely to save quota.
 
@@ -968,12 +1017,150 @@ window.__ModuleLoader__.load({
 			  }, "dsh-vibeify: Vibe return tab bridge");
 			}
 
+			// client-src/experience/live-stream-collector.js
+			var MAX_LIVE_TEXT = 96e3;
+			var SUBSCRIBE_TIMEOUT_MS = 1500;
+			function textFromMessage(event) {
+			  if (event?.type !== "assistant/message") return "";
+			  const content = Array.isArray(event.data?.message?.content) ? event.data.message.content : [];
+			  return content.filter((block) => (block?.type === "text" || block?.type === "reasoning") && typeof block.text === "string").map(({ text }) => text).join("\n");
+			}
+			function textFromFrame(frame) {
+			  if (frame?.type !== "session/event") return "";
+			  const event = frame.event;
+			  if (event?.type === "assistant/chunk") {
+			    const chunk = event.data?.chunk;
+			    if ((chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && typeof chunk.text === "string") {
+			      return chunk.text;
+			    }
+			  }
+			  return textFromMessage(event);
+			}
+			function freshStreamChunk(chunk, publishedAt = Date.now()) {
+			  if (chunk === null || typeof chunk !== "object" || !Number.isFinite(publishedAt) || publishedAt <= 0) return null;
+			  return Object.freeze({
+			    id: `stream:${chunk.id}`,
+			    kind: chunk.kind,
+			    source: "fresh-stream",
+			    title: chunk.title,
+			    markdown: chunk.markdown,
+			    topicId: null,
+			    publishedAt
+			  });
+			}
+			function extractRunChunks(text, runId, publishedAt = Date.now()) {
+			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) return Object.freeze([]);
+			  return Object.freeze(extractPublishedChunks(text).filter(({ id }) => id.startsWith(`${runId}-`)).map((chunk) => freshStreamChunk(chunk, publishedAt)).filter(Boolean));
+			}
+			function freshStreamChunksFromEvents(entries, runId = null, publishedAt = Date.now()) {
+			  const source = (Array.isArray(entries) ? entries : []).map((entry) => entry?.event ?? entry).map(textFromMessage).filter(Boolean).join("\n");
+			  const chunks = extractPublishedChunks(source).filter(({ id }) => runId === null ? id.startsWith("refill-") || id.startsWith("chat-") : id.startsWith(`${runId}-`)).map((chunk) => freshStreamChunk(chunk, publishedAt)).filter(Boolean);
+			  return Object.freeze(chunks);
+			}
+			function createLiveChunkCollector({ runId, now = Date.now }) {
+			  let text = "";
+			  const seen = /* @__PURE__ */ new Set();
+			  return Object.freeze({
+			    push(frame) {
+			      const delta = textFromFrame(frame);
+			      if (delta.length === 0) return Object.freeze([]);
+			      text = `${text}${delta}`.slice(-MAX_LIVE_TEXT);
+			      const ready = extractRunChunks(text, runId, now()).filter(({ id }) => !seen.has(id));
+			      for (const chunk of ready) seen.add(chunk.id);
+			      return Object.freeze(ready);
+			    }
+			  });
+			}
+			function muxUrl() {
+			  const url = new URL("/api/events.mux", window.location.origin);
+			  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+			  return url;
+			}
+			function frameFromMessage(event) {
+			  if (typeof event?.data !== "string") return null;
+			  try {
+			    const envelope = JSON.parse(event.data);
+			    return envelope?.payload !== null && typeof envelope?.payload === "object" ? envelope.payload : null;
+			  } catch {
+			    return null;
+			  }
+			}
+			function openLiveChunkStream({ sessionId, runId, onChunks }) {
+			  if (typeof WebSocket !== "function" || typeof onChunks !== "function") {
+			    return Object.freeze({ ready: Promise.resolve(false), close() {
+			    } });
+			  }
+			  const collector = createLiveChunkCollector({ runId });
+			  let socket;
+			  let closed = false;
+			  let resolveReady;
+			  let readyDone = false;
+			  const ready = new Promise((resolve) => {
+			    resolveReady = resolve;
+			  });
+			  const settleReady = (value) => {
+			    if (readyDone) return;
+			    readyDone = true;
+			    window.clearTimeout(timeout);
+			    resolveReady(value);
+			  };
+			  const timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
+			  try {
+			    socket = new WebSocket(muxUrl());
+			  } catch {
+			    settleReady(false);
+			    return Object.freeze({ ready, close() {
+			    } });
+			  }
+			  socket.addEventListener("message", (event) => {
+			    const frame = frameFromMessage(event);
+			    if (frame?.type === "session/subscribed" && frame.sessionId === sessionId) settleReady(true);
+			    if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
+			    const chunks = collector.push(frame);
+			    if (chunks.length > 0) onChunks(chunks);
+			  });
+			  socket.addEventListener("open", () => {
+			  });
+			  socket.addEventListener("error", () => settleReady(false));
+			  socket.addEventListener("close", () => settleReady(false));
+			  return Object.freeze({
+			    ready,
+			    close() {
+			      if (closed) return;
+			      closed = true;
+			      settleReady(false);
+			      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) socket.close();
+			    }
+			  });
+			}
+
+			// client-src/experience/update-session.js
+			var UPDATE_SESSION_KEY = "dsh-vibeify.magazine-session.v1";
+			function readUpdateSessionId(storage2) {
+			  if (storage2 === null || storage2 === void 0 || typeof storage2.getItem !== "function") return null;
+			  try {
+			    const value = storage2.getItem(UPDATE_SESSION_KEY) ?? "";
+			    return /^[a-z0-9][a-z0-9-]{7,95}$/i.test(value) ? value : null;
+			  } catch {
+			    return null;
+			  }
+			}
+			function writeUpdateSessionId(storage2, sessionId) {
+			  if (storage2 === null || storage2 === void 0 || typeof storage2.setItem !== "function") return false;
+			  if (typeof sessionId !== "string" || !/^[a-z0-9][a-z0-9-]{7,95}$/i.test(sessionId)) return false;
+			  try {
+			    storage2.setItem(UPDATE_SESSION_KEY, sessionId);
+			    return true;
+			  } catch {
+			    return false;
+			  }
+			}
+
 			// client-src/experience/recipe-runner.js
 			var RECIPE_RUN_EVENT = "dsh-vibeify:run-recipe";
 			var RECIPE_STATUS_EVENT = "dsh-vibeify:recipe-status";
 			var RECIPE_STOP_EVENT = "dsh-vibeify:stop-recipe";
 			var VIBE_UPDATE_TIMEOUT_MS = 20 * 60 * 1e3;
-			var UPDATE_SESSION_KEY = "dsh-vibeify.magazine-session.v1";
 			function createStreamEnvelope({ id, prompt, batchSize, answerLabels = [] }) {
 			  if (typeof id !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) throw new TypeError("stream id is invalid");
 			  if (typeof prompt !== "string" || prompt.length < 1800) throw new TypeError("stream prompt is not detailed enough");
@@ -999,18 +1186,10 @@ window.__ModuleLoader__.load({
 			  }
 			}
 			function storedSessionId() {
-			  try {
-			    const value = storage()?.getItem(UPDATE_SESSION_KEY) ?? "";
-			    return /^[a-z0-9][a-z0-9-]{7,95}$/i.test(value) ? value : null;
-			  } catch {
-			    return null;
-			  }
+			  return readUpdateSessionId(storage());
 			}
 			function saveSessionId(sessionId) {
-			  try {
-			    storage()?.setItem(UPDATE_SESSION_KEY, sessionId);
-			  } catch {
-			  }
+			  writeUpdateSessionId(storage(), sessionId);
 			}
 			function currentSessionDefaults(sessions) {
 			  const snapshot = sessions.list.getSnapshot();
@@ -1037,11 +1216,15 @@ window.__ModuleLoader__.load({
 			  }
 			  return latest;
 			}
-			async function historyEnd(connection, sessionId) {
+			async function historyState(connection, sessionId, runId = null) {
 			  try {
 			    const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
 			    if (!response?.result?.ok) return null;
-			    return latestTurnEnd(response.result.value.events);
+			    const events = response.result.value.events;
+			    return Object.freeze({
+			      end: latestTurnEnd(events),
+			      chunks: runId === null ? Object.freeze([]) : freshStreamChunksFromEvents(events, runId)
+			    });
 			  } catch {
 			    return null;
 			  }
@@ -1056,7 +1239,21 @@ window.__ModuleLoader__.load({
 			    const clearActive = () => {
 			      if (timeout !== null) window.clearTimeout(timeout);
 			      timeout = null;
+			      active?.liveStream?.close();
 			      active = null;
+			    };
+			    const publishChunks = (candidate, chunks) => {
+			      if (active !== candidate || !Array.isArray(chunks) || chunks.length === 0) return;
+			      const unseen = chunks.filter(({ id }) => !candidate.publishedIds.has(id));
+			      if (unseen.length === 0) return;
+			      for (const chunk of unseen) candidate.publishedIds.add(chunk.id);
+			      window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+			        detail: {
+			          runId: candidate.id,
+			          chunks: unseen,
+			          durationMs: Math.max(0, Date.now() - candidate.startedAt)
+			        }
+			      }));
 			    };
 			    const checkSettled = async () => {
 			      if (active === null || active.sessionId === null || active.submitted !== true) return;
@@ -1073,9 +1270,11 @@ window.__ModuleLoader__.load({
 			      }
 			      candidate.checking = true;
 			      candidate.checkAgain = false;
-			      const end = await historyEnd(connection, candidate.sessionId);
+			      const history = await historyState(connection, candidate.sessionId, candidate.id);
 			      if (active !== candidate) return;
 			      candidate.checking = false;
+			      if (history !== null) publishChunks(candidate, history.chunks);
+			      const end = history?.end ?? null;
 			      if (end === null || end.seq <= candidate.baselineEndSeq) {
 			        if (candidate.checkAgain) void checkSettled();
 			        return;
@@ -1119,7 +1318,10 @@ window.__ModuleLoader__.load({
 			        submitted: false,
 			        baselineEndSeq: -1,
 			        checking: false,
-			        checkAgain: false
+			        checkAgain: false,
+			        startedAt: Date.now(),
+			        publishedIds: /* @__PURE__ */ new Set(),
+			        liveStream: null
 			      };
 			      status({ state: "starting", id: recipe.id, title: recipe.title });
 			      let sessionId = storedSessionId();
@@ -1143,8 +1345,16 @@ window.__ModuleLoader__.load({
 			        if (thisGeneration !== generation || active === null) return;
 			      }
 			      active.sessionId = sessionId;
-			      active.baselineEndSeq = (await historyEnd(connection, sessionId))?.seq ?? -1;
+			      active.baselineEndSeq = (await historyState(connection, sessionId))?.end?.seq ?? -1;
 			      if (thisGeneration !== generation || active === null) return;
+			      const candidate = active;
+			      candidate.liveStream = openLiveChunkStream({
+			        sessionId,
+			        runId: candidate.id,
+			        onChunks: (chunks) => publishChunks(candidate, chunks)
+			      });
+			      await candidate.liveStream.ready;
+			      if (thisGeneration !== generation || active !== candidate) return;
 			      const zone = timeZone();
 			      const submitted = await connection.api.sessions.prompt({
 			        sessionId,
@@ -1297,19 +1507,10 @@ window.__ModuleLoader__.load({
 			    publishedAt
 			  });
 			}
-			function streamChunks(sessionId, messages, publishedAt) {
-			  const source = messages.flatMap((event) => messageBlocks(event, /* @__PURE__ */ new Set(["text", "reasoning"]))).join("\n");
-			  return extractPublishedChunks(source).filter(({ id }) => id.startsWith("refill-") || id.startsWith("chat-")).map((chunk) => Object.freeze({
-			    id: `vibe-${digest(`${sessionId}:${chunk.id}`)}`,
-			    kind: chunk.kind,
-			    source: "fresh-stream",
-			    title: chunk.title,
-			    markdown: chunk.markdown,
-			    topicId: null,
-			    publishedAt
-			  }));
+			function streamChunks(_sessionId, messages, publishedAt) {
+			  return freshStreamChunksFromEvents(messages, null, publishedAt);
 			}
-			function completedHistoryMagazineChunks(sessionId, entries) {
+			function completedHistoryMagazineChunks(sessionId, entries, { allowChatFallback = true } = {}) {
 			  if (typeof sessionId !== "string" || !Array.isArray(entries)) return Object.freeze([]);
 			  const events = entries.map((entry) => entry?.event ?? entry).filter((event) => event !== null && typeof event === "object");
 			  const completed = completedTurns(events);
@@ -1318,7 +1519,7 @@ window.__ModuleLoader__.load({
 			  for (const [turn, end] of completed) {
 			    const messages = eligibleAssistantMessages(events, turn, end.seq);
 			    const published = streamChunks(sessionId, messages, end.time);
-			    const candidates = published.length > 0 ? published : [chatChunk(sessionId, [...messages].reverse().find((message) => messageBlocks(message, /* @__PURE__ */ new Set(["text"])).length > 0), end.time)].filter(Boolean);
+			    const candidates = published.length > 0 ? published : allowChatFallback ? [chatChunk(sessionId, [...messages].reverse().find((message) => messageBlocks(message, /* @__PURE__ */ new Set(["text"])).length > 0), end.time)].filter(Boolean) : [];
 			    for (const chunk of candidates) {
 			      if (seen.has(chunk.id)) continue;
 			      seen.add(chunk.id);
@@ -1329,6 +1530,7 @@ window.__ModuleLoader__.load({
 			}
 			function sessionNeedsMagazineScan(summary, scanned) {
 			  if (summary === null || typeof summary !== "object" || summary.running === true || summary.blank === true) return false;
+			  if (summary.origin === "subagent") return false;
 			  if (typeof summary.id !== "string" || !Number.isFinite(summary.updatedAt)) return false;
 			  return scanned.get(summary.id) !== summary.updatedAt;
 			}
@@ -1381,7 +1583,10 @@ window.__ModuleLoader__.load({
 			      try {
 			        const entries = await readCompleteSessionHistory(connection.api, summary.id);
 			        if (entries === null || disposed) return;
-			        const chunks = completedHistoryMagazineChunks(summary.id, entries);
+			        const updateSessionId = readUpdateSessionId(safeStorage());
+			        const chunks = completedHistoryMagazineChunks(summary.id, entries, {
+			          allowChatFallback: summary.id !== updateSessionId
+			        });
 			        scanned.set(summary.id, summary.updatedAt);
 			        if (chunks.length === 0) return;
 			        appendCachedChunks(safeStorage(), chunks);
@@ -1520,7 +1725,7 @@ window.__ModuleLoader__.load({
 			        style: { objectPosition: episode.photo.focalPoint },
 			        loading: index < 2 ? "eager" : "lazy",
 			        decoding: "async",
-			        fetchPriority: index === 0 ? "high" : "auto"
+			        fetchpriority: index === 0 ? "high" : "auto"
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, "Photograph \xB7 ", /* @__PURE__ */ import_react.default.createElement("a", { href: episode.photo.sourceUrl, target: "_blank", rel: "noreferrer" }, episode.photo.photographer))) : null,
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: chunk.markdown }), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null)
@@ -1570,16 +1775,20 @@ window.__ModuleLoader__.load({
 			    setUpdateState("starting");
 			    const answerLabels = Object.values(answersRef.current).slice(-12);
 			    const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
+			    const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
+			    window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+			      detail: { runId, chunks: instantChunks, durationMs: 0, source: "instant-reserve" }
+			    }));
 			    const chatTopics = chunksRef.current.filter(({ source }) => source === "chat-directed").slice(-12).map(({ title }) => title);
 			    const prompt = buildContinuousStreamPrompt({
 			      runId,
-			      batchSize: STREAM_BATCH_SIZE,
+			      batchSize: GENERATED_STREAM_BATCH_SIZE,
 			      answerLabels,
-			      recentTitles,
+			      recentTitles: [...recentTitles, ...instantChunks.map(({ title }) => title)],
 			      chatTopics,
 			      editorialProfile: editorialProfileRef.current
 			    });
-			    const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: STREAM_BATCH_SIZE, answerLabels });
+			    const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: GENERATED_STREAM_BATCH_SIZE, answerLabels });
 			    record("magazine-update-started", runId, 0, "fresh-stream");
 			    window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
 			  }, [record]);
@@ -1793,7 +2002,7 @@ window.__ModuleLoader__.load({
 			      }
 			    ),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
-			    /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Newest first \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "Your conversation, edited into a better view."), /* @__PURE__ */ import_react.default.createElement("p", null, "Completed answers from every Chat thread arrive here automatically. Pull down or choose Update when you want one new editorial pass; no background refill starts by itself."), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
+			    /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Newest first \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "Your conversation, edited into a better view."), /* @__PURE__ */ import_react.default.createElement("p", null, "Completed answers from every Chat thread arrive here automatically. Pull down or choose Update for an immediate visual page and question; short pieces then stream in while deeper pages are checked. No next update starts by itself."), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
 			      StreamChunk,
 			      {

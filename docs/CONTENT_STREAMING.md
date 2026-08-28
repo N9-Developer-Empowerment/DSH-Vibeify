@@ -23,6 +23,7 @@ send a Chat request
 
 pull down at the top / press Update
   -> one dedicated magazine session receives one bounded update
+  -> one cached visual short and one questionnaire appear immediately
   -> complete verified chunks join the top as they become ready
   -> the update turn completes and stops
 
@@ -30,7 +31,7 @@ press Stop update
   -> cancel only the dedicated magazine update session
 ```
 
-## Four content layers
+## Five content layers
 
 The layers are implementation details; the reader sees one uninterrupted magazine.
 
@@ -39,13 +40,14 @@ The layers are implementation details; the reader sees one uninterrupted magazin
 | Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited local photography | None |
 | Saved magazine | Return-visit continuity: up to 160 bounded items and 32 short questionnaire choices for 30 days | None |
 | Completed Chat answers | Conversation continuity across every local DSH thread | None beyond the Chat turn the user already requested |
-| Explicit magazine update | New editorial depth and variety in one batch of eight complete semantic chunks | One bounded turn, only after Pull to update or Update |
+| Instant update reserve | One visual short and one questionnaire released synchronously on every explicit update | None |
+| Generated magazine update | Six further editorial pages from independently verified quick, culture/media and deep lanes | One bounded turn, only after Pull to update or Update |
 
 Bundled and saved content are read synchronously during initial state creation. They contain no await, provider request, or dependency on a DSH session becoming ready. This provides useful first content without starting invisible work.
 
 ## Completed Chat projection
 
-The browser subscribes to DSH's session list and considers only idle, non-blank sessions whose durable activity changed. It pages through `session.history`, which can inspect a cold persisted log without resuming or publishing an Agent.
+The browser subscribes to DSH's session list and considers only idle, non-blank reader sessions whose durable activity changed. It excludes sessions marked with the `subagent` origin before reading history. It pages through `session.history`, which can inspect a cold persisted log without resuming or publishing an Agent.
 
 For each thread, the bridge:
 
@@ -72,11 +74,13 @@ An editorial update is user-driven and bounded:
 - a 20-minute timeout cancels a stuck update; and
 - completion never schedules another update.
 
-The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Reuse avoids creating a growing stack of `VIBE continuous edition` sessions. One update may use multiple bounded worker lanes behind the active lead, but the lead verifies each publishable item and the parent turn still has one stop condition.
+The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Reuse avoids creating a growing stack of `VIBE continuous edition` sessions. Before the provider request, the browser appends two complete locally prepared pages: a visual short and a questionnaire. The lead then uses multiple bounded worker lanes, verifies each publishable item independently and retains one parent stop condition.
+
+The browser listens to DSH's loopback mux stream for the dedicated session. It accumulates text and reasoning deltas only long enough to recognise a complete closed `<vibe-chunk>` envelope for the active run. The final closing delimiter is the publication boundary: incomplete envelopes, ordinary progress and worker prose remain invisible. Final persisted history is read once more on completion, so a dropped live socket loses no completed page.
 
 ## Complete semantic chunks
 
-Explicit updates and user-directed public-content answers can progressively publish complete envelopes:
+Explicit updates and user-directed public-content answers progressively publish complete envelopes:
 
 ```text
 <vibe-chunk id="update-id-unique-item" kind="article" title="Reader-facing title">
@@ -84,13 +88,13 @@ Complete Markdown for one semantic item.
 </vibe-chunk>
 ```
 
-Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The collector accepts only complete closed envelopes. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe.
+Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The collector accepts only complete closed envelopes whose id belongs to the active run. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe. Internal subagent sessions are excluded from the all-thread Chat collector, and the dedicated update session can never fall back to a raw Chat card.
 
 Each update namespaces ids so a later update appends rather than replaces. Storage order remains append-only; presentation reverses arrival order so the newest item appears first. If later checking changes the picture, publish a clearly contextualised follow-up instead of silently rewriting the old item.
 
 ## Questionnaire method
 
-Questionnaires are optional content cards with two to six one-tap choices. The browser stores only the visible chosen label and the chunk id. A choice can influence the next explicitly requested update, but it never starts one and never modifies work already in flight.
+Every explicit update begins with one questionnaire from the local reserve; generated batches may add another when it is editorially useful. Each card has two to six one-tap choices. The browser stores only the visible chosen label and the chunk id. A choice can influence the next explicitly requested update, but it never starts one and never modifies work already in flight.
 
 Choices are soft editorial signals, not personal facts, commands, diagnoses, or a profile. When the lead delegates, it converts a useful choice into a bounded topic task instead of copying private reader input into a worker packet merely to save quota.
 
@@ -98,18 +102,18 @@ Choices are soft editorial signals, not personal facts, commands, diagnoses, or 
 
 One explicit update can use several independent lanes when this improves verified delivery:
 
-1. the lead receives one update contract and acceptance boundary;
-2. a fast, non-current editorial item can be prepared first;
-3. separate source, culture, media, recommendation, or questionnaire lanes may run;
-4. the lead verifies each artifact or source before releasing a closed chunk;
-5. a slow lane cannot block an earlier completed item; and
+1. the local reserve releases a visual short and questionnaire without waiting for a model;
+2. the lead receives one update contract and acceptance boundary and releases one short generated item before waiting for workers;
+3. at least three useful independent lanes may run concurrently: quick/practical, culture/media, and deeper sourced work;
+4. the lead verifies each artifact or source before releasing a closed reader-facing chunk;
+5. a slow lane cannot block an earlier completed item, and raw worker reports never cross the publication boundary; and
 6. the parent update finishes after the requested batch and does not ask for another run.
 
 The browser does not create a fan-out of provider calls itself. The lead selects an appropriate bounded lane count under the live routing, privacy, approval, and cost policy.
 
 ## Browser-local persistence
 
-`dsh-vibeify.feed.v2` uses schema version 3 and stores only allow-listed presentation data:
+`dsh-vibeify.feed.v2` uses schema version 4 and stores only allow-listed presentation data. Version 4 also removes legacy internal worker reports and update summaries that older collectors may have cached:
 
 ```text
 chunk: hashed/local id, kind, source class, title, bounded Markdown, catalogue topic id, publication time
@@ -137,6 +141,7 @@ Initial service-level gates are:
 | Measure | Target |
 | --- | --- |
 | Warm local `home-first-frame` p95 | under 1,000 ms |
+| Explicit update first new visual page | synchronous, under 1,000 ms |
 | Blank content time | 0 ms by design |
 | Saved-magazine restore | same initial render, not a later network phase |
 | Unrequested model calls from Vibe | 0 |
@@ -158,6 +163,8 @@ Initial service-level gates are:
 
 - `client-src/experience/shell.jsx` — magazine presentation, Update/Stop, pull gesture, Chat escape, cards, and status.
 - `client-src/experience/thread-magazine.js` — all-thread durable-history projection without Agent activation.
+- `client-src/experience/live-stream-collector.js` — active-run mux deltas to complete closed Vibe chunks, with a persisted-history fallback.
+- `client-src/experience/update-session.js` — the dedicated update-session identity shared by the runner and raw-summary exclusion boundary.
 - `client-src/experience/refresh-control.js` — pure top-of-page pull state machine.
 - `client-src/experience/recipe-runner.js` — one reusable dedicated session, overlap guard, exact Stop, and timeout.
 - `client-src/experience/stream-recipe.js` — one-batch update, worker, editorial, and publication contract.

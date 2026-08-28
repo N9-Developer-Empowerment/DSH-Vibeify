@@ -1,8 +1,9 @@
 import { appendCachedChunks } from "./content-store.js";
+import { freshStreamChunksFromEvents } from "./live-stream-collector.js";
+import { readUpdateSessionId } from "./update-session.js";
 import {
   VIBE_CHAT_RESULT_EVENT,
   VIBE_STREAM_CHUNKS_EVENT,
-  extractPublishedChunks,
 } from "./vibe-result.js";
 
 const MAX_HISTORY_MESSAGES = 50;
@@ -83,23 +84,12 @@ function chatChunk(sessionId, event, publishedAt) {
   });
 }
 
-function streamChunks(sessionId, messages, publishedAt) {
-  const source = messages.flatMap((event) => messageBlocks(event, new Set(["text", "reasoning"]))).join("\n");
-  return extractPublishedChunks(source)
-    .filter(({ id }) => id.startsWith("refill-") || id.startsWith("chat-"))
-    .map((chunk) => Object.freeze({
-      id: `vibe-${digest(`${sessionId}:${chunk.id}`)}`,
-      kind: chunk.kind,
-      source: "fresh-stream",
-      title: chunk.title,
-      markdown: chunk.markdown,
-      topicId: null,
-      publishedAt,
-    }));
+function streamChunks(_sessionId, messages, publishedAt) {
+  return freshStreamChunksFromEvents(messages, null, publishedAt);
 }
 
 /** Project only completed assistant output; prompts and incomplete work are never copied. */
-export function completedHistoryMagazineChunks(sessionId, entries) {
+export function completedHistoryMagazineChunks(sessionId, entries, { allowChatFallback = true } = {}) {
   if (typeof sessionId !== "string" || !Array.isArray(entries)) return Object.freeze([]);
   const events = entries.map((entry) => entry?.event ?? entry).filter((event) => event !== null && typeof event === "object");
   const completed = completedTurns(events);
@@ -110,7 +100,9 @@ export function completedHistoryMagazineChunks(sessionId, entries) {
     const published = streamChunks(sessionId, messages, end.time);
     const candidates = published.length > 0
       ? published
-      : [chatChunk(sessionId, [...messages].reverse().find((message) => messageBlocks(message, new Set(["text"])).length > 0), end.time)].filter(Boolean);
+      : allowChatFallback
+        ? [chatChunk(sessionId, [...messages].reverse().find((message) => messageBlocks(message, new Set(["text"])).length > 0), end.time)].filter(Boolean)
+        : [];
     for (const chunk of candidates) {
       if (seen.has(chunk.id)) continue;
       seen.add(chunk.id);
@@ -122,6 +114,7 @@ export function completedHistoryMagazineChunks(sessionId, entries) {
 
 export function sessionNeedsMagazineScan(summary, scanned) {
   if (summary === null || typeof summary !== "object" || summary.running === true || summary.blank === true) return false;
+  if (summary.origin === "subagent") return false;
   if (typeof summary.id !== "string" || !Number.isFinite(summary.updatedAt)) return false;
   return scanned.get(summary.id) !== summary.updatedAt;
 }
@@ -180,7 +173,10 @@ export function installThreadMagazineBridge(ctx) {
       try {
         const entries = await readCompleteSessionHistory(connection.api, summary.id);
         if (entries === null || disposed) return;
-        const chunks = completedHistoryMagazineChunks(summary.id, entries);
+        const updateSessionId = readUpdateSessionId(safeStorage());
+        const chunks = completedHistoryMagazineChunks(summary.id, entries, {
+          allowChatFallback: summary.id !== updateSessionId,
+        });
         scanned.set(summary.id, summary.updatedAt);
         if (chunks.length === 0) return;
         appendCachedChunks(safeStorage(), chunks);

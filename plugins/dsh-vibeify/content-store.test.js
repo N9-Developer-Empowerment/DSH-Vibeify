@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   CONTENT_STORE_KEY,
+  CONTENT_STORE_VERSION,
   CONTENT_TTL_MS,
   MAX_STREAM_CHUNKS,
   appendCachedChunks,
@@ -41,7 +42,7 @@ test("stream cache restores previous content and discards stale or corrupt data"
   assert.equal(getCachedStream(storage, now + CONTENT_TTL_MS - 1).chunks.length, 1);
   assert.equal(getCachedStream(storage, now + CONTENT_TTL_MS + 1).chunks.length, 0);
   storage.values.set(CONTENT_STORE_KEY, "not json");
-  assert.deepEqual(getCachedStream(storage, now), { version: 3, chunks: [], answers: [] });
+  assert.deepEqual(getCachedStream(storage, now), { version: CONTENT_STORE_VERSION, chunks: [], answers: [] });
 });
 
 test("stream cache is bounded without changing the order of retained entries", () => {
@@ -103,4 +104,19 @@ test("completed Chat answers persist locally with the shared magazine but prompt
   assert.match(raw, /Finished answer/);
   assert.doesNotMatch(raw, /user prompt|session-/i);
   assert.equal(getCachedStream(storage, now + 1).chunks[0].source, "chat-directed");
+});
+
+test("legacy worker reports and update summaries are removed from the reader cache", () => {
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  storage.values.set(CONTENT_STORE_KEY, JSON.stringify({
+    version: 3,
+    answers: [],
+    chunks: [
+      { ...chunk("legacy-worker"), source: "chat-directed", title: "Worker report — three candidates", markdown: "No final copy written (per task)." , publishedAt: now },
+      { ...chunk("legacy-update"), source: "chat-directed", title: "VIBE magazine update", markdown: "Update `refill-old` completed with eight items.", publishedAt: now },
+      { ...chunk("real-chat"), source: "chat-directed", title: "A finished guide", markdown: "Useful reader-facing material.", publishedAt: now },
+    ],
+  }));
+  assert.deepEqual(getCachedStream(storage, now + 1).chunks.map(({ id }) => id), ["real-chat"]);
 });

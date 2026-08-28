@@ -5,6 +5,7 @@ import { createExperienceCatalog } from "./client-src/experience/catalog.js";
 import { createEditorialEdition } from "./client-src/experience/editorial.js";
 import {
   createBundledStream,
+  createInstantUpdateChunks,
   newestFirst,
   questionnaireOptions,
   visualEpisodeForChunk,
@@ -30,6 +31,17 @@ test("instant content mixes articles, images and optional questionnaires without
   const question = stream.find(({ kind }) => kind === "questionnaire");
   assert.ok(questionnaireOptions(question.markdown).length >= 2);
   for (const chunk of stream.filter(({ topicId }) => topicId !== null)) assert.ok(catalog.byId[chunk.topicId]);
+});
+
+test("every explicit update spends an immediate visual page and questionnaire from the local reserve", () => {
+  const chunks = createInstantUpdateChunks(catalog, "refill-under-a-second", ["Anime Night, Sorted"], 1_700_000_000_000);
+  assert.equal(chunks.length, 2);
+  assert.deepEqual(chunks.map(({ kind }) => kind), ["questionnaire", "image"]);
+  assert.equal(chunks[1].source, "fresh-stream");
+  assert.notEqual(chunks[1].title, "Anime Night, Sorted");
+  assert.ok(chunks[1].topicId !== null);
+  assert.ok(questionnaireOptions(chunks[0].markdown).length >= 2);
+  assert.ok(chunks.every(({ id }) => id.startsWith("refill-under-a-second-")));
 });
 
 test("the feed presents newest arrivals first without mutating append-only storage order", () => {

@@ -1,9 +1,11 @@
+import { freshStreamChunksFromEvents, openLiveChunkStream } from "./live-stream-collector.js";
+import { readUpdateSessionId, writeUpdateSessionId } from "./update-session.js";
+import { VIBE_STREAM_CHUNKS_EVENT } from "./vibe-result.js";
+
 export const RECIPE_RUN_EVENT = "dsh-vibeify:run-recipe";
 export const RECIPE_STATUS_EVENT = "dsh-vibeify:recipe-status";
 export const RECIPE_STOP_EVENT = "dsh-vibeify:stop-recipe";
 export const VIBE_UPDATE_TIMEOUT_MS = 20 * 60 * 1000;
-
-const UPDATE_SESSION_KEY = "dsh-vibeify.magazine-session.v1";
 
 export function createStreamEnvelope({ id, prompt, batchSize, answerLabels = [] }) {
   if (typeof id !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) throw new TypeError("stream id is invalid");
@@ -58,16 +60,11 @@ function storage() {
 }
 
 function storedSessionId() {
-  try {
-    const value = storage()?.getItem(UPDATE_SESSION_KEY) ?? "";
-    return /^[a-z0-9][a-z0-9-]{7,95}$/i.test(value) ? value : null;
-  } catch {
-    return null;
-  }
+  return readUpdateSessionId(storage());
 }
 
 function saveSessionId(sessionId) {
-  try { storage()?.setItem(UPDATE_SESSION_KEY, sessionId); } catch { /* A fresh session can be created next time. */ }
+  writeUpdateSessionId(storage(), sessionId);
 }
 
 function currentSessionDefaults(sessions) {
@@ -98,11 +95,15 @@ function latestTurnEnd(entries) {
   return latest;
 }
 
-async function historyEnd(connection, sessionId) {
+async function historyState(connection, sessionId, runId = null) {
   try {
     const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
     if (!response?.result?.ok) return null;
-    return latestTurnEnd(response.result.value.events);
+    const events = response.result.value.events;
+    return Object.freeze({
+      end: latestTurnEnd(events),
+      chunks: runId === null ? Object.freeze([]) : freshStreamChunksFromEvents(events, runId),
+    });
   } catch {
     return null;
   }
@@ -119,7 +120,22 @@ export function installRecipeRunner(ctx) {
     const clearActive = () => {
       if (timeout !== null) window.clearTimeout(timeout);
       timeout = null;
+      active?.liveStream?.close();
       active = null;
+    };
+
+    const publishChunks = (candidate, chunks) => {
+      if (active !== candidate || !Array.isArray(chunks) || chunks.length === 0) return;
+      const unseen = chunks.filter(({ id }) => !candidate.publishedIds.has(id));
+      if (unseen.length === 0) return;
+      for (const chunk of unseen) candidate.publishedIds.add(chunk.id);
+      window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+        detail: {
+          runId: candidate.id,
+          chunks: unseen,
+          durationMs: Math.max(0, Date.now() - candidate.startedAt),
+        },
+      }));
     };
 
     const checkSettled = async () => {
@@ -137,9 +153,11 @@ export function installRecipeRunner(ctx) {
       }
       candidate.checking = true;
       candidate.checkAgain = false;
-      const end = await historyEnd(connection, candidate.sessionId);
+      const history = await historyState(connection, candidate.sessionId, candidate.id);
       if (active !== candidate) return;
       candidate.checking = false;
+      if (history !== null) publishChunks(candidate, history.chunks);
+      const end = history?.end ?? null;
       if (end === null || end.seq <= candidate.baselineEndSeq) {
         if (candidate.checkAgain) void checkSettled();
         return;
@@ -186,6 +204,9 @@ export function installRecipeRunner(ctx) {
         baselineEndSeq: -1,
         checking: false,
         checkAgain: false,
+        startedAt: Date.now(),
+        publishedIds: new Set(),
+        liveStream: null,
       };
       status({ state: "starting", id: recipe.id, title: recipe.title });
       let sessionId = storedSessionId();
@@ -209,8 +230,16 @@ export function installRecipeRunner(ctx) {
         if (thisGeneration !== generation || active === null) return;
       }
       active.sessionId = sessionId;
-      active.baselineEndSeq = (await historyEnd(connection, sessionId))?.seq ?? -1;
+      active.baselineEndSeq = (await historyState(connection, sessionId))?.end?.seq ?? -1;
       if (thisGeneration !== generation || active === null) return;
+      const candidate = active;
+      candidate.liveStream = openLiveChunkStream({
+        sessionId,
+        runId: candidate.id,
+        onChunks: (chunks) => publishChunks(candidate, chunks),
+      });
+      await candidate.liveStream.ready;
+      if (thisGeneration !== generation || active !== candidate) return;
       const zone = timeZone();
       const submitted = await connection.api.sessions.prompt({
         sessionId,

@@ -81,11 +81,20 @@ test("closed Vibe chunks from one completed update are published without its sum
   assert.doesNotMatch(chunks[0].markdown, /update is complete/);
 });
 
+test("a dedicated update without a closed chunk never becomes a raw Chat article", () => {
+  const entries = [
+    message({ seq: 11, time: 510, id: "update-final", content: [{ type: "text", text: "Update `refill-one` completed with worker evidence." }] }),
+    turnEnd({ seq: 12, time: 511 }),
+  ];
+  assert.deepEqual(completedHistoryMagazineChunks("update-session", entries, { allowChatFallback: false }), []);
+});
+
 test("only idle non-blank sessions with new durable activity are scanned", () => {
   const scanned = new Map([["same", 20]]);
   assert.equal(sessionNeedsMagazineScan({ id: "running", running: true, blank: false, updatedAt: 30 }, scanned), false);
   assert.equal(sessionNeedsMagazineScan({ id: "blank", running: false, blank: true, updatedAt: 30 }, scanned), false);
   assert.equal(sessionNeedsMagazineScan({ id: "same", running: false, blank: false, updatedAt: 20 }, scanned), false);
+  assert.equal(sessionNeedsMagazineScan({ id: "worker", origin: "subagent", running: false, blank: false, updatedAt: 30 }, scanned), false);
   assert.equal(sessionNeedsMagazineScan({ id: "fresh", running: false, blank: false, updatedAt: 30 }, scanned), true);
 });
 
@@ -129,11 +138,12 @@ test("the bridge combines completed answers from all idle threads using history 
   const published = [];
   browserWindow.addEventListener(VIBE_CHAT_RESULT_EVENT, (event) => published.push(event.detail.chunk));
   const summaries = {
-    ids: ["thread-a", "thread-b", "still-running"],
+    ids: ["thread-a", "thread-b", "still-running", "worker"],
     byId: {
       "thread-a": { id: "thread-a", running: false, blank: false, updatedAt: 10 },
       "thread-b": { id: "thread-b", running: false, blank: false, updatedAt: 20 },
       "still-running": { id: "still-running", running: true, blank: false, updatedAt: 30 },
+      worker: { id: "worker", origin: "subagent", running: false, blank: false, updatedAt: 40 },
     },
   };
   const histories = {

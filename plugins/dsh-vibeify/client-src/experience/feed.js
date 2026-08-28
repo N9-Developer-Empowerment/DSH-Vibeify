@@ -1,4 +1,5 @@
 export const STREAM_BATCH_SIZE = 8;
+export const GENERATED_STREAM_BATCH_SIZE = 6;
 
 const QUESTIONNAIRES = Object.freeze([
   Object.freeze({
@@ -44,6 +45,52 @@ const ANGLES = Object.freeze([
 function isoDay(value) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new TypeError("edition key must be an ISO calendar date");
   return value;
+}
+
+function hashText(value) {
+  let hash = 2166136261;
+  for (const character of String(value)) {
+    hash ^= character.codePointAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Spend two locally prepared pages immediately when an explicit update starts.
+ * They require no provider round trip and therefore guarantee a visual first
+ * result plus a questionnaire while the bounded live lanes build deeper work.
+ */
+export function createInstantUpdateChunks(catalog, runId, recentTitles = [], publishedAt = Date.now()) {
+  if (!Array.isArray(catalog?.episodes) || catalog.episodes.length === 0) throw new TypeError("instant update requires an editorial catalogue");
+  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("instant update run id is invalid");
+  if (!Number.isFinite(publishedAt) || publishedAt <= 0) throw new TypeError("instant update publication time is invalid");
+  const recent = new Set((Array.isArray(recentTitles) ? recentTitles : []).map((title) => String(title).trim().toLowerCase()));
+  const available = catalog.episodes.filter(({ title }) => !recent.has(title.toLowerCase()));
+  const candidates = available.length > 0 ? available : catalog.episodes;
+  const episode = candidates[hashText(runId) % candidates.length];
+  const note = episode.editorialNotes[hashText(`${runId}:note`) % episode.editorialNotes.length];
+  const question = QUESTIONNAIRES[hashText(`${runId}:question`) % QUESTIONNAIRES.length];
+  return Object.freeze([
+    Object.freeze({
+      id: `${runId}-instant-question-${question.id}`,
+      kind: "questionnaire",
+      source: "fresh-stream",
+      title: question.title,
+      markdown: question.markdown,
+      topicId: null,
+      publishedAt,
+    }),
+    Object.freeze({
+      id: `${runId}-instant-${episode.id}`,
+      kind: "image",
+      source: "fresh-stream",
+      title: episode.title,
+      markdown: `${episode.description}\n\n**${note}.**`,
+      topicId: episode.id,
+      publishedAt: publishedAt + 1,
+    }),
+  ]);
 }
 
 /** A substantial synchronous first-visit well. It is editorial copy, not a freshness claim. */

@@ -4,6 +4,7 @@ import { createExperienceCatalog } from "./catalog.js";
 import { createEditorialEdition } from "./editorial.js";
 import {
   GENERATED_STREAM_BATCH_SIZE,
+  contentLinkForMarkdown,
   createBundledStream,
   createInstantUpdateChunks,
   newestFirst,
@@ -161,6 +162,7 @@ function Questionnaire({ chunk, answer, onAnswer }) {
 
 function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave, onAnswer, onEngage, onSkip }) {
   const media = visualMediaForChunk(CATALOG, chunk);
+  const contentLink = contentLinkForMarkdown(chunk.markdown);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
   const isChatResult = chunk.source === "chat-directed";
@@ -219,10 +221,16 @@ function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave
         )}
         {chunk.source === "fresh-stream" ? <span className="vfx-next-page"><Icon name="arrow" /> from an explicit magazine update</span> : null}
         {isChatResult ? <span className="vfx-next-page"><Icon name="arrow" /> completed in Chat · shared locally across threads</span> : null}
-        <div className="vfx-card-actions">
-          <a className="vfx-source-link" href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.linkLabel}<Icon name="arrow" /></a>
-          {isChatResult ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
-        </div>
+        {contentLink !== null || !isChatResult ? (
+          <div className="vfx-card-actions">
+            {contentLink === null ? null : (
+              <a className="vfx-source-link" href={contentLink.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>
+                <span>Read source</span><strong>{contentLink.label}</strong><Icon name="arrow" />
+              </a>
+            )}
+            {isChatResult ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
+          </div>
+        ) : null}
       </div>
     </article>
   );
@@ -299,7 +307,7 @@ function ExperienceShell({ codexFeatures }) {
     const recentMediaUrls = chunksRef.current
       .map(({ markdown }) => remoteVisualForMarkdown(markdown)?.imageUrl)
       .filter(Boolean)
-      .slice(-24);
+      .slice(-80);
     const prompt = buildContinuousStreamPrompt({
       runId,
       batchSize: GENERATED_STREAM_BATCH_SIZE,
@@ -491,6 +499,7 @@ function ExperienceShell({ codexFeatures }) {
     if (state.view !== "home") return undefined;
     const stream = streamRef.current;
     if (stream === null) return undefined;
+    stream.scrollLeft = 0;
     stream.addEventListener("wheel", onTrackpadWheel, { passive: false });
     return () => {
       stream.removeEventListener("wheel", onTrackpadWheel);
@@ -592,7 +601,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-shell button { color:inherit; font:inherit; }
 .vfx-shell button:focus-visible,.vfx-shell a:focus-visible { outline:2px solid #fff; outline-offset:3px; }
 .vfx-icon { width:1.15em; height:1.15em; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
-.vfx-stream { height:100%; overflow:auto; overscroll-behavior:contain; background:radial-gradient(circle at 82% 0,rgba(132,73,145,.18),transparent 28%),linear-gradient(#080609,#0b070b 62%,#110b11); scrollbar-color:#503a49 transparent; }
+.vfx-stream { height:100%; overflow-y:auto; overflow-x:hidden; overflow-x:clip; overscroll-behavior-y:contain; overscroll-behavior-x:none; background:radial-gradient(circle at 82% 0,rgba(132,73,145,.18),transparent 28%),linear-gradient(#080609,#0b070b 62%,#110b11); scrollbar-color:#503a49 transparent; }
 .vfx-header { position:sticky; z-index:20; top:0; height:78px; padding:0 clamp(20px,4vw,68px); display:flex; align-items:center; gap:24px; border-bottom:1px solid rgba(255,255,255,.07); background:rgba(7,5,8,.89); backdrop-filter:blur(18px); }
 .vfx-wordmark { padding:0; border:0; display:flex; flex-direction:column; align-items:flex-start; background:none; cursor:pointer; }
 .vfx-wordmark span { font-size:24px; font-weight:900; letter-spacing:.18em; background:linear-gradient(100deg,#fff 5%,#ff88ad 55%,#9f8cff); background-clip:text; color:transparent; }
@@ -608,8 +617,8 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-edition-intro h1 { max-width:940px; margin:9px 0 13px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(36px,5vw,70px); font-weight:500; line-height:.94; letter-spacing:-.055em; text-wrap:balance; }
 .vfx-edition-intro p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.35vw,18px); line-height:1.5; }
 .vfx-edition-intro .vfx-update-note { margin-top:14px; color:#ffb3cb; font-size:12px; font-weight:700; }
-.vfx-chunks { width:min(1240px,calc(100% - 40px)); margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
-.vfx-chunk { grid-column:span 6; min-width:0; align-self:start; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
+.vfx-chunks { width:min(1240px,calc(100% - 40px)); min-width:0; margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
+.vfx-chunk { grid-column:span 6; min-width:0; max-width:100%; align-self:start; overflow:hidden; contain:inline-size; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
 .vfx-chunk[data-layout="compact"] { grid-column:span 4; }
 .vfx-chunk[data-layout="feature"] { grid-column:span 8; }
 .vfx-chunk[data-layout="wide"] { grid-column:1/-1; }
@@ -630,21 +639,21 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-chunk[data-visual-kind="fresh-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
 .vfx-visual-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(5,3,6,.72),transparent 60%); }
 .vfx-chunk-visual figcaption { position:absolute; right:16px; bottom:14px; color:#d7cad3; font-size:10px; }.vfx-chunk-visual a { color:#fff; }
-.vfx-chunk-copy { padding:clamp(24px,3vw,42px); }
-.vfx-chunk-heading { display:flex; align-items:start; justify-content:space-between; gap:24px; }
+.vfx-chunk-copy { min-width:0; max-width:100%; padding:clamp(24px,3vw,42px); }
+.vfx-chunk-heading { min-width:0; display:flex; align-items:start; justify-content:space-between; gap:24px; }.vfx-chunk-heading>div { min-width:0; }
 .vfx-chunk-heading span { color:var(--chunk-accent); font-size:9px; font-weight:850; letter-spacing:.14em; text-transform:uppercase; }
-.vfx-chunk h2 { margin:8px 0 20px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
+.vfx-chunk h2 { max-width:100%; margin:8px 0 20px; overflow-wrap:anywhere; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
 .vfx-chunk.is-hero h2 { font-size:clamp(42px,5vw,76px); }
 .vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 .vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
-.vfx-markdown { color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }
+.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre,.vfx-markdown table { display:block; max-width:100%; overflow-x:auto; }.vfx-markdown pre { white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
 .vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 .vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 .vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
-.vfx-source-link { width:max-content; max-width:100%; margin-top:20px; display:flex; align-items:center; gap:7px; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; }
-.vfx-card-actions { margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { margin-top:0; }.vfx-skip,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
+.vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
+.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-card-actions .vfx-skip { margin-left:auto; flex:none; }.vfx-skip,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 @media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }

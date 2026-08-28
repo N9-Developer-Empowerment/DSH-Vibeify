@@ -291,7 +291,12 @@ function installVibeTabStyle() {
   min-height:34px!important;
   margin-inline:7px!important;
   padding-inline:14px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
   gap:7px!important;
+  white-space:nowrap!important;
+  line-height:1!important;
   color:var(--dsw-alias-label-primary)!important;
   border:1px solid color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 45%,transparent)!important;
   border-radius:999px!important;
@@ -299,9 +304,7 @@ function installVibeTabStyle() {
   font-weight:780!important;
 }
 #${TAB_ID}::before { content:"✦"; color:var(--dsw-alias-state-business-primary,#c0182a); font-size:11px; }
-#${TAB_ID}::after { content:"MAGAZINE"; color:var(--dsw-alias-label-tertiary); font-size:8px; font-weight:800; letter-spacing:.12em; }
 #${TAB_ID}:hover { background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 17%,transparent)!important; }
-@media (max-width:640px) { #${TAB_ID}::after { display:none; } }
 `;
   document.getElementById(TAB_STYLE_ID)?.remove();
   document.head.appendChild(style);

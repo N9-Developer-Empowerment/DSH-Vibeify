@@ -30,5 +30,10 @@ test("prompt establishes the provider boundary and closed envelope contract", ()
   assert.match(prompt, /DeepSeek Flash/);
   assert.match(prompt, /untrusted discovery signals/);
   assert.match(prompt, /<vibe-chunk id="reserve-abc-unique-slug"/);
+  assert.match(prompt, /content destination/i);
+  assert.match(prompt, /not an image file or visual-credit page/i);
+  assert.match(prompt, /at least 18 potential image candidates/i);
+  assert.match(prompt, /at least three credible source families/i);
+  assert.match(prompt, /recent-use diversity/i);
   assert.match(buildBackgroundReservePrompt({ runId: "reserve-abc", profile, signals, learning, codexFeatures: false }), /Do not claim Codex or independent verification/);
 });

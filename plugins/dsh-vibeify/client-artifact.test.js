@@ -66,9 +66,12 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /Reset what the editor has learned/);
   assert.match(client, /Add your own editor note/);
   assert.match(client, /AI-assisted graphic/);
-  assert.match(client, /Open visual source/);
+  assert.match(client, /Read source/);
   assert.match(client, /dsh-vibeify-vibe-tab-style/);
   assert.match(client, /grid-auto-flow:dense/);
+  assert.match(client, /overflow-x:clip/);
+  assert.match(client, /overflow-wrap:anywhere/);
+  assert.doesNotMatch(client, /content:"MAGAZINE"/);
   assert.match(client, /dsh-vibeify\.editorial\.v1/);
   assert.doesNotMatch(client, /Open Studio/);
   assert.doesNotMatch(client, /Create this guide/);

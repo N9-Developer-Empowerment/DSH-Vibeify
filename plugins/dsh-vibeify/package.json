@@ -1,7 +1,7 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.7.0",
-  "description": "A VIBE-customizable DeepSeek Harness bundle where DeepSeek executes eligible work under a ChatGPT-authenticated Codex lead.",
+  "version": "0.8.0",
+  "description": "The Codex-governed Vibe experience for DeepSeek Harness, with optional bounded DeepSeek execution.",
   "type": "module",
   "main": "index.js",
   "exports": {
@@ -12,6 +12,7 @@
   "files": [
     ".codex-plugin/plugin.json",
     "assets/",
+    "chat-vibe-contract.js",
     "client.js",
     "codex-capability.js",
     "codex-settings.js",
@@ -19,11 +20,14 @@
     "delegation-contract.js",
     "index.js",
     "model-routing-policy.json",
+    "progressive-output.js",
     "routing-policy.js",
     "skills/"
   ],
   "scripts": {
-    "check": "node --check index.js && node --check client.js && node --check codex-capability.js && node --check codex-settings.js && node --check delegation-contract.js && node --check routing-policy.js",
+    "build:client": "node scripts/build-client.mjs",
+    "build:preview": "node scripts/build-preview.mjs",
+    "check": "node scripts/build-client.mjs --check && node --check index.js && node --check client.js && node --check chat-vibe-contract.js && node --check codex-capability.js && node --check codex-settings.js && node --check delegation-contract.js && node --check routing-policy.js",
     "test": "node --test *.test.js"
   },
   "keywords": [
@@ -58,6 +62,11 @@
   },
   "dependencies": {
     "@openai/codex": "0.147.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-agent": "^0.1.1-rc.2",

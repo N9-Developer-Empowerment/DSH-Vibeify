@@ -1,0 +1,46 @@
+{
+  "license": {
+    "name": "Unsplash License",
+    "url": "https://unsplash.com/license",
+    "retrieved": "2026-08-27"
+  },
+  "processing": "Downloaded through the Unsplash image CDN at 1600x1000 for local bundling. get-ready.jpg and neon-rain.jpg were mirrored horizontally so their subjects remain visible beside the headline.",
+  "photos": [
+    {
+      "artwork": "getReady",
+      "file": "get-ready.jpg",
+      "photographer": "Christian Agbede",
+      "source": "https://unsplash.com/photos/woman-applying-face-cream-in-front-of-a-mirror-Vpcy3ytvQVw"
+    },
+    {
+      "artwork": "neonRain",
+      "file": "neon-rain.jpg",
+      "photographer": "Komorebi Photo",
+      "source": "https://unsplash.com/photos/woman-in-sunglasses-at-night-with-neon-lights-qfhEfyK7xaY"
+    },
+    {
+      "artwork": "sayItBetter",
+      "file": "say-it-better.jpg",
+      "photographer": "Haberdoedas",
+      "source": "https://unsplash.com/photos/two-women-talking-at-a-cafe-table-EyNU9nims7c"
+    },
+    {
+      "artwork": "shopScene",
+      "file": "shop-the-scene.jpg",
+      "photographer": "Max Omen",
+      "source": "https://unsplash.com/photos/a-woman-walks-towards-the-camera-outdoors-V7oBvq1qsxw"
+    },
+    {
+      "artwork": "makeupArtist",
+      "file": "makeup-artist.jpg",
+      "photographer": "Ashim Das",
+      "source": "https://unsplash.com/photos/a-woman-putting-makeup-on-another-womans-face-n42VxNU5288"
+    },
+    {
+      "artwork": "cityStyle",
+      "file": "city-style.jpg",
+      "photographer": "Ignacio Estevo",
+      "source": "https://unsplash.com/photos/two-young-women-walk-down-a-busy-city-street-gEfyNyCshQY"
+    }
+  ]
+}

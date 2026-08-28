@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="data:," />
+    <title>VIBE Experience Shell preview</title>
+    <style>
+      :root{--dsw-alias-label-primary:#fff8fc;--dsw-alias-label-secondary:#cfc2cc;--dsw-alias-label-tertiary:#8f818c;--dsw-alias-bg-layer-1:#171118;--dsw-alias-bg-base:#0a070b;--dsw-alias-border-l1:#3a2d37}
+      html,body,#preview-root{width:100%;height:100%;margin:0;background:#080609}
+      body{font-family:Inter,"SF Pro Display",system-ui,sans-serif;color:#fff8fc}
+      .preview-studio{min-height:100%;padding:0 clamp(20px,5vw,82px) 100px;background:#fffaf5;color:#322a2f}
+      .preview-dsh-header{height:76px;margin:0 calc(clamp(20px,5vw,82px) * -1);padding:0 clamp(20px,5vw,82px);display:flex;align-items:end;border-bottom:1px solid #ded4cf;background:#fffaf5}
+      .preview-tabs{width:100%;height:28px;display:flex;align-items:stretch;gap:44px}
+      .preview-tab{position:relative;padding:0 0 13px;border:0;color:#938984;background:transparent;cursor:pointer;font-size:14px}
+      .preview-tabActive{color:#b52035;font-weight:650}.preview-tabActive::after{content:"";position:absolute;right:0;bottom:0;left:0;height:3px;border-radius:3px;background:#b52035}
+      .preview-studio-intro{max-width:920px;margin:48px auto 0}.preview-studio-intro>span{color:#ff78a3;font-size:10px;font-weight:800;letter-spacing:.15em;text-transform:uppercase}.preview-studio-intro>h1{margin:7px 0 5px;font:500 42px/1 "Iowan Old Style",Georgia,serif;letter-spacing:-.04em}.preview-studio-intro>p{margin:0;color:#9f929c;font-size:13px}
+    </style>
+  </head>
+  <body>
+    <main class="preview-studio">
+      <header class="preview-dsh-header">
+        <div class="preview-tabs" role="tablist" aria-label="Session views">
+          <button class="preview-tab preview-tabActive" type="button" role="tab" aria-selected="true">Chat</button>
+          <button class="preview-tab" type="button" role="tab" aria-selected="false">Trajectory</button>
+        </div>
+      </header>
+      <section class="preview-studio-intro">
+        <span>Your guide is ready</span>
+        <h1>Skin care, beautifully sorted</h1>
+        <p>Representative result layout: a live run fills these cards with freshly verified products, official images, expert videos and dated source links.</p>
+      </section>
+      <article>
+        <div class="_markdown_preview">
+          <p>A calm, evidence-aware route through the noise: begin gently, add one targeted active only when it fits, and make every product earn its place.</p>
+          <blockquote><p>This is general consumer information, not diagnosis. A live guide dates its claims, separates health guidance from brand marketing, and never guesses your skin type.</p></blockquote>
+          <h2>Your three easy routes</h2>
+          <ul>
+            <li><strong>Gentle essentials.</strong> A cleanser, moisturiser and daytime SPF with sensitive-skin context.</li>
+            <li><strong>Targeted active.</strong> One evidence-aware addition, introduced gradually with common irritants clearly flagged.</li>
+            <li><strong>Budget-conscious.</strong> The same routine logic with realistic alternatives and dated UK prices.</li>
+          </ul>
+          <h2>Product edit with receipts</h2>
+          <p>Each live product card contains the official product page, official image/gallery, a credible evidence or expert-context source, and a useful tutorial when one exists. Nothing is added to a basket.</p>
+          <table><thead><tr><th>Product role</th><th>Why it is here</th><th>Live links</th></tr></thead><tbody><tr><td>Gentle cleanser</td><td>Low-complexity starting point; fragrance and irritants checked</td><td>Official · Images · Evidence · Video</td></tr><tr><td>Daily SPF</td><td>Broad guidance supported by authoritative health sources</td><td>Official · Images · Guidance · Demo</td></tr><tr><td>Optional active</td><td>Goal-specific, introduced gradually with suitability caveats</td><td>Official · Images · Evidence · Expert video</td></tr></tbody></table>
+          <h2>Watch before you buy</h2>
+          <ul><li>Dermatologist or qualified educator explainer, with creator credit and original video link.</li><li>Official application demonstration, clearly separated from independent evidence.</li><li>Independent comparison that discloses sponsorship or affiliate relationships.</li></ul>
+        </div>
+        <button type="button">Copy</button>
+      </article>
+    </main>
+    <div id="preview-root"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

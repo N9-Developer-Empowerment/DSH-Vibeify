@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-	id: "dsh-vibeify",
+	id: "dsh-vibeify-experience",
 	factory: (require) => {
 		const module = { exports: {} };
 		const exports = module.exports;
@@ -1642,7 +1642,7 @@ window.__ModuleLoader__.load({
 			}
 			return module.exports;
 		})();
-		const CODEX_FEATURES_ENABLED = true;
+		const CODEX_FEATURES_ENABLED = false;
 
 		const WATCHED_TYPES = new Set([
 			"approval/requested",

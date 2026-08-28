@@ -40,7 +40,7 @@ The currently tested combination is:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
 - `@openai/codex` `0.147.0` inside the governed bridge;
-- DSH Vibeify `0.9.1`.
+- DSH Vibeify `0.10.0`.
 
 Clone and install:
 
@@ -96,7 +96,15 @@ Report your Codex capability level, model, reasoning effort, access mode, and av
 
 ## Update safely
 
-Non-technical users can download and run the current friendly installer again. Developers can run:
+Open **Settings → Updates** in DSH to check three independent versions:
+
+- the DSH host installed on the Mac against the official npm `latest` release;
+- Vibeify against the latest public GitHub package manifest; and
+- the bundled Codex agent against both the current official Codex release and the version qualified by the latest Vibeify bundle.
+
+The check is read-only, uses fixed public release URLs, caches successful results for six hours, and changes nothing. A newer Codex release is shown as **compatibility check pending** until a Vibeify release pins it; this prevents an untested agent upgrade being presented as safe.
+
+Choose **Download safe updater** or download and run the current friendly installer again. The helper updates DSH and the latest Vibeify compatibility bundle, runs non-billing checks, asks the user to confirm that active work is finished, and delegates replacement to the detached restart supervisor. Developers can run:
 
 ```bash
 git pull --ff-only

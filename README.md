@@ -100,6 +100,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
 - **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
 - **A Codex capability setting.** Open **Settings → Codex** to choose Efficient, Balanced, Frontier, or Maximum. Frontier—GPT-5.6 Sol with Extra High reasoning—is the quality-preserving default.
+- **A safe update centre.** Open **Settings → Updates** to check the installed DSH, Vibeify, and bundled Codex agent separately. A newer Codex release is not labelled installable until Vibeify has qualified it. **Download safe updater** opens the friendly Mac updater, which installs immutable packages and asks before a detached, verified restart.
 - **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and explicit magazine updates or public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose.
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
 - **Connected Codex apps.** Installed tools can be surfaced through their normal Codex approval boundaries; desktop-only capabilities still require the appropriate host connection.
@@ -147,6 +148,7 @@ DSH-Vibeify/
 │   ├── codex-settings.js              # live DSH settings integration
 │   ├── delegation-contract.js         # worker/acceptance boundary
 │   ├── progressive-output.js          # live final-answer delta bridge
+│   ├── update-check.js                # fixed-source version and compatibility checks
 │   ├── client-src/experience/         # stream shell, playout, cache, timing and catalogue modules
 │   ├── preview/                       # isolated visual iteration harness
 │   ├── client.js                      # generated DSH browser artifact
@@ -159,7 +161,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.9.1`
+- DSH Vibeify `0.10.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

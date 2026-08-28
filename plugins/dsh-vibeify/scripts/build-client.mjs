@@ -44,9 +44,15 @@ const bundles = Object.freeze([
       .trim()}\n`,
   }),
 ]);
+const sharedServerModules = Object.freeze([
+  Object.freeze({
+    outputPath: join(pluginRoot, "..", "dsh-vibeify-experience", "update-check.js"),
+    source: await readFile(join(pluginRoot, "update-check.js"), "utf8"),
+  }),
+]);
 
 if (process.argv.includes("--check")) {
-  for (const { outputPath, source } of bundles) {
+  for (const { outputPath, source } of [...bundles, ...sharedServerModules]) {
     let current = "";
     try {
       current = await readFile(outputPath, "utf8");
@@ -59,7 +65,7 @@ if (process.argv.includes("--check")) {
     }
   }
 } else {
-  for (const { outputPath, source } of bundles) {
+  for (const { outputPath, source } of [...bundles, ...sharedServerModules]) {
     await writeFile(outputPath, source);
     console.log(`built ${outputPath}`);
   }

@@ -18,6 +18,8 @@ window.__ModuleLoader__.load({
 		const BUSY_ENTER_BEHAVIORS = new Set(["queue", "steer"]);
 		const CODEX_SETTINGS_NAMESPACE = "llm-codex-chatgpt";
 		const CODEX_CAPABILITY_STYLE_ID = "dsh-vibeify-codex-capability-style";
+		const UPDATE_STYLE_ID = "dsh-vibeify-update-style";
+		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
 		const CODEX_CAPABILITY_OPTIONS = Object.freeze([
 			{
 				id: "efficient",
@@ -221,8 +223,122 @@ window.__ModuleLoader__.load({
 			};
 		}
 
+		function updateStateCopy(component, kind) {
+			if (component.state === "update-available") return "Update available";
+			if (component.state === "awaiting-vibeify") return "New release detected — compatibility check pending";
+			if (component.state === "current") return "Up to date";
+			return kind === "codex" ? "Could not check the agent release" : "Could not check the latest release";
+		}
+
+		function updateDetail(component, kind) {
+			if (kind === "codex" && component.state === "awaiting-vibeify") {
+				return `Using ${component.current}. Codex ${component.latest} exists, but the current Vibeify release has qualified ${component.installable}; it will not be installed until the compatibility bundle is ready.`;
+			}
+			if (component.latest === null) return `Installed ${component.current}. The online version could not be read; nothing was changed.`;
+			if (component.state === "update-available") return `Installed ${component.current} · safe update ${kind === "codex" ? component.installable : component.latest}`;
+			return `Installed ${component.current} · latest ${component.latest}`;
+		}
+
+		function updatesSection(connection) {
+			return function UpdatesSection() {
+				const [report, setReport] = React.useState(null);
+				const [checking, setChecking] = React.useState(true);
+				const [error, setError] = React.useState("");
+				const mounted = React.useRef(true);
+
+				React.useEffect(() => () => {
+					mounted.current = false;
+				}, []);
+
+				const check = React.useCallback(async (force = false) => {
+					setChecking(true);
+					setError("");
+					try {
+						const result = await connection.rpc.call(UPDATE_RPC_CHANNEL, "check", { force });
+						if (!result.ok) throw new Error(result.error?.message ?? "Update check failed");
+						if (mounted.current) setReport(result.value);
+					} catch {
+						if (mounted.current) setError("Updates could not be checked. Nothing was downloaded or changed.");
+					} finally {
+						if (mounted.current) setChecking(false);
+					}
+				}, [connection]);
+
+				React.useEffect(() => {
+					check(false);
+				}, [check]);
+
+				const rows = report === null ? [] : [
+					{ key: "dsh", name: "DeepSeek Harness", component: report.components.dsh },
+					{ key: "vibeify", name: "Vibeify", component: report.components.vibeify },
+					...(report.components.codex.current === null ? [] : [{ key: "codex", name: "Codex agent", component: report.components.codex }]),
+				];
+				return React.createElement("section", { className: "dsh-vibeify-updates" },
+					React.createElement("div", { className: "dsh-vibeify-updates-intro" },
+						React.createElement("p", { className: "dsh-vibeify-updates-kicker" }, "SAFE UPDATES"),
+						React.createElement("h2", null, "Updates"),
+						React.createElement("p", null, "DSH and Vibeify's bundled Codex agent are checked separately. Checks read only public release information and never update or restart anything by themselves."),
+					),
+					checking && report === null ? React.createElement("p", { className: "dsh-vibeify-updates-progress", role: "status" }, "Checking current releases…") : null,
+					...rows.map(({ key, name, component }) => React.createElement("article", { className: "dsh-vibeify-update-row", key },
+						React.createElement("div", null,
+							React.createElement("h3", null, name),
+							React.createElement("p", null, updateDetail(component, key)),
+						),
+						React.createElement("span", { className: `dsh-vibeify-update-state is-${component.state}` }, updateStateCopy(component, key)),
+					)),
+					error.length > 0 ? React.createElement("p", { className: "dsh-vibeify-updates-error", role: "alert" }, error) : null,
+					React.createElement("div", { className: "dsh-vibeify-update-actions" },
+						React.createElement("button", { type: "button", disabled: checking, onClick: () => check(true) }, checking ? "Checking…" : "Check again"),
+						report === null ? null : React.createElement("a", {
+							className: "dsh-vibeify-update-download",
+							href: report.updater.url,
+							target: "_blank",
+							rel: "noreferrer",
+						}, "Download safe updater"),
+					),
+					React.createElement("p", { className: "dsh-vibeify-updates-note" }, "The Mac updater checks again, installs immutable packages, and asks before restart. Finish active tasks first; the detached restart helper replaces DSH and verifies that it opens successfully."),
+				);
+			};
+		}
+
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx);
+			ctx.effect(() => {
+				const style = document.createElement("style");
+				style.id = UPDATE_STYLE_ID;
+				style.textContent = `
+.dsh-vibeify-updates { color: var(--dsw-alias-label-primary); padding: 4px 0 24px; }
+.dsh-vibeify-updates-intro { max-width: 680px; margin-bottom: 18px; }
+.dsh-vibeify-updates-kicker { margin: 0 0 4px !important; color: var(--dsw-alias-state-business-primary) !important; font-size: 11px !important; font-weight: 700; letter-spacing: .08em; }
+.dsh-vibeify-updates h2 { margin: 0 0 7px; font-size: 22px; line-height: 1.25; }
+.dsh-vibeify-updates h3 { margin: 0 0 5px; font-size: 15px; }
+.dsh-vibeify-updates p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.5; }
+.dsh-vibeify-update-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 18px; align-items: center; padding: 15px 0; border-top: 1px solid var(--dsw-alias-border-l1); }
+.dsh-vibeify-update-state { max-width: 220px; color: var(--dsw-alias-label-secondary); border-radius: 999px; background: var(--dsw-alias-bg-layer-2); padding: 5px 10px; font-size: 11px; font-weight: 650; text-align: center; }
+.dsh-vibeify-update-state.is-update-available { color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-update-state.is-awaiting-vibeify { color: var(--dsw-alias-label-primary); }
+.dsh-vibeify-update-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.dsh-vibeify-update-actions button,.dsh-vibeify-update-download { box-sizing: border-box; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; padding: 0 14px; font: inherit; font-size: 13px; font-weight: 650; text-decoration: none; }
+.dsh-vibeify-update-actions button { color: var(--dsw-alias-label-primary); cursor: pointer; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); }
+.dsh-vibeify-update-actions button:disabled { cursor: wait; opacity: .65; }
+.dsh-vibeify-update-download { color: var(--dsw-alias-button-primary-label,#fff); background: var(--dsw-alias-button-primary-fill); }
+.dsh-vibeify-updates-progress,.dsh-vibeify-updates-error,.dsh-vibeify-updates-note { margin-top: 14px !important; }
+.dsh-vibeify-updates-error { color: var(--dsw-alias-label-error,#b42318) !important; }
+.dsh-vibeify-updates-note { max-width: 680px; }
+@media (max-width: 720px) { .dsh-vibeify-update-row { grid-template-columns: 1fr; gap: 9px; } .dsh-vibeify-update-state { justify-self: start; } }
+`;
+				document.getElementById(UPDATE_STYLE_ID)?.remove();
+				document.head.appendChild(style);
+				return () => style.remove();
+			}, "dsh-vibeify: update settings styles");
+
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "vibeify-updates",
+				order: 17,
+				label: "Updates",
+			}, updatesSection(ctx.connection)));
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.settingsScope.bind({

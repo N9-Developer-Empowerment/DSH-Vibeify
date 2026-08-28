@@ -78,6 +78,10 @@ test("browser artifact contains the creator-first catalogue and self-contained r
 test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /approval stream watchdog/);
   assert.match(client, /Capability level/);
+  assert.match(client, /Updates/);
+  assert.match(client, /Check again/);
+  assert.match(client, /Download safe updater/);
+  assert.match(client, /\/vibeify-updates/);
   assert.match(client, /Queue/);
   assert.match(client, /Steer/);
 });

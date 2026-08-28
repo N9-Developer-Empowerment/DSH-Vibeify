@@ -1,6 +1,6 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.9.1+codex.20260828181110",
+  "version": "0.10.0+codex.20260828183000",
   "description": "Install, operate, diagnose, and personalize DeepSeek Harness with DeepSeek-only, ChatGPT-only, or combined Codex-led modes.",
   "author": {
     "name": "Errol Elliott and Daniela Elliott",
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "DSH Vibeify",
     "shortDescription": "A visual DSH home for DeepSeek, ChatGPT, or both.",
-    "longDescription": "Guides installation and operation of DSH Vibeify in DeepSeek-only, ChatGPT-only, or combined Codex-led modes. The Web UI becomes a content-first visual experience; governed mode adds Codex capability presets, visible progress, queue/steer controls, and bounded DeepSeek execution while connected apps retain protected approvals.",
+    "longDescription": "Guides installation and operation of DSH Vibeify in DeepSeek-only, ChatGPT-only, or combined Codex-led modes. The Web UI becomes a content-first visual experience; governed mode adds Codex capability presets, visible progress, queue/steer controls, bounded DeepSeek execution, and safe update checks while connected apps retain protected approvals.",
     "developerName": "Errol Elliott & Daniela Elliott",
     "websiteURL": "https://dsh-vibeify.ezzye.chatgpt.site",
     "category": "Developer Tools",
@@ -27,7 +27,8 @@
       "Install",
       "Diagnose",
       "Customize",
-      "Agent routing"
+      "Agent routing",
+      "Safe updates"
     ],
     "defaultPrompt": [
       "Install DSH Vibeify safely.",

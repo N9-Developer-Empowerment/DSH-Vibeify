@@ -28,10 +28,15 @@ import { Config, installCodexRuntimeSettings } from "./codex-settings.js";
 import { buildDelegationPacket, delegationResultForCodex } from "./delegation-contract.js";
 import { reconcileCompletedAnswer, streamTurnResult } from "./progressive-output.js";
 import { buildChatVibeInstructions } from "./chat-vibe-contract.js";
+import {
+  createUpdateChecker,
+  installedDshVersion,
+  registerUpdateRpc,
+} from "./update-check.js";
 
 const PROVIDER = "codex-chatgpt";
 const MODEL = "chatgpt-account-default";
-const BRIDGE_VERSION = "0.9.1";
+const BRIDGE_VERSION = "0.10.0";
 const DSH_DELEGATION_TIMEOUT_MS = 5 * 60 * 1000;
 const MODEL_CATALOG_TOOL_NAME = "dsh_model_catalog";
 const DSH_DELEGATE_TOOL_NAME = "delegate_to_dsh_model";
@@ -1350,7 +1355,15 @@ const inject = ["llm", "sessions", "attachments", "agents", "approval", "subagen
 function apply(ctx, config) {
   const getRuntimeSettings = installCodexRuntimeSettings(ctx, config);
   const adapter = new CodexChatGptAdapter(ctx, getRuntimeSettings);
+  const updateChecker = createUpdateChecker({
+    current: {
+      dsh: installedDshVersion,
+      vibeify: BRIDGE_VERSION,
+      codex: codexPackageManifest.version,
+    },
+  });
   ctx.llm.registerAdapter([PROVIDER], adapter);
+  ctx.inject(["connection"], (connectionCtx) => registerUpdateRpc(connectionCtx, updateChecker));
   ctx.effect(() => async () => adapter.closeAll(), "codex-chatgpt app-server cleanup");
 }
 

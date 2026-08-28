@@ -4,7 +4,7 @@ DSH Vibeify has four deliberately separate faces.
 
 | Face | Runs where | Responsibility |
 | --- | --- | --- |
-| Provider-neutral DSH client bundle | DSH Web UI | Supplies the complete Vibe experience while leaving DSH's native provider and lead agent untouched. |
+| Provider-neutral DSH bundle | DSH Node process and Web UI | Supplies the complete Vibe experience while leaving DSH's native provider and lead agent untouched; its host half provides only the local update-status endpoint. |
 | DSH host bundle | DSH Node process | Registers the ChatGPT-authenticated Codex adapter, capability settings, access policy, model routing, image handling, connected-app support, and bounded DSH delegation tool. |
 | DSH browser client | DSH Web UI | Presents the lean-back Experience Shell, preserves conventional DSH Chat underneath, keeps approvals live, expands progress, adds Queue/Steer and Codex capability controls, and applies the selected Chat VIBE. |
 | Codex plugin skill | Codex | Teaches a Codex agent how to install, diagnose, update, and operate the DSH bundle safely. It does not itself run the DSH bridge. |
@@ -38,6 +38,7 @@ The modular boundary is deliberate:
 - `routing-policy.js` owns model catalogue, cost, route eligibility, and governance instructions.
 - `index.js` owns protocol integration, process isolation, and execution.
 - `progressive-output.js` maps Codex progress and final-answer deltas onto DSH reasoning and text blocks without buffering the completed result or duplicating it.
+- `update-check.js` owns fixed-source DSH, Vibeify, and Codex version checks, semantic comparison, compatibility gating, six-hour caching, and the loopback-only status endpoint. It cannot install or restart anything.
 - `client-src/experience/stream-recipe.js` owns the single user-requested magazine-update, semantic chunk, media, questionnaire, worker-lane and safety contract. It explicitly ends after one batch. `recipes.js` retains legacy source recipes for tests/migration but is no longer shipped through the browser catalogue.
 - `client-src/experience/catalog.js` maps those recipes onto the visual channels with explicit source and AI provenance.
 - `client-src/experience/editorial.js` builds the date-keyed editor's edition. The same date is deterministic; different editions vary hero, selection notes and rail order while avoiding adjacent duplicate categories when possible. It is a local presentation function and makes no model call.
@@ -86,7 +87,7 @@ The visible photographic layer uses locally bundled real photographs. Every cata
 ## Configuration boundaries
 
 - `plugins/dsh-vibeify/cordis.patch.yml` registers the governed bundle's Codex host row and default provider.
-- `plugins/dsh-vibeify-experience/cordis.patch.yml` is an empty activation patch; the package contributes only the provider-neutral browser client.
+- `plugins/dsh-vibeify-experience/cordis.patch.yml` mounts only the loopback update-status host service; the package's browser client still owns the provider-neutral Vibe surface and does not change the native DSH provider.
 - `plugins/dsh-vibeify/package.json` declares both the DSH bundle patch and browser client entry.
 - `~/.dsh/settings.yaml` owns the user-selected Codex capability level (or exact custom model/reasoning values) and DSH permissions.
 - `model-routing-policy.json` owns dated worker capabilities, price assumptions, and the quality-first invariant.

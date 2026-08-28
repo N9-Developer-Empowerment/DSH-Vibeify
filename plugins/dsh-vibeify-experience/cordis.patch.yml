@@ -1,1 +1,5 @@
-[]
+# Mount only the local update-status service. The client declaration owns the
+# provider-neutral Vibe UI independently.
+- insert:
+    - id: vibeify-updates
+      name: dsh-vibeify-experience

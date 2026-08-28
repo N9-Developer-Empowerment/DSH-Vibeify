@@ -8,7 +8,9 @@ Think of it as a small editorial studio:
 
 - **Vibe is the magazine.** It opens with useful visual material already available from a local content well and the reader's saved edition.
 - **Chat is the commissioning desk.** A request starts one agent turn. Its completed answer remains in Chat and may also become a formatted Vibe page.
-- **Update asks for one new edition pass.** Vibe immediately spends one prepared visual page and one questionnaire from its local reserve, then starts one bounded generated batch.
+- **A public radar watches the world, not the reader.** GitHub publishes a content-only catalogue of current public signals every 30 minutes. It contains no local history or preferences.
+- **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
+- **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page and questionnaire remain the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
 - **The lead is the editor.** It plans, divides eligible work, verifies evidence, and decides what is safe and good enough to publish.
 - **Workers are contributors.** DeepSeek or another available worker can research or build bounded pieces, but its raw report is never itself a Vibe article.
 - **Finished pages stream independently.** A quick page does not wait for a deeper research lane. Each complete, checked page appears as soon as it is ready.
@@ -28,7 +30,9 @@ flowchart TB
     PERSON --> VIBE
     PERSON --> CHAT
     CHAT --> DSH
-    VIBE -->|"Pull or Update only"| DSH
+    RADAR["Public shared radar\nno reader data"] --> RESERVE["Browser-local reserve\nprivate tribes + learning"]
+    RESERVE --> VIBE
+    VIBE -->|"Pull or Update"| DSH
     DSH --> LEAD
     LEAD --> WORKERS
     WORKERS -->|"unverified evidence"| LEAD
@@ -47,7 +51,19 @@ Vibe renders from local material before it needs a model or network request:
 3. the newest material is presented first; and
 4. images below the fold load lazily.
 
-Opening Vibe, returning to it, scrolling, reaching the bottom, or changing a colour theme makes **no model call**. Blank-content time is designed to be zero.
+Opening Vibe, returning to it, scrolling, reaching the bottom, or changing a colour theme never changes the visible magazine or starts an ordinary Chat turn. When the recent-use, visibility, reserve-capacity and spend gates all pass, the background editor may refresh the hidden reserve; it remains invisible until the reader explicitly updates. Blank-content time is designed to be zero.
+
+## The radar and reserve
+
+The shared radar is deliberately modest: public headline/link signals from reviewed sources, broad geography and broad audience hints. A scheduled GitHub Action rebuilds it every 30 minutes and publishes the JSON openly, so its inputs and output can be inspected. The radar cannot see a reader's chats, saves, questionnaire answers or settings.
+
+Each browser then owns three private layers:
+
+1. **signals** copied from the public radar and expired after seven days;
+2. **candidates** prepared by the native provider or bounded worker lanes; and
+3. **ready pages** accepted for immediate release in governed mode.
+
+The local editor uses selected audience lenses, a bounded free-text note, explicit saves/opens/plays/skips and questionnaire answers. That learning stays on the device and can be reset. A useful-serendipity control deliberately admits some material outside the selected lenses. The editor's brief is to entertain, educate and inform with freedom, creativity and humour—not to maximise anger.
 
 ## What happens after a Chat request
 
@@ -86,8 +102,11 @@ sequenceDiagram
     participant R as Deep sourced lane
 
     P->>V: Pull at the top or press Update
-    V-->>P: Show local visual page + questionnaire immediately
-    V->>L: Start one six-page generated batch
+    V-->>P: Release ready pages immediately
+    alt Reserve is short
+        V-->>P: Show local visual page + questionnaire immediately
+        V->>L: Start one bounded generated batch
+    end
     L-->>V: Publish a short complete page first
     par Independent bounded work
         L->>Q: Practical or recommendation packet
@@ -118,13 +137,15 @@ The browser never publishes half a paragraph or a stream of raw tokens. It waits
 
 | Reader action or event | Model work? | Visible result | Stop condition |
 | --- | --- | --- | --- |
-| Open or return to Vibe | No | Bundled and saved magazine appears | Immediate local render |
+| Open or return to Vibe | No visible update; hidden reserve work may pass its strict gates | Bundled and saved magazine appears | Immediate local render |
 | Scroll or reach the bottom | No | Existing pages continue | No task started |
 | Change colour theme | No | Presentation changes | Immediate |
 | Change editorial direction | No | Setting is saved for a future update | Immediate |
 | Complete a Chat request | No additional call beyond that requested Chat turn | Final answer stays in Chat and may gain a Vibe page | The Chat turn ends |
-| Pull at the top or press **Update** | Yes, after two local pages | Two immediate pages, then six generated pages progressively | One batch, Stop, error, or 20-minute ceiling |
-| Answer a questionnaire | No | The visible choice is saved locally | It may shape only a later requested update |
+| Pull at the top or press **Update** | Usually no new call when at least four ready pages exist | Ready pages immediately; local fallbacks and one foreground batch only if short | One release; any fallback batch has Stop/error/20-minute ceiling |
+| Answer a questionnaire, save, open, play or skip | No | The explicit signal is saved locally | It may shape later reserve selection |
+
+Background preparation runs only while the page is open and visible, after Vibe use within 24 hours, with at least six valid radar signals, below the reserve target, and within the configured daily cap. It checks every 30 minutes, uses a dedicated hidden session, reserves at most US $0.25 per run against a hard user-configured ceiling of US $2/day, and has a 15-minute per-run timeout. Turning off **Fill the hidden reserve** pauses it.
 
 ## Lead and worker modes
 
@@ -161,7 +182,7 @@ Partial envelopes, raw worker reports, candidate lists, research memos, tool out
 
 ## Local storage and privacy
 
-The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, publication time, and up to 32 visible questionnaire choices. Entries expire after 30 days and the oldest pages fall out after 160 items.
+The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, broad selected tribe ids, publication time, and up to 32 visible questionnaire choices. The separate reserve stores only public radar signals, bounded candidate/ready pages, recent-use time and a daily spend ledger. Local learning stores only explicit interaction type, bounded page id/kind, broad tribe ids, visible questionnaire label and time.
 
 It does not store raw prompts, DSH session ids, account information, attachments, reasoning, tool calls, approval contents, credentials, or worker packets. Vibeify does not send current images or private project material to a different provider without explicit permission.
 

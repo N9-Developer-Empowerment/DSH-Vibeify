@@ -37,7 +37,7 @@ test("manual magazine update envelope is immutable and shaped by earlier questio
     answerLabels: ["  More original creators ", "A deeper read", "A deeper read"],
     recentTitles: ["Opening page"],
     chatTopics: ["How football analytics changed scouting"],
-    editorialProfile: { preset: "machines" },
+    editorialProfile: { tribes: ["builders-nerds", "sports-communities", "entrepreneurs"] },
   });
   const envelope = createStreamEnvelope({ id: "refill-one", prompt, batchSize: 8, answerLabels: ["More original creators", "A deeper read"] });
   assert.equal(envelope.title, "VIBE magazine update");
@@ -46,7 +46,7 @@ test("manual magazine update envelope is immutable and shaped by earlier questio
   assert.deepEqual(envelope.answers, ["More original creators", "A deeper read"]);
   assert.match(envelope.prompt, /append-only/i);
   assert.match(envelope.prompt, /top of that same edition/i);
-  assert.match(envelope.prompt, /Football, AI & cars/i);
+  assert.match(envelope.prompt, /Builders & nerds/i);
   assert.match(envelope.prompt, /not as evidence of identity or protected traits/i);
   assert.match(envelope.prompt, /Recent completed Chat answer topics: How football analytics changed scouting/);
   assert.match(envelope.prompt, /not a demographic profile or permission to expose the reader's prompt/);

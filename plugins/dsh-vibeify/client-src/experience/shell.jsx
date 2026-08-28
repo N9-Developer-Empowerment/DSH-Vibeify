@@ -56,6 +56,14 @@ import {
   reduceTrackpadPullRefresh,
 } from "./refresh-control.js";
 import { installThreadMagazineBridge } from "./thread-magazine.js";
+import { installBackgroundEditor } from "./background-editor.js";
+import { appendLearningEvent } from "./learning-store.js";
+import {
+  consumeApprovedPages,
+  consumeCandidatePages,
+  markVibeActivity,
+} from "./reserve-store.js";
+import { clickToLoadMedia } from "./media-embed.js";
 
 const STYLE_ID = "dsh-vibeify-experience-style";
 const SLOT_ID = "vibeify-experience";
@@ -103,12 +111,15 @@ function Icon({ name }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" className="vfx-icon"><path d={paths[name]} /></svg>;
 }
 
-function Markdown({ value }) {
+function Markdown({ value, onLink }) {
   const ref = React.useRef(null);
   React.useEffect(() => {
     if (ref.current !== null) ref.current.replaceChildren(markdownFragment(value));
   }, [value]);
-  return <div ref={ref} className="vfx-markdown" />;
+  return <div ref={ref} className="vfx-markdown" onClick={(event) => {
+    const link = event.target instanceof Element ? event.target.closest("a") : null;
+    if (link !== null) onLink?.(link.href);
+  }} />;
 }
 
 function Header({ editorialLabel, updateState, onChat, onHome, onUpdate, onStop }) {
@@ -148,13 +159,15 @@ function Questionnaire({ chunk, answer, onAnswer }) {
   );
 }
 
-function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
+function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave, onAnswer, onEngage, onSkip }) {
   const media = visualMediaForChunk(CATALOG, chunk);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
   const isChatResult = chunk.source === "chat-directed";
   const isHero = index === 0 && !isChatResult;
   const layout = panelLayoutForChunk(chunk, index);
+  const [playerOpen, setPlayerOpen] = React.useState(false);
+  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
   return (
     <article
       className={`vfx-chunk${isHero ? " is-hero" : ""}`}
@@ -182,7 +195,7 @@ function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
             }}
           />
           <span className="vfx-visual-shade" />
-          <figcaption><a href={media.href} target="_blank" rel="noreferrer">{media.label}</a></figcaption>
+          <figcaption><a href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.label}</a></figcaption>
         </figure>
       ) : null}
       <div className="vfx-chunk-copy">
@@ -196,21 +209,32 @@ function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
         </div>
         {chunk.kind === "questionnaire"
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
-          : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} />}
+          : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} onLink={() => onEngage(chunk, "opened")} />}
+        {player === null ? null : playerOpen ? (
+          <div className="vfx-player">
+            <iframe title={`${player.kind} player for ${chunk.title}`} src={player.src} loading="lazy" allow="encrypted-media; fullscreen; picture-in-picture" referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation" />
+          </div>
+        ) : (
+          <button type="button" className="vfx-media-button" onClick={() => { setPlayerOpen(true); onEngage(chunk, "played"); }}>{player.label}</button>
+        )}
         {chunk.source === "fresh-stream" ? <span className="vfx-next-page"><Icon name="arrow" /> from an explicit magazine update</span> : null}
         {isChatResult ? <span className="vfx-next-page"><Icon name="arrow" /> completed in Chat · shared locally across threads</span> : null}
-        <a className="vfx-source-link" href={media.href} target="_blank" rel="noreferrer">{media.linkLabel}<Icon name="arrow" /></a>
+        <div className="vfx-card-actions">
+          <a className="vfx-source-link" href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.linkLabel}<Icon name="arrow" /></a>
+          {isChatResult ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
+        </div>
       </div>
     </article>
   );
 }
 
-function ExperienceShell() {
+function ExperienceShell({ codexFeatures }) {
   const [state, dispatch] = React.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
   const [chunks, setChunks] = React.useState(initialStream);
   const [editorialProfile, setEditorialProfile] = React.useState(() => loadEditorialProfile(browserStorage()));
   const [updateState, setUpdateState] = React.useState("idle");
   const [pullDistance, setPullDistance] = React.useState(0);
+  const [skipped, setSkipped] = React.useState(() => new Set());
   const [answers, setAnswers] = React.useState(() => {
     const store = getCachedStream(browserStorage());
     return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
@@ -242,12 +266,32 @@ function ExperienceShell() {
     const runId = `refill-${Date.now().toString(36)}-${current.runsStarted}`;
     current.activeId = runId;
     setUpdateState("starting");
+    markVibeActivity(browserStorage());
     const answerLabels = Object.values(answersRef.current).slice(-12);
     const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
     const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
-    window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
-      detail: { runId, chunks: instantChunks, durationMs: 0, source: "instant-reserve" },
+    const approved = consumeApprovedPages(browserStorage(), 6);
+    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length));
+    const reservedChunks = [...approved, ...nativeCandidates].map((page, index) => Object.freeze({
+      id: `reserve:${page.id}`,
+      kind: page.kind,
+      title: page.title,
+      markdown: page.markdown,
+      topicId: null,
+      source: "radar-reserve",
+      tribes: page.tribes,
+      publishedAt: Date.now() + index,
     }));
+    window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+      detail: { runId, chunks: [...reservedChunks, ...instantChunks], durationMs: 0, source: "instant-reserve" },
+    }));
+    if (reservedChunks.length >= 4) {
+      current.active = false;
+      current.activeId = null;
+      setUpdateState("complete");
+      record("magazine-update-complete", runId, 0, "local-cache");
+      return;
+    }
     const chatTopics = chunksRef.current
       .filter(({ source }) => source === "chat-directed")
       .slice(-12)
@@ -268,7 +312,7 @@ function ExperienceShell() {
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: GENERATED_STREAM_BATCH_SIZE, answerLabels });
     record("magazine-update-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
-  }, [record]);
+  }, [codexFeatures, record]);
 
   const stopRun = React.useCallback(() => {
     const current = scheduler.current;
@@ -294,6 +338,10 @@ function ExperienceShell() {
     document.body.dataset.vibeifyExperience = state.view;
     return () => delete document.body.dataset.vibeifyExperience;
   }, [state]);
+
+  React.useEffect(() => {
+    if (state.view === "home") markVibeActivity(browserStorage());
+  }, [state.view]);
 
   React.useEffect(() => {
     const onChunks = (event) => {
@@ -338,7 +386,7 @@ function ExperienceShell() {
       });
     };
     const onEditorialSettings = (event) => {
-      const profile = createEditorialProfile(event.detail?.preset, event.detail?.customDirection ?? event.detail?.direction);
+      const profile = createEditorialProfile(event.detail);
       editorialProfileRef.current = profile;
       setEditorialProfile(profile);
       record("editorial-direction-changed", "home", 0, "user");
@@ -455,10 +503,24 @@ function ExperienceShell() {
   const onAnswer = React.useCallback((chunkId, label) => {
     if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
     setAnswers((current) => ({ ...current, [chunkId]: label }));
+    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
+    if (chunk !== undefined) appendLearningEvent(browserStorage(), { event: "answered", chunkId, kind: chunk.kind, tribes: chunk.tribes, label });
     record("questionnaire-answered", "home", Math.max(0, performance.now() - NAVIGATION_STARTED_AT), "user");
   }, [record]);
 
-  const onSave = React.useCallback((chunkId) => dispatch({ type: "toggle-save", chunkId }), []);
+  const onSave = React.useCallback((chunkId) => {
+    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
+    if (!stateRef.current.savedChunkIds.includes(chunkId) && chunk !== undefined) appendLearningEvent(browserStorage(), { event: "saved", chunkId, kind: chunk.kind, tribes: chunk.tribes });
+    dispatch({ type: "toggle-save", chunkId });
+  }, []);
+  const onEngage = React.useCallback((chunk, event) => {
+    appendLearningEvent(browserStorage(), { event, chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
+    markVibeActivity(browserStorage());
+  }, []);
+  const onSkip = React.useCallback((chunk) => {
+    appendLearningEvent(browserStorage(), { event: "skipped", chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
+    setSkipped((current) => new Set([...current, chunk.id]));
+  }, []);
   const displayChunks = newestFirst(chunks);
   const goHome = React.useCallback(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }), []);
   const updateNotice = {
@@ -505,8 +567,12 @@ function ExperienceShell() {
                 index={index}
                 saved={state.savedChunkIds.includes(chunk.id)}
                 answer={answers[chunk.id]}
+                skipped={skipped.has(chunk.id)}
+                clickToLoad={editorialProfile.clickToLoadMedia}
                 onSave={onSave}
                 onAnswer={onAnswer}
+                onEngage={onEngage}
+                onSkip={onSkip}
               />
             ))}
           </div>
@@ -578,6 +644,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 .vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 .vfx-source-link { width:max-content; max-width:100%; margin-top:20px; display:flex; align-items:center; gap:7px; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; }
+.vfx-card-actions { margin-top:20px; display:flex; align-items:center; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { margin-top:0; }.vfx-skip,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 @media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
@@ -596,10 +663,11 @@ function installStyles(ctx) {
   }, "dsh-vibeify: continuous editorial stream styles");
 }
 
-export function registerExperienceShell(ctx) {
+export function registerExperienceShell(ctx, { codexFeatures = true } = {}) {
   installStyles(ctx);
   installVibeStreamBridge(ctx);
   installRecipeRunner(ctx);
   installThreadMagazineBridge(ctx);
-  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, ExperienceShell));
+  installBackgroundEditor(ctx, { codexFeatures });
+  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => <ExperienceShell codexFeatures={codexFeatures} />));
 }

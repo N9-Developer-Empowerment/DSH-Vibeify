@@ -67,7 +67,7 @@ test("only allow-listed content fields survive persistence", () => {
     attachment: "discard",
   }], now);
   const cached = getCachedStream(storage, now + 1).chunks[0];
-  assert.deepEqual(Object.keys(cached).sort(), ["id", "kind", "markdown", "publishedAt", "source", "title", "topicId"]);
+  assert.deepEqual(Object.keys(cached).sort(), ["id", "kind", "markdown", "publishedAt", "source", "title", "topicId", "tribes"]);
 });
 
 test("questionnaire answers are bounded visible labels and shape later refills", () => {

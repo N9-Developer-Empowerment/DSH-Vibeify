@@ -61,7 +61,9 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /textContent = "Vibe"/);
   assert.match(client, /VIBE settings/);
   assert.match(client, /Editorial direction/);
-  assert.match(client, /Football, AI &amp; cars/);
+  assert.match(client, /Builders & nerds/);
+  assert.match(client, /Fill the hidden reserve/);
+  assert.match(client, /Reset what the editor has learned/);
   assert.match(client, /Add your own editor note/);
   assert.match(client, /AI-assisted graphic/);
   assert.match(client, /Open visual source/);

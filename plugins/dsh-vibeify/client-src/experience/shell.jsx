@@ -44,8 +44,12 @@ import {
   installRecipeRunner,
 } from "./recipe-runner.js";
 import {
+  PULL_REFRESH_THRESHOLD,
+  TRACKPAD_PULL_SETTLE_MS,
   createPullRefreshState,
+  createTrackpadPullRefreshState,
   reducePullRefresh,
+  reduceTrackpadPullRefresh,
 } from "./refresh-control.js";
 import { installThreadMagazineBridge } from "./thread-magazine.js";
 
@@ -202,7 +206,9 @@ function ExperienceShell() {
   const answersRef = React.useRef(answers);
   const editorialProfileRef = React.useRef(editorialProfile);
   const scheduler = React.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
-  const pull = React.useRef(createPullRefreshState());
+  const touchPull = React.useRef(createPullRefreshState());
+  const trackpadPull = React.useRef(createTrackpadPullRefreshState());
+  const trackpadSettleTimer = React.useRef(null);
 
   React.useEffect(() => { chunksRef.current = chunks; }, [chunks]);
   React.useEffect(() => { stateRef.current = state; }, [state]);
@@ -364,20 +370,63 @@ function ExperienceShell() {
   }, []);
 
   const onTouchStart = React.useCallback((event) => {
+    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
+    trackpadSettleTimer.current = null;
+    trackpadPull.current = createTrackpadPullRefreshState();
     const y = event.touches?.[0]?.clientY;
-    pull.current = reducePullRefresh(pull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
+    touchPull.current = reducePullRefresh(touchPull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
   }, []);
   const onTouchMove = React.useCallback((event) => {
     const y = event.touches?.[0]?.clientY;
-    pull.current = reducePullRefresh(pull.current, { type: "move", y });
-    setPullDistance(pull.current.distance);
+    touchPull.current = reducePullRefresh(touchPull.current, { type: "move", y });
+    setPullDistance(touchPull.current.distance);
   }, []);
   const finishPull = React.useCallback(() => {
-    const ended = reducePullRefresh(pull.current, { type: "end" });
-    pull.current = createPullRefreshState();
+    const ended = reducePullRefresh(touchPull.current, { type: "end" });
+    touchPull.current = createPullRefreshState();
     setPullDistance(0);
     if (ended.requested) startRun();
   }, [startRun]);
+  const cancelPull = React.useCallback(() => {
+    touchPull.current = reducePullRefresh(touchPull.current, { type: "cancel" });
+    setPullDistance(0);
+  }, []);
+
+  const finishTrackpadPull = React.useCallback(() => {
+    trackpadSettleTimer.current = null;
+    const ended = reduceTrackpadPullRefresh(trackpadPull.current, { type: "end" });
+    trackpadPull.current = createTrackpadPullRefreshState();
+    setPullDistance(0);
+    if (ended.requested) startRun();
+  }, [startRun]);
+
+  const onTrackpadWheel = React.useCallback((event) => {
+    const next = reduceTrackpadPullRefresh(trackpadPull.current, {
+      type: "wheel",
+      deltaY: event.deltaY,
+      deltaMode: event.deltaMode,
+      atTop: (streamRef.current?.scrollTop ?? 1) <= 0,
+      modified: event.ctrlKey || event.metaKey || event.altKey || event.shiftKey,
+    });
+    trackpadPull.current = next;
+    if (next.eligible && next.distance > 0) event.preventDefault();
+    setPullDistance(next.distance);
+    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
+    trackpadSettleTimer.current = window.setTimeout(finishTrackpadPull, TRACKPAD_PULL_SETTLE_MS);
+  }, [finishTrackpadPull]);
+
+  React.useEffect(() => {
+    if (state.view !== "home") return undefined;
+    const stream = streamRef.current;
+    if (stream === null) return undefined;
+    stream.addEventListener("wheel", onTrackpadWheel, { passive: false });
+    return () => {
+      stream.removeEventListener("wheel", onTrackpadWheel);
+      if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
+      trackpadSettleTimer.current = null;
+      trackpadPull.current = createTrackpadPullRefreshState();
+    };
+  }, [onTrackpadWheel, state.view]);
 
   const onAnswer = React.useCallback((chunkId, label) => {
     if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
@@ -405,7 +454,7 @@ function ExperienceShell() {
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
           onTouchEnd={finishPull}
-          onTouchCancel={finishPull}
+          onTouchCancel={cancelPull}
         >
           <Header
             editorialLabel={editorialProfile.label}
@@ -415,8 +464,8 @@ function ExperienceShell() {
             onStop={stopRun}
             onChat={() => dispatch({ type: "enter-chat" })}
           />
-          <div className={`vfx-pull${pullDistance >= 72 ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
-            <span>{pullDistance >= 72 ? "Release to update" : "Pull to update"}</span>
+          <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
+            <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
           </div>
           <section className="vfx-edition-intro">
             <span>Newest first · {editorialProfile.label}</span>

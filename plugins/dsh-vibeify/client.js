@@ -1187,6 +1187,7 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/refresh-control.js
 			var PULL_REFRESH_THRESHOLD = 72;
+			var TRACKPAD_PULL_SETTLE_MS = 160;
 			var MAX_PULL_DISTANCE = 120;
 			function createPullRefreshState() {
 			  return Object.freeze({ tracking: false, startY: 0, distance: 0, armed: false, requested: false });
@@ -1209,6 +1210,31 @@ window.__ModuleLoader__.load({
 			    return Object.freeze({ ...createPullRefreshState(), requested: current.armed });
 			  }
 			  return current;
+			}
+			function createTrackpadPullRefreshState() {
+			  return Object.freeze({ sequence: false, eligible: false, distance: 0, armed: false, requested: false });
+			}
+			function reduceTrackpadPullRefresh(state, action) {
+			  const current = state ?? createTrackpadPullRefreshState();
+			  if (action === null || typeof action !== "object") return current;
+			  if (action.type === "cancel") return createTrackpadPullRefreshState();
+			  if (action.type === "end") {
+			    if (!current.sequence) return createTrackpadPullRefreshState();
+			    return Object.freeze({ ...createTrackpadPullRefreshState(), requested: current.eligible && current.armed });
+			  }
+			  if (action.type !== "wheel" || !Number.isFinite(action.deltaY)) return current;
+			  if (!current.sequence) {
+			    const eligible = action.atTop === true && action.deltaMode === 0 && action.modified !== true && action.deltaY < 0;
+			    if (!eligible) return Object.freeze({ ...createTrackpadPullRefreshState(), sequence: true });
+			    const distance2 = Math.min(MAX_PULL_DISTANCE, -action.deltaY);
+			    return Object.freeze({ sequence: true, eligible: true, distance: distance2, armed: distance2 >= PULL_REFRESH_THRESHOLD, requested: false });
+			  }
+			  if (!current.eligible) return current;
+			  if (action.modified === true || action.deltaMode !== 0 || action.atTop !== true && action.deltaY > 0) {
+			    return Object.freeze({ ...current, eligible: false, distance: 0, armed: false, requested: false });
+			  }
+			  const distance = Math.max(0, Math.min(MAX_PULL_DISTANCE, current.distance - action.deltaY));
+			  return Object.freeze({ ...current, distance, armed: distance >= PULL_REFRESH_THRESHOLD, requested: false });
 			}
 
 			// client-src/experience/thread-magazine.js
@@ -1516,7 +1542,9 @@ window.__ModuleLoader__.load({
 			  const answersRef = import_react.default.useRef(answers);
 			  const editorialProfileRef = import_react.default.useRef(editorialProfile);
 			  const scheduler = import_react.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
-			  const pull = import_react.default.useRef(createPullRefreshState());
+			  const touchPull = import_react.default.useRef(createPullRefreshState());
+			  const trackpadPull = import_react.default.useRef(createTrackpadPullRefreshState());
+			  const trackpadSettleTimer = import_react.default.useRef(null);
 			  import_react.default.useEffect(() => {
 			    chunksRef.current = chunks;
 			  }, [chunks]);
@@ -1674,20 +1702,60 @@ window.__ModuleLoader__.load({
 			    });
 			  }, []);
 			  const onTouchStart = import_react.default.useCallback((event) => {
+			    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
+			    trackpadSettleTimer.current = null;
+			    trackpadPull.current = createTrackpadPullRefreshState();
 			    const y = event.touches?.[0]?.clientY;
-			    pull.current = reducePullRefresh(pull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
+			    touchPull.current = reducePullRefresh(touchPull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
 			  }, []);
 			  const onTouchMove = import_react.default.useCallback((event) => {
 			    const y = event.touches?.[0]?.clientY;
-			    pull.current = reducePullRefresh(pull.current, { type: "move", y });
-			    setPullDistance(pull.current.distance);
+			    touchPull.current = reducePullRefresh(touchPull.current, { type: "move", y });
+			    setPullDistance(touchPull.current.distance);
 			  }, []);
 			  const finishPull = import_react.default.useCallback(() => {
-			    const ended = reducePullRefresh(pull.current, { type: "end" });
-			    pull.current = createPullRefreshState();
+			    const ended = reducePullRefresh(touchPull.current, { type: "end" });
+			    touchPull.current = createPullRefreshState();
 			    setPullDistance(0);
 			    if (ended.requested) startRun();
 			  }, [startRun]);
+			  const cancelPull = import_react.default.useCallback(() => {
+			    touchPull.current = reducePullRefresh(touchPull.current, { type: "cancel" });
+			    setPullDistance(0);
+			  }, []);
+			  const finishTrackpadPull = import_react.default.useCallback(() => {
+			    trackpadSettleTimer.current = null;
+			    const ended = reduceTrackpadPullRefresh(trackpadPull.current, { type: "end" });
+			    trackpadPull.current = createTrackpadPullRefreshState();
+			    setPullDistance(0);
+			    if (ended.requested) startRun();
+			  }, [startRun]);
+			  const onTrackpadWheel = import_react.default.useCallback((event) => {
+			    const next = reduceTrackpadPullRefresh(trackpadPull.current, {
+			      type: "wheel",
+			      deltaY: event.deltaY,
+			      deltaMode: event.deltaMode,
+			      atTop: (streamRef.current?.scrollTop ?? 1) <= 0,
+			      modified: event.ctrlKey || event.metaKey || event.altKey || event.shiftKey
+			    });
+			    trackpadPull.current = next;
+			    if (next.eligible && next.distance > 0) event.preventDefault();
+			    setPullDistance(next.distance);
+			    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
+			    trackpadSettleTimer.current = window.setTimeout(finishTrackpadPull, TRACKPAD_PULL_SETTLE_MS);
+			  }, [finishTrackpadPull]);
+			  import_react.default.useEffect(() => {
+			    if (state.view !== "home") return void 0;
+			    const stream = streamRef.current;
+			    if (stream === null) return void 0;
+			    stream.addEventListener("wheel", onTrackpadWheel, { passive: false });
+			    return () => {
+			      stream.removeEventListener("wheel", onTrackpadWheel);
+			      if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
+			      trackpadSettleTimer.current = null;
+			      trackpadPull.current = createTrackpadPullRefreshState();
+			    };
+			  }, [onTrackpadWheel, state.view]);
 			  const onAnswer = import_react.default.useCallback((chunkId, label) => {
 			    if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
 			    setAnswers((current) => ({ ...current, [chunkId]: label }));
@@ -1711,7 +1779,7 @@ window.__ModuleLoader__.load({
 			      onTouchStart,
 			      onTouchMove,
 			      onTouchEnd: finishPull,
-			      onTouchCancel: finishPull
+			      onTouchCancel: cancelPull
 			    },
 			    /* @__PURE__ */ import_react.default.createElement(
 			      Header,
@@ -1724,7 +1792,7 @@ window.__ModuleLoader__.load({
 			        onChat: () => dispatch({ type: "enter-chat" })
 			      }
 			    ),
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= 72 ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= 72 ? "Release to update" : "Pull to update")),
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
 			    /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Newest first \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "Your conversation, edited into a better view."), /* @__PURE__ */ import_react.default.createElement("p", null, "Completed answers from every Chat thread arrive here automatically. Pull down or choose Update when you want one new editorial pass; no background refill starts by itself."), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
 			      StreamChunk,

@@ -89,7 +89,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 
 - **A continuous editorial website.** Vibe covers the DSH work surface completely and opens directly into one long, responsive edition. There is no catalogue-to-player-to-result transition.
 - **A deep local well.** Twenty-four deterministic editorial chunks—text, credited photography, and questionnaire cards—are available synchronously on a cold visit. Every tile receives a stable local photograph, later images decode lazily, and up to 160 completed magazine items persist for return visits.
-- **Explicit, bounded updates.** Pull down from the top of Vibe or choose **Update** to request one batch of eight complete semantic items. **Stop update** cancels only that dedicated magazine turn, and a 20-minute ceiling stops a stuck update. No mount, scroll, settings change, or completion event can chain another run.
+- **Explicit, bounded updates.** Pull down from the top of Vibe—including a two-finger pull on a Mac trackpad—or choose **Update** to request one batch of eight complete semantic items. **Stop update** cancels only that dedicated magazine turn, and a 20-minute ceiling stops a stuck update. No mount, ordinary scroll, settings change, or completion event can chain another run.
 - **Newest-first, append-only depth.** Fresh chunks join the top of the same edition while storage remains append-only. They never replace earlier material; deeper research becomes a visible editorial follow-up above the earlier page.
 - **Questionnaires are content.** One-tap cards create useful engagement time and softly shape the next explicitly requested update without blocking reading or pretending to change a request already in flight.
 - **One magazine across every Chat thread.** Vibe reads local DSH history without reopening or resuming a thread and accepts only turns durably marked completed. The final assistant answer is sanitised into a browser-local card. Raw prompts, attachments, reasoning, tool activity, approvals, session identifiers, aborted work and incomplete progress are never copied.
@@ -159,7 +159,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.9.0`
+- DSH Vibeify `0.9.1`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

@@ -132,6 +132,7 @@ window.__ModuleLoader__.load({
 			Object.values(VIBE_PRESETS).flatMap((preset) => Object.keys(preset.colors)),
 		)];
 		const EDITORIAL_PRESETS = __DshVibeifyExperience.EDITORIAL_PRESETS;
+		const EDITORIAL_TRIBES = __DshVibeifyExperience.EDITORIAL_TRIBES;
 		const EDITORIAL_SETTINGS_EVENT = __DshVibeifyExperience.EDITORIAL_SETTINGS_EVENT;
 
 		function muxUrl() {
@@ -303,7 +304,7 @@ window.__ModuleLoader__.load({
 		}
 
 		function apply(ctx) {
-			__DshVibeifyExperience.registerExperienceShell(ctx);
+			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
 			ctx.effect(() => {
 				const style = document.createElement("style");
 				style.id = UPDATE_STYLE_ID;
@@ -691,8 +692,8 @@ window.__ModuleLoader__.load({
 					}
 				};
 
-				const applyEditorialDirection = (preset, customDirection = "") => {
-					editorialProfile = __DshVibeifyExperience.saveEditorialProfile(localVibeStorage, preset, customDirection);
+				const applyEditorialDirection = (options) => {
+					editorialProfile = __DshVibeifyExperience.saveEditorialProfile(localVibeStorage, options);
 					window.dispatchEvent(new CustomEvent(EDITORIAL_SETTINGS_EVENT, { detail: editorialProfile }));
 					return editorialProfile;
 				};
@@ -796,6 +797,13 @@ window.__ModuleLoader__.load({
 			  display: grid;
 			  gap: 6px;
 			}
+			#${VIBE_ROOT_ID} .dsh-vibeify-tribes { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; margin:2px 0 8px; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-tribe { min-height:34px; padding:7px 9px; display:flex; align-items:center; gap:7px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); cursor:pointer; font:inherit; font-size:11px; text-align:left; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-tribe[aria-pressed="true"] { border-color:var(--dsw-alias-state-business-primary); background:var(--dsw-alias-state-business-tertiary); font-weight:650; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:5px 0; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-control { padding:8px 9px; border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); }
+			#${VIBE_ROOT_ID} .dsh-vibeify-control input[type="range"] { width:100%; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-reset { color:var(--dsw-alias-label-secondary); border:0; background:none; cursor:pointer; text-decoration:underline; font:inherit; font-size:11px; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-field label {
 			  color: var(--dsw-alias-label-primary);
 			  font-size: 12px;
@@ -864,17 +872,18 @@ window.__ModuleLoader__.load({
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-editorial-heading">
 			    <div id="dsh-vibeify-editorial-heading" class="dsh-vibeify-heading">Editorial direction</div>
 			    <div class="dsh-vibeify-field">
-			      <label for="dsh-vibeify-direction">Content and tone</label>
-			      <select id="dsh-vibeify-direction">
-			        <option value="open">Open mix (default)</option>
-			        <option value="style">Style &amp; social life</option>
-			        <option value="machines">Football, AI &amp; cars</option>
-			        <option value="custom">Custom direction</option>
-			      </select>
-			      <p class="dsh-vibeify-direction-copy"></p>
+			      <label>Who should this edition understand?</label>
+			      <div class="dsh-vibeify-tribes" aria-label="Editorial tribes">${Object.values(EDITORIAL_TRIBES).map(({ id, label }) => `<button class="dsh-vibeify-tribe" type="button" data-tribe="${id}" aria-pressed="false">${label}</button>`).join("")}</div>
+			      <div class="dsh-vibeify-controls">
+			        <label class="dsh-vibeify-control">Useful surprises <output id="dsh-vibeify-serendipity-value">20%</output><input id="dsh-vibeify-serendipity" type="range" min="10" max="40" step="5" value="20"></label>
+			        <label class="dsh-vibeify-control">DeepSeek daily maximum<input id="dsh-vibeify-budget" type="number" min="0" max="2" step="0.25" value="2"></label>
+			        <label class="dsh-vibeify-control"><input id="dsh-vibeify-background" type="checkbox" checked> Fill the hidden reserve</label>
+			        <label class="dsh-vibeify-control"><input id="dsh-vibeify-content-notes" type="checkbox" checked> Gentle content notes</label>
+			      </div>
 			      <label for="dsh-vibeify-editor-note">Add your own editor note <span aria-hidden="true">(optional)</span></label>
 			      <textarea id="dsh-vibeify-editor-note" maxlength="360" aria-label="Add your own editor note" placeholder="For example: more independent voices, shorter articles, dry humour, and links to original creators"></textarea>
 			      <button class="dsh-vibeify-apply" type="button">Apply editorial direction</button>
+			      <button class="dsh-vibeify-reset" type="button">Reset what the editor has learned</button>
 			    </div>
 			    <p class="dsh-vibeify-status" aria-live="polite">Stored in this browser. Do not enter secrets.</p>
 			  </section>
@@ -882,17 +891,24 @@ window.__ModuleLoader__.load({
 
 				const trigger = picker.querySelector(".dsh-vibeify-trigger");
 				const menu = picker.querySelector(".dsh-vibeify-menu");
-				const direction = picker.querySelector("#dsh-vibeify-direction");
-				const directionCopy = picker.querySelector(".dsh-vibeify-direction-copy");
 				const customDirection = picker.querySelector("textarea");
+				const serendipity = picker.querySelector("#dsh-vibeify-serendipity");
+				const serendipityValue = picker.querySelector("#dsh-vibeify-serendipity-value");
+				const budget = picker.querySelector("#dsh-vibeify-budget");
+				const background = picker.querySelector("#dsh-vibeify-background");
+				const contentNotes = picker.querySelector("#dsh-vibeify-content-notes");
 				const status = picker.querySelector(".dsh-vibeify-status");
 				const renderSelection = () => {
 					for (const button of picker.querySelectorAll("[data-vibe]")) {
 						button.setAttribute("aria-checked", String(button.dataset.vibe === selected));
 					}
-					direction.value = editorialProfile.preset;
+					for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(editorialProfile.tribes.includes(button.dataset.tribe)));
 					customDirection.value = editorialProfile.customDirection;
-					directionCopy.textContent = EDITORIAL_PRESETS[direction.value].description;
+					serendipity.value = String(Math.round(editorialProfile.serendipity * 100));
+					serendipityValue.textContent = `${serendipity.value}%`;
+					budget.value = String(editorialProfile.dailyBudgetUsd);
+					background.checked = editorialProfile.backgroundEditor;
+					contentNotes.checked = editorialProfile.contentNotes;
 					trigger.title = `Vibe settings · ${VIBE_PRESETS[selected].label} · ${editorialProfile.label}`;
 				};
 				const setOpen = (open) => {
@@ -906,20 +922,30 @@ window.__ModuleLoader__.load({
 						renderSelection();
 						return;
 					}
+					const tribe = event.target instanceof Element ? event.target.closest("[data-tribe]") : null;
+					if (tribe?.dataset.tribe in EDITORIAL_TRIBES) {
+						const selectedTribes = new Set([...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe));
+						if (selectedTribes.has(tribe.dataset.tribe) && selectedTribes.size > 1) selectedTribes.delete(tribe.dataset.tribe); else selectedTribes.add(tribe.dataset.tribe);
+						for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(selectedTribes.has(button.dataset.tribe)));
+						return;
+					}
 					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply")) {
-						const requested = direction.value;
-						editorialProfile = applyEditorialDirection(requested, customDirection.value);
+						const selectedTribes = [...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe);
+						editorialProfile = applyEditorialDirection({ tribes: selectedTribes, customDirection: customDirection.value, serendipity: Number(serendipity.value) / 100, backgroundEditor: background.checked, dailyBudgetUsd: Number(budget.value), contentNotes: contentNotes.checked, clickToLoadMedia: true });
 						status.textContent = `Applied: ${editorialProfile.label}. New Vibe content will use this direction.`;
 						renderSelection();
+						return;
+					}
+					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-reset")) {
+						__DshVibeifyExperience.resetEditorialLearning(localVibeStorage);
+						status.textContent = "Editorial learning reset on this device.";
 						return;
 					}
 					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-trigger")) {
 						setOpen(menu.hidden);
 					}
 				};
-				const onDirectionChange = () => {
-					directionCopy.textContent = EDITORIAL_PRESETS[direction.value].description;
-				};
+				const onSerendipity = () => { serendipityValue.textContent = `${serendipity.value}%`; };
 				const onDocumentClick = (event) => {
 					if (!picker.contains(event.target)) setOpen(false);
 				};
@@ -930,7 +956,7 @@ window.__ModuleLoader__.load({
 				};
 
 				picker.addEventListener("click", onPickerClick);
-				direction.addEventListener("change", onDirectionChange);
+				serendipity.addEventListener("input", onSerendipity);
 				document.addEventListener("click", onDocumentClick);
 				document.addEventListener("keydown", onKeyDown);
 				document.body.appendChild(picker);
@@ -939,7 +965,7 @@ window.__ModuleLoader__.load({
 
 				return () => {
 					picker.removeEventListener("click", onPickerClick);
-					direction.removeEventListener("change", onDirectionChange);
+					serendipity.removeEventListener("input", onSerendipity);
 					document.removeEventListener("click", onDocumentClick);
 					document.removeEventListener("keydown", onKeyDown);
 					picker.remove();

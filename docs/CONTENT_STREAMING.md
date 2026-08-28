@@ -1,6 +1,6 @@
 # Vibe magazine lifecycle
 
-This document is the product and engineering contract for Vibe. Vibe is one local, newest-first magazine shared by all DSH Chat threads. It is not a second chat client and it is not an autonomous background agent.
+This document is the product and engineering contract for Vibe. Vibe is one local, newest-first magazine shared by all DSH Chat threads. It is not a second chat client. Version 0.13 adds a disclosed, bounded background editorial reserve; that reserve never changes the visible magazine and never prompts an ordinary Chat thread.
 
 For the shorter, non-technical explanation and diagrams, start with [How DSH Vibeify works](HOW_IT_WORKS.md).
 
@@ -8,12 +8,12 @@ For the shorter, non-technical explanation and diagrams, start with [How DSH Vib
 
 Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. The completed answer remains visible in Chat and can also become a formatted Vibe card.
 
-Vibe changes for exactly two reasons:
+The visible magazine changes for exactly two reasons:
 
 1. a Chat turn in any local DSH thread durably finishes with `turn/end: completed`; or
 2. the user deliberately pulls down at the top of Vibe or presses **Update**.
 
-Opening Vibe, scrolling, reaching the bottom, changing editorial settings, finishing an update, and returning from Chat never start model work.
+Opening Vibe, scrolling, reaching the bottom, changing editorial settings, finishing an update, and returning from Chat never start foreground work or change visible pages. A hidden reserve may refill only under the separate gates below.
 
 ```text
 send a Chat request
@@ -24,8 +24,9 @@ send a Chat request
   -> the Chat thread is idle
 
 pull down at the top / press Update
-  -> one dedicated magazine session receives one bounded update
-  -> one cached visual short and one questionnaire appear immediately
+  -> ready hidden pages are released immediately
+  -> one cached visual short and one questionnaire cover an empty reserve
+  -> only if fewer than four ready pages exist, one dedicated magazine session receives one bounded update
   -> complete verified chunks join the top as they become ready
   -> the update turn completes and stops
 
@@ -33,7 +34,7 @@ press Stop update
   -> cancel only the dedicated magazine update session
 ```
 
-## Five content layers
+## Seven content layers
 
 The layers are implementation details; the reader sees one uninterrupted magazine.
 
@@ -42,8 +43,10 @@ The layers are implementation details; the reader sees one uninterrupted magazin
 | Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited photography, labelled AI-assisted graphics and responsive panel spans | None |
 | Saved magazine | Return-visit continuity: up to 160 bounded items, rolling visual URLs with provenance, and 32 short questionnaire choices for 30 days | None |
 | Completed Chat answers | Conversation continuity across every local DSH thread | None beyond the Chat turn the user already requested |
+| Shared public radar | Public headlines, links, geography and broad tribe hints rebuilt by GitHub Actions every 30 minutes | Public data fetch only; no reader data and no model |
+| Local editorial reserve | Seven-day signals, three-day candidates, seven-day ready pages, recent-use time and conservative daily spend ledger | Bounded hidden editor only when all gates pass |
 | Instant update reserve | One visual short and one questionnaire released synchronously on every explicit update | None |
-| Generated magazine update | Six further editorial pages from independently verified quick, culture/media and deep lanes | One bounded turn, only after Pull to update or Update |
+| Generated magazine update | Further editorial pages from independently verified quick, culture/media and deep lanes when the ready reserve is short | One bounded foreground turn only when required after Pull to update or Update |
 
 Bundled and saved content are read synchronously during initial state creation. They contain no await, provider request, or dependency on a DSH session becoming ready. This provides useful first content without starting invisible work.
 
@@ -76,7 +79,15 @@ An editorial update is user-driven and bounded:
 - a 20-minute timeout cancels a stuck update; and
 - completion never schedules another update.
 
-The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Reuse avoids creating a growing stack of `VIBE continuous edition` sessions. Before the provider request, the browser appends two complete locally prepared pages: a visual short and a questionnaire. The lead then uses multiple bounded worker lanes, verifies each publishable item independently and retains one parent stop condition.
+The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Reuse avoids creating a growing stack of `VIBE continuous edition` sessions. Before any provider request, the browser releases up to six ready pages and appends two complete locally prepared pages: a visual short and a questionnaire. If at least four ready pages were released, the update completes without a foreground provider call. Otherwise the lead uses multiple bounded worker lanes, verifies each publishable item independently and retains one parent stop condition.
+
+## Background radar and reserve
+
+`.github/workflows/publish-radar.yml` runs twice an hour and deploys `latest.json` to GitHub Pages. `scripts/build-radar.mjs` fetches the reviewed public sources in `radar/sources.json`, parses them through `radar/radar-core.mjs`, removes tracking parameters, classifies only broad editorial hints, and validates the public content-only schema. Source failure is fail-soft; a reviewed bootstrap edition is the minimum fallback.
+
+The browser fetches that fixed public JSON without credentials or referrer data. It accepts only HTTPS links and bounded schema fields. Reader settings or activity never travel to the radar. The local reserve has three isolated states: signals, candidates and ready pages. Combined mode puts Codex-validated pages in ready state; provider-neutral mode keeps its no-Codex-verification boundary and releases native candidates only on explicit Update.
+
+The hidden editor checks after initial Vibe activity and then at 30-minute intervals. Work is refused unless the document is visible, Vibe was used within 24 hours, **Fill the hidden reserve** is enabled, six valid radar signals exist, the appropriate reserve contains fewer than 12 pages, and the conservative daily ledger has capacity. One attempt reserves US $0.25 against the configured ceiling, which cannot exceed US $2/day. The separate session is titled `VIBE background editor`, has a 15-minute timeout, never opens in Chat and cannot start, resume or steer another session.
 
 The browser listens to DSH's loopback mux stream for the dedicated session. It accumulates text and reasoning deltas only long enough to recognise a complete closed `<vibe-chunk>` envelope for the active run. The final closing delimiter is the publication boundary: incomplete envelopes, ordinary progress and worker prose remain invisible. Final persisted history is read once more on completion, so a dropped live socket loses no completed page.
 
@@ -174,5 +185,9 @@ Initial service-level gates are:
 - `client-src/experience/content-store.js` — append-only bounded presentation and visible-choice cache.
 - `client-src/experience/vibe-result.js` — closed-envelope parser, safe Markdown renderer, and Vibe return tab.
 - `client-src/experience/editorial-settings.js` — local editorial direction; changing it does not start work.
+- `client-src/experience/background-editor.js` — fixed public radar fetch, eligibility gates, dedicated hidden session and reserve ingestion.
+- `client-src/experience/reserve-store.js` — isolated signal/candidate/ready caches, activity and hard daily reservation ceiling.
+- `client-src/experience/learning-store.js` — bounded on-device explicit interaction learning and reset.
+- `client-src/experience/media-embed.js` — privacy-aware click-to-load YouTube, Vimeo, Spotify and SoundCloud players.
 - `client-src/experience/state.js` — Vibe/Chat navigation plus saved and last-read ids.
 - `client-src/experience/stream-metrics.js` — content-free local lifecycle ledger.

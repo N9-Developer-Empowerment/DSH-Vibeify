@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://n9-developer-empowerment.github.io/DSH-Vibeify/schema.json",
+  "title": "DSH Vibeify public editorial radar",
+  "type": "object",
+  "required": ["schemaVersion", "generatedAt", "expiresAt", "editorialPolicy", "sources", "signals"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "editorialPolicy": { "type": "object" },
+    "sources": { "type": "array", "maxItems": 24 },
+    "signals": { "type": "array", "minItems": 12, "maxItems": 160 }
+  },
+  "additionalProperties": false
+}

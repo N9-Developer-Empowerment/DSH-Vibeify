@@ -1,0 +1,20 @@
+{
+  "googleTrends": [
+    { "id": "google-trends-gb", "label": "Google Trends · United Kingdom", "region": "uk", "url": "https://trends.google.com/trending/rss?geo=GB" },
+    { "id": "google-trends-us", "label": "Google Trends · United States", "region": "us", "url": "https://trends.google.com/trending/rss?geo=US" },
+    { "id": "google-trends-ca", "label": "Google Trends · Canada", "region": "canada", "url": "https://trends.google.com/trending/rss?geo=CA" },
+    { "id": "google-trends-au", "label": "Google Trends · Australia", "region": "australia", "url": "https://trends.google.com/trending/rss?geo=AU" },
+    { "id": "google-trends-in", "label": "Google Trends · India", "region": "india", "url": "https://trends.google.com/trending/rss?geo=IN" }
+  ],
+  "hackerNews": {
+    "id": "hacker-news",
+    "label": "Hacker News",
+    "top": "https://hacker-news.firebaseio.com/v0/topstories.json",
+    "item": "https://hacker-news.firebaseio.com/v0/item/{id}.json"
+  },
+  "wikimedia": {
+    "id": "wikimedia-top",
+    "label": "Wikimedia Pageviews",
+    "url": "https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/{yyyy}/{mm}/{dd}"
+  }
+}

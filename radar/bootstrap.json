@@ -1,0 +1,2825 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-28T22:18:39.574Z",
+  "expiresAt": "2026-08-29T00:18:39.574Z",
+  "editorialPolicy": {
+    "mission": "Entertain, educate and inform with freedom, creativity and humour; never optimise for anger or distress.",
+    "geography": [
+      "global",
+      "uk",
+      "us",
+      "canada",
+      "australia",
+      "india",
+      "china"
+    ],
+    "attributionRequired": true
+  },
+  "sources": [
+    {
+      "id": "google-trends-gb",
+      "label": "Google Trends · United Kingdom",
+      "state": "ok",
+      "count": 10
+    },
+    {
+      "id": "google-trends-us",
+      "label": "Google Trends · United States",
+      "state": "ok",
+      "count": 10
+    },
+    {
+      "id": "google-trends-ca",
+      "label": "Google Trends · Canada",
+      "state": "ok",
+      "count": 10
+    },
+    {
+      "id": "google-trends-au",
+      "label": "Google Trends · Australia",
+      "state": "ok",
+      "count": 10
+    },
+    {
+      "id": "google-trends-in",
+      "label": "Google Trends · India",
+      "state": "ok",
+      "count": 10
+    },
+    {
+      "id": "hacker-news",
+      "label": "Hacker News",
+      "state": "ok",
+      "count": 29
+    },
+    {
+      "id": "wikimedia-top",
+      "label": "Wikimedia Pageviews",
+      "state": "ok",
+      "count": 60
+    }
+  ],
+  "signals": [
+    {
+      "id": "hn-49478340",
+      "type": "community-story",
+      "headline": "Get your Windows license refund",
+      "summary": "621 points · 253 comments",
+      "url": "https://en.refund4freedom.org/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T13:42:40.000Z",
+      "momentum": 91,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49479878",
+      "type": "community-story",
+      "headline": "GLM-5.3 is now open-weight",
+      "summary": "515 points · 185 comments",
+      "url": "https://huggingface.co/zai-org/GLM-5.3",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T15:20:13.000Z",
+      "momentum": 89,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49479837",
+      "type": "community-story",
+      "headline": "GUIs should be fully keyboard-driven",
+      "summary": "469 points · 244 comments",
+      "url": "https://ckardaris.com/blog/2026/08/28/keyboard-driven-guis.html",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T15:17:09.000Z",
+      "momentum": 88,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49478178",
+      "type": "community-story",
+      "headline": "Htmx 4.0",
+      "summary": "434 points · 104 comments",
+      "url": "https://four.htmx.org/announcements/2026-08-28-htmx-4.0.0-is-released",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T13:28:56.000Z",
+      "momentum": 88,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49473522",
+      "type": "community-story",
+      "headline": "Judge rules Trump administration’s blacklisting of Anthropic was illegal",
+      "summary": "454 points · 337 comments",
+      "url": "https://www.nytimes.com/2026/08/27/technology/anthropic-government-blacklisting-ruling.html",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T02:03:38.000Z",
+      "momentum": 88,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49477854",
+      "type": "community-story",
+      "headline": "U.S. sanctions against the A/I Collective",
+      "summary": "418 points · 378 comments",
+      "url": "https://www.inventati.org/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T12:58:53.000Z",
+      "momentum": 87,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49475079",
+      "type": "community-story",
+      "headline": "Luanti removed from Google Play due to baseless AI copyright notice",
+      "summary": "398 points · 121 comments",
+      "url": "https://blog.luanti.org/2026/08/27/luanti-dmca-tracer-ai/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T06:33:57.000Z",
+      "momentum": 87,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49477564",
+      "type": "community-story",
+      "headline": "Inception-style curved map for turn-by-turn directions",
+      "summary": "374 points · 126 comments",
+      "url": "https://www.orbify.eu/demo/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T12:29:05.000Z",
+      "momentum": 86,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "trend-us-009686dc36b92623035d8865",
+      "type": "search-trend",
+      "headline": "dodgers vs tigers",
+      "summary": "As Tarik Skubal returns, Tigers cycling back into development mode",
+      "url": "https://www.detroitnews.com/story/sports/mlb/tigers/2026/08/28/as-tarik-skubal-returns-tigers-cycling-back-into-development-mode/91487011007/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 85,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcR4qZSQ2QFRjpXqtKnfHN6NeGQrEJ2m1DG_whuU0IgT3XWH0IIMERKplB9JJQY"
+    },
+    {
+      "id": "hn-49476143",
+      "type": "community-story",
+      "headline": "Hilariously fast volume computation with the divergence theorem (2018)",
+      "summary": "239 points · 64 comments",
+      "url": "https://alyssarosenzweig.ca/blog/hilariously-fast-volume-computation-with-the-divergence-theorem.html",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T09:00:46.000Z",
+      "momentum": 83,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "trend-canada-8a75cd7cb1bc52e4c228787b",
+      "type": "search-trend",
+      "headline": "manitoba",
+      "summary": "Canada adds more U.S. goods to list of planned counter-tariffs",
+      "url": "https://globalnews.ca/news/12039115/canada-tweaks-list-counter-tariffs/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T22:10:00.000Z",
+      "momentum": 82,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcQeEM7fg08fYicW0sV748mJyY0NB-wvT1G0Wom1O-XtEqK6LBxFu_Rk6ra4PuY"
+    },
+    {
+      "id": "trend-canada-0c18ab298e885eb4fd9449df",
+      "type": "search-trend",
+      "headline": "cale makar",
+      "summary": "Avalanche, Cale Makar agree to largest contract in NHL history",
+      "url": "https://www.sportsnet.ca/nhl/article/avalanche-cale-makar-agree-to-largest-contract-in-nhl-history/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 82,
+      "tribeHints": [
+        "global-curious",
+        "life-experienced"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSRob4tlWi0-Vu25vN6Tpws1yUxrZUQ5Anou7mW0COhk-irbpbyS7g68Qabq24"
+    },
+    {
+      "id": "hn-49480466",
+      "type": "community-story",
+      "headline": "Just the rumour of a bug is enough to find an exploit these days",
+      "summary": "206 points · 71 comments",
+      "url": "https://anil.recoil.org/notes/rumour-is-the-exploit",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T15:58:46.000Z",
+      "momentum": 81,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49472216",
+      "type": "community-story",
+      "headline": "The Twelve-Factor App (2025)",
+      "summary": "199 points · 99 comments",
+      "url": "https://12factor.net/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-27T22:41:11.000Z",
+      "momentum": 81,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49483182",
+      "type": "community-story",
+      "headline": "25,000 Lbs. Of Chicken Products Recalled in 5 States: USDA",
+      "summary": "168 points · 124 comments",
+      "url": "https://www.thehealthy.com/news/chicken-recall-fsis-august-2026/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T19:30:15.000Z",
+      "momentum": 80,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-70fc7d76d906de7a7ef42afa",
+      "type": "knowledge-interest",
+      "headline": "Tim Curry",
+      "summary": "1,571,639 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Tim_Curry",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 78,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "trend-us-4d9e2d55d6e6b3ea97c8fe29",
+      "type": "search-trend",
+      "headline": "marlins vs nationals",
+      "summary": "How to watch Marlins vs. Nationals: TV channel and streaming options for August 28",
+      "url": "https://www.nytimes.com/athletic/7545921/2026/08/28/marlins-vs-nationals-stream-how-to-watch-aug-28/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 78,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcT1X0RFN8E802xuA9XrwppZp4lYoAReQJUn_oGNnNUQX1OsDPRTxOp4kquQuZc"
+    },
+    {
+      "id": "trend-us-366ad2c41d66bc562d9bd9d4",
+      "type": "search-trend",
+      "headline": "commanders vs ravens",
+      "summary": "Ravens vs. Commanders preseason game: What to know, where to watch",
+      "url": "https://www.wbaltv.com/article/ravens-vs-commanders-preseason-game-2026-watch-guide-baltimore/73546241",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 78,
+      "tribeHints": [
+        "global-curious",
+        "gamers"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcTi5TD6nTNnFFYbsgPT369tKhOczfepT73FgwHqwEIGYjETMet2qVNVCEj40Rk"
+    },
+    {
+      "id": "trend-india-9919a1a8fc23737a69946d36",
+      "type": "search-trend",
+      "headline": "losc lille vs paris saint-germain f.c. standings",
+      "summary": "Lille 2-2 Paris St-Germain: Marquinhos and Vitinha late goals rescue draw for PSG",
+      "url": "https://www.bbc.com/sport/football/live/cm934333dp4dt",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:10:00.000Z",
+      "momentum": 78,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcQnePgwbdlIzbd5D_zosc1woC9zJjqe2-6WfdwGcIg5sIpviWsms9QUFhMXrQc"
+    },
+    {
+      "id": "trend-india-d5e25a4dc8737a78af42420f",
+      "type": "search-trend",
+      "headline": "ac milan vs venezia fc standings",
+      "summary": "AC Milan vs Venezia: Italian Serie A stats & head-to-head",
+      "url": "https://www.bbc.com/sport/football/live/cj935333xyvnt",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:10:00.000Z",
+      "momentum": 78,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRRwOvZeQ1RCOectFBbNzb90RO0iFo7744EKusCTrxY7EliGaxoFxKykWOMiEA"
+    },
+    {
+      "id": "wiki-1275ba3d3269fa56c51365bf",
+      "type": "knowledge-interest",
+      "headline": "Dolly Parton",
+      "summary": "1,269,538 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Dolly_Parton",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 77,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49478401",
+      "type": "community-story",
+      "headline": "State of the Map 2026",
+      "summary": "130 points · 49 comments",
+      "url": "https://2026.stateofthemap.org/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T13:46:28.000Z",
+      "momentum": 77,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-eb99471353fcd9e7cede99b6",
+      "type": "knowledge-interest",
+      "headline": "Peter Cullen",
+      "summary": "872,730 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Peter_Cullen",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 76,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49477559",
+      "type": "community-story",
+      "headline": "Smaller reactors bring nuclear power closer to fulfilling its promise",
+      "summary": "106 points · 136 comments",
+      "url": "https://www.nature.com/articles/d41586-026-02506-4",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T12:28:41.000Z",
+      "momentum": 76,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-ec8e65df3eeec40a943e7d4b",
+      "type": "knowledge-interest",
+      "headline": "Toxic (2026 film)",
+      "summary": "840,222 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Toxic_(2026_film)",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 75,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "trend-us-68ecfa217f97ff5a79b5869e",
+      "type": "search-trend",
+      "headline": "deportivo alavés vs villarreal cf standings",
+      "summary": "Alavés vs Villarreal: Spanish La Liga stats & head-to-head",
+      "url": "https://www.bbc.com/sport/football/live/cm4gvgggw3d9t",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 75,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRRwOvZeQ1RCOectFBbNzb90RO0iFo7744EKusCTrxY7EliGaxoFxKykWOMiEA"
+    },
+    {
+      "id": "trend-uk-2133b8306178cadace355450",
+      "type": "search-trend",
+      "headline": "falklands",
+      "summary": "US threatens Britain over Falklands",
+      "url": "https://www.telegraph.co.uk/world-news/2026/08/28/us-uk-boost-defence-spending-lose-falklands-support/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 75,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQfFO5wjBaZplss9DuPd9jEDGZHisETZhzBb7BJ169x1DZdylimRTip0cTS75I"
+    },
+    {
+      "id": "trend-us-bc8ad016c95af72f5c6d1acc",
+      "type": "search-trend",
+      "headline": "military aid",
+      "summary": "US plans to cut off military aid to key Middle East ally, BBC told",
+      "url": "https://www.bbc.com/news/articles/cn74m8e5rleo",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 75,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRFVYV7QcWmu-LSoW7tte-zXmi9kXeBv2YVE-rMwCBSP3d0pO4K6c1GBmuyuuU"
+    },
+    {
+      "id": "wiki-9a9ac8b1b7cbe3c00d6e41f0",
+      "type": "knowledge-interest",
+      "headline": "Lake Ontario",
+      "summary": "272,461 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Lake_Ontario",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 74,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49483816",
+      "type": "community-story",
+      "headline": "Stopping the smart TV from being used against you",
+      "summary": "92 points · 65 comments",
+      "url": "https://www.s-config.com/stopping-a-smart-tv-from-being-used-against-you/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T20:27:57.000Z",
+      "momentum": 74,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49479924",
+      "type": "community-story",
+      "headline": "EasyEffects can massively improve laptop speaker sound quality",
+      "summary": "86 points · 39 comments",
+      "url": "https://www.osnews.com/story/145883/easyeffects-should-be-part-of-every-linux-distribution-and-desktop-environment-to-massively-improve-laptop-speaker-sound-quality/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T15:23:10.000Z",
+      "momentum": 74,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49479072",
+      "type": "community-story",
+      "headline": "Verschlimmbesserung: The Word Your Software Updates Need",
+      "summary": "93 points · 59 comments",
+      "url": "https://geekyschmidt.com/post/2026-08-25-verschlimmbesserung/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T14:30:33.000Z",
+      "momentum": 74,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-1789cbbbe27439c499f23c4f",
+      "type": "knowledge-interest",
+      "headline": "Yayoi Kusama",
+      "summary": "232,885 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Yayoi_Kusama",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 73,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49479898",
+      "type": "community-story",
+      "headline": "Barrier lake continues to pose flood risk, China warns",
+      "summary": "82 points · 21 comments",
+      "url": "https://kathmandupost.com/national/2026/08/28/barrier-lake-continues-to-pose-flood-risk-china-warns",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T15:21:26.000Z",
+      "momentum": 73,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-7c8d992db21be0da61279282",
+      "type": "knowledge-interest",
+      "headline": "2026 Nepal floods",
+      "summary": "214,895 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/2026_Nepal_floods",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "trend-uk-5111da083a3f482c032a299b",
+      "type": "search-trend",
+      "headline": "harry hill",
+      "summary": "Last One Laughing season 3 confirms line-up - with major format twist and returning comics",
+      "url": "https://www.radiotimes.com/tv/entertainment/reality-tv/last-one-laughing-uk-season-3-line-up-announced-newsupdate/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T22:00:00.000Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQcryCQV1RvvAHbMWcSYLYhOVqcsjFCuA-l0agXaSGoXuCfznabchr59xgqdHM"
+    },
+    {
+      "id": "trend-us-71a1afb604bb4072deaabcf1",
+      "type": "search-trend",
+      "headline": "michigan football",
+      "summary": "Michigan Football’s most uncertain position group plans to surprise in 2026",
+      "url": "https://www.maizenbrew.com/football/120833/michigan-football-linebackers-troy-bowles-jay-hill-chase-taylor-nathaniel-staehling",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSPsntWf1ZEUMHxdJwTF6Sm4aE_15REAkqr8QxUfxFcnoxiqJwyCMfVK0BUBtc"
+    },
+    {
+      "id": "trend-canada-0e589b443fa661d3454746f4",
+      "type": "search-trend",
+      "headline": "howard lutnick",
+      "summary": "What went wrong with U.S. trade talks, according to Canada's chief negotiator",
+      "url": "https://www.cbc.ca/news/politics/canada-us-trade-talks-tariffs-trump-lutnick-greer-carney-janice-charette-9.7324707",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious",
+        "politics-society"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcTGrj-aC_D7PsgqcTHgvJUDXW_YbsFHVHKOENf61Ekbf3N7s1WlZ3GGqtC-BRg"
+    },
+    {
+      "id": "trend-uk-cb9ce64c943372247196ab8a",
+      "type": "search-trend",
+      "headline": "rio ave f.c. vs sporting cp standings",
+      "summary": "Preview: Rio Ave vs Sporting Lisbon - prediction, team news, lineups",
+      "url": "https://www.sportsmole.co.uk/football/sporting-lisbon/preview/rio-ave-vs-sporting-lisbon-prediction-team-news-lineups_603765.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcSSRsQr0msuY42kOI1VJhjuoj6R5RKhcEMBGSB2GcneKVR9ZBzPfdxX7Uvczek"
+    },
+    {
+      "id": "trend-australia-73d96f3dc75913edd3ef271c",
+      "type": "search-trend",
+      "headline": "reserve bank of australia",
+      "summary": "The Reserve Bank must lift rates in September, despite housing slump",
+      "url": "https://www.afr.com/markets/equity-markets/the-reserve-bank-must-lift-rates-in-september-despite-housing-slump-20260827-p60s5z",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T20:50:00.000Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious",
+        "local-life"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRTw_6eeOOqcgIXeAwp_IhOBCJLoF-x8FNYTAywC0rAmrXvVfbueRMeFITkyxs"
+    },
+    {
+      "id": "trend-australia-08682370eb8a9cc8387cc8c3",
+      "type": "search-trend",
+      "headline": "donald trump",
+      "summary": "Trump pledges to allow cattle ranchers to process own food amid beef imports backlash",
+      "url": "https://www.theguardian.com/us-news/2026/aug/28/trump-cattle-ranchers-beef-imports-backlash",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T20:20:00.000Z",
+      "momentum": 72,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcTFaIISQQVzM82eJxMFimfeVNa_B3D3kJ-da4A_kkwo99fVFDY07JtMvP_Aatk"
+    },
+    {
+      "id": "wiki-7380e8814b156265a75f0ffe",
+      "type": "knowledge-interest",
+      "headline": "Killing of the Clancy children",
+      "summary": "203,204 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Killing_of_the_Clancy_children",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 71,
+      "tribeHints": [
+        "global-curious",
+        "parents-families"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49481455",
+      "type": "community-story",
+      "headline": "Autonomous Mathematical Discovery in an Open-World Multi-Agent Environment",
+      "summary": "62 points · 12 comments",
+      "url": "https://arxiv.org/abs/2608.23691",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T17:01:12.000Z",
+      "momentum": 71,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49479302",
+      "type": "community-story",
+      "headline": "Some conservationists are helping to restore Africa’s wild dog populations",
+      "summary": "61 points · 21 comments",
+      "url": "https://www.smithsonianmag.com/science-nature/africa-wild-dogs-most-hated-carnivores-continent-heres-why-conservationists-saving-them-anyway-180989287/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T14:44:51.000Z",
+      "momentum": 71,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-a571943e4eced8ba62cb52eb",
+      "type": "knowledge-interest",
+      "headline": "Deaths in 2026",
+      "summary": "196,470 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Deaths_in_2026",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 70,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-5f13db9e98c3da509541fa58",
+      "type": "knowledge-interest",
+      "headline": "Ratko Mladić",
+      "summary": "186,777 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Ratko_Mladi%C4%87",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 69,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49483020",
+      "type": "community-story",
+      "headline": "Bye, Bye GitHub",
+      "summary": "49 points · 34 comments",
+      "url": "https://log.ozgur.works/bye-bye-github.html",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T19:12:11.000Z",
+      "momentum": 69,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49441316",
+      "type": "community-story",
+      "headline": "Global demand for sand spawned a worldwide boom in illegal mining (2015)",
+      "summary": "48 points · 20 comments",
+      "url": "https://www.wired.com/2015/03/illegal-sand-mining/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-25T22:03:03.000Z",
+      "momentum": 69,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49422743",
+      "type": "community-story",
+      "headline": "Curvature Beziers: Improving on a timeless recipe",
+      "summary": "50 points · 10 comments",
+      "url": "https://acko.net/blog/curvature-beziers/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-24T17:03:12.000Z",
+      "momentum": 69,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-bbaca9e51e603172fffdb3a9",
+      "type": "knowledge-interest",
+      "headline": "The Rocky Horror Picture Show",
+      "summary": "173,435 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/The_Rocky_Horror_Picture_Show",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "trend-canada-bc8ad016c95af72f5c6d1acc",
+      "type": "search-trend",
+      "headline": "military aid",
+      "summary": "US said to plan halting Kurdish military assistance",
+      "url": "https://breakingthenews.net/Article/US-said-to-plan-halting-Kurdish-military-assistance/67007856",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T22:10:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSA7mp1CQJjQbBG8rjPoN-VcJtpA9pmqhb4q_J7Z97qNTvlz3WlaiLP5QZ8n9Q"
+    },
+    {
+      "id": "trend-canada-6b048636fc8ffd3283244b6b",
+      "type": "search-trend",
+      "headline": "robert de niro",
+      "summary": "‘The Whisper Man’ Review: Robert De Niro Tries to Crack a Grisly Case",
+      "url": "https://www.nytimes.com/2026/08/27/movies/the-whisper-man-review.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T22:00:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRnsKyrCjv3om2BOOHShbOFGkGLVcffiDrA2sBiGn0QIvYQGK8sxfhewzP-bNw"
+    },
+    {
+      "id": "trend-india-c974e17b8e7321ce8c12983d",
+      "type": "search-trend",
+      "headline": "gate",
+      "summary": "GATE 2027 Application Delayed, Schedule Revised Again: IIT Madras Issues Update",
+      "url": "https://www.telegraphindia.com/edugraph/news/iit-madras-postpones-gate-2027-registration-date-once-again-check-schedule-update/cid/2177166",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T22:00:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcSGRMfiNJr7KsbPuKI9jq0ib_T3mHK1fbs6YGlLUyfZoDLJYJtoJZCuxcnXS_M"
+    },
+    {
+      "id": "trend-us-85fa7e0f7f46c0deb8971c87",
+      "type": "search-trend",
+      "headline": "college football tonight",
+      "summary": "Sleeper college football players who could break out in 2026 season",
+      "url": "https://www.espn.com/college-football/story/_/id/49704012/sleeper-college-football-players-break-2026-season",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T22:00:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcS0EHCnOkECOv7c1L-lMns3LjNhUz6M_08spTlygDIuRwgZA2UBmTV4L2n9G3U"
+    },
+    {
+      "id": "trend-canada-009686dc36b92623035d8865",
+      "type": "search-trend",
+      "headline": "dodgers vs tigers",
+      "summary": "Coming off 11-K outing, Skubal returns to Detroit for 1st time since trade",
+      "url": "https://www.mlb.com/news/tarik-skubal-faces-tigers-for-first-time-since-trade-to-dodgers",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSY3zgbzfiYCJphRJKxZT4hb74xhnYsx76dUj1Bx11AThDEeNuAISoSzjfKdvU"
+    },
+    {
+      "id": "trend-canada-7a7c6e13d19af1045b39560b",
+      "type": "search-trend",
+      "headline": "celebrini contract",
+      "summary": "Celebrini says he left money on the table in record-setting $94M extension with Sharks",
+      "url": "https://www.tsn.ca/nhl/article/celebrini-says-he-left-money-on-the-table-in-record-setting-94m-extension-with-sharks/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSlXyhCoXeoSr-TD58-lU1ZnpAXIjD6SQ2tcaCX-bVWBZ6YVNEJH7j0t-Xh4ao"
+    },
+    {
+      "id": "trend-us-4c9cd4062ee03f735fa5f25c",
+      "type": "search-trend",
+      "headline": "saints vs cowboys",
+      "summary": "Players 2 Watch: Keep an eye on these 6 players against the Saints",
+      "url": "https://www.dallascowboys.com/news/players-2-watch-keep-an-eye-on-these-6-players-against-the-saints",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQcBmTsvSrgqpz5SDWwJzlQ9jfoDKOLUu_umMDf0Zry-qUWlWqDbPlChfnTKkA"
+    },
+    {
+      "id": "trend-us-99b6b9a4abc4f2f472825cb8",
+      "type": "search-trend",
+      "headline": "giants vs jets",
+      "summary": "10 things to watch in preseason finale",
+      "url": "https://www.giants.com/news/preseason-finale-jets-john-harbaugh-53-man-roster-brandon-brown-malik-nabers-calvin-austin-trade-regular-season",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQkeUwQiqn752vGm0SYaDP3MJfsA97ebOY-Wk7igdPQC1PEEDgxQbFMRizpXWY"
+    },
+    {
+      "id": "trend-us-fdc74293e6fb5b1d6d93f385",
+      "type": "search-trend",
+      "headline": "colgate vs fordham",
+      "summary": "Football Opens Season on Friday",
+      "url": "https://fordhamsports.com/news/2026/8/27/football-opens-season-on-friday.aspx",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-us",
+      "region": "us",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQv7F8WzNTCx6QtsiQjJYBj_Uv_hAgbiMDMHg0ndRJl5TFw4QtbxdKIridcS10"
+    },
+    {
+      "id": "trend-india-14441ddb93d77b4c7007d0fb",
+      "type": "search-trend",
+      "headline": "binance exchange",
+      "summary": "Stablecoin reserves fall to $64B – Binance captures 68.5% of exchange liquidity",
+      "url": "https://ambcrypto.com/stablecoin-reserves-fall-to-64b-binance-captures-68-5-of-exchange-liquidity/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSNRhwbxKvCJs8VvW-7l_D-SSZWbsNMFL04hmtFhGMIPcytKTYmCNMdy9Qpy0Y"
+    },
+    {
+      "id": "trend-uk-87fe25990f0e68c8ad5edef4",
+      "type": "search-trend",
+      "headline": "gemma owen",
+      "summary": "Inside Gemma Owen's new romance hiding in plain sight as she fronts reality show",
+      "url": "https://www.aol.co.uk/articles/inside-gemma-owens-romance-hiding-213321000.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcTL_0jmTj8b2Dt1lKEsTNXZbMkhkQfRdEtuApSdHdtnpqR8aSm7LdrLqNwpmBY"
+    },
+    {
+      "id": "trend-uk-e08f28017cdde3e53e022792",
+      "type": "search-trend",
+      "headline": "cillian murphy",
+      "summary": "Disco Pigs is back, the play that ignited Cillian Murphy’s career",
+      "url": "https://www.thetimes.com/world/ireland-world/article/enda-walsh-cillian-murphy-eileen-disco-pigs-dvx3p7r23",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5UICv923Yz-CWP5PEL0S0dG_vQNvrGxGg6wP9Cn7jUTb4ZejSCgyzzfMkm2Y"
+    },
+    {
+      "id": "trend-uk-74907d9fb1be13c2af8d8d35",
+      "type": "search-trend",
+      "headline": "friday night dinner",
+      "summary": "Netflix confirms new comedies from Derry Girls and Friday Night Dinner creators",
+      "url": "https://www.radiotimes.com/tv/comedy/netflix-sitcoms-jig-marbles-lisa-mcgee-robert-popper-newsupdate/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "creators-influencers"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcR02hOxQlnu3zLtQ0k2ebP7yJuYxko9aki8kLukKXtyTsaXcLdmzmLz6XCzRbA"
+    },
+    {
+      "id": "trend-uk-9a6ce7849f82dada91d792a3",
+      "type": "search-trend",
+      "headline": "jamie redknapp",
+      "summary": "Savio scores on debut as Spurs bounce back to beat Charlton",
+      "url": "https://www.bbc.co.uk/sport/football/live/cm4gkndvg477t",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcQHuVc0tnQf6PVD0qNFd6zO4fHkKU4LTgmC7ddcz6zn7tVV78doZ-bxKiUggYY"
+    },
+    {
+      "id": "trend-australia-c2281f06ef9f1a82b51e11ed",
+      "type": "search-trend",
+      "headline": "milo yiannopoulos",
+      "summary": "Right-wing provocateur Milo Yiannopoulos detained by ICE",
+      "url": "https://www.cnn.com/2026/08/28/us/milo-yiannopoulos-detained-by-ice",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T21:20:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRkcm2XacpVyg-LJ4NwAMB-TEJj2Nl6BC5uMC52CsgVeLNZrPIv57agoNKLoHA"
+    },
+    {
+      "id": "trend-australia-47436529e7da59dcd7d41630",
+      "type": "search-trend",
+      "headline": "premier league games",
+      "summary": "Managerial turnover means we need new ways to predict Premier League fixtures",
+      "url": "https://www.theguardian.com/football/2026/aug/28/premier-league-h2h-record-manager-form-data-analysis",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T21:00:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "gamers",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCIsoLg5HEhhiQp-PT31mKRFyBimwJ6u1hVN0uafV-cSLYdxXf7Yc7QnAe-U4"
+    },
+    {
+      "id": "trend-australia-3a8f76dc7ff80c5250ef7520",
+      "type": "search-trend",
+      "headline": "saxon pryke parramatta eels contract",
+      "summary": "Eels Secure Trio of Emerging Pathways Players",
+      "url": "https://www.parraeels.com.au/news/2026/08/28/eels-secure-trio-of-emerging-pathways-players/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T20:50:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQY9Z8yL9taummr33198Z-YYYPrAtqxRQprNi8M1WGxpmZOdrzslUn-IKfSo8Q"
+    },
+    {
+      "id": "trend-australia-5c1b686d033beef058449715",
+      "type": "search-trend",
+      "headline": "utmb live",
+      "summary": "Autour de l’UTMB, la question environnementale continue d’agiter la vallée de Chamonix",
+      "url": "https://www.lemonde.fr/sport/article/2026/08/28/autour-de-l-utmb-la-question-environnementale-continue-d-agiter-la-vallee-de-chamonix_6759051_3242.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T20:30:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvRITu4ykweW2uGRsa7vXKGVgBcb2tNGTXjhvrOpaj8YbqD8ZJwlBEuz2m4xc"
+    },
+    {
+      "id": "trend-australia-ef90f09b368bbfa452dc7a8f",
+      "type": "search-trend",
+      "headline": "serie a",
+      "summary": "LIVE Milan-Venezia 2-0: gran gol di Ramos, poi autogol di Halhal su azione di Jashari",
+      "url": "https://www.gazzetta.it/Calcio/Serie-A/Milan/28-08-2026/milan-venezia-live-risultato-e-gol-in-diretta-serie-a.shtml",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T20:30:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSFp3b-8OVIAiG7pTkQ3Ab0AumC8DNmKgk0lvValjzv6WCQ9iw9G6FMNvSrVOk"
+    },
+    {
+      "id": "trend-australia-f431fc533ae6002913f75e09",
+      "type": "search-trend",
+      "headline": "rory mcilroy",
+      "summary": "Scottie Scheffler says maintaining intensity level a key factor in 2026 consistency",
+      "url": "https://www.pgatour.com/article/news/latest/2026/08/26/scottie-scheffler-addresses-2026-season-consistency-match-play-tour-championship-east-lake",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T20:10:00.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcRpa8omWjr2n9RQl0XjN56o8riMhw0SNZ5s0NCLqkMd61kVf8jLFt9JICAs9-Y"
+    },
+    {
+      "id": "hn-49443783",
+      "type": "community-story",
+      "headline": "Visual Analysis of Binary Files",
+      "summary": "47 points · 11 comments",
+      "url": "https://binvis.io/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-26T03:11:13.000Z",
+      "momentum": 68,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-c1842feff6a3e43f3adcaede",
+      "type": "knowledge-interest",
+      "headline": "2026–27 UEFA Champions League",
+      "summary": "147,330 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/2026%E2%80%9327_UEFA_Champions_League",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 67,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49482925",
+      "type": "community-story",
+      "headline": "The Analytical AI Handbook",
+      "summary": "40 points · 2 comments",
+      "url": "https://handbook.sutro.sh/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T19:01:47.000Z",
+      "momentum": 67,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-c5b463d6caf2c985ecc4d198",
+      "type": "knowledge-interest",
+      "headline": "Samuel Monroe Jr.",
+      "summary": "142,687 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Samuel_Monroe_Jr.",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 66,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-6fe9c876ec8a1c0741e6f2de",
+      "type": "knowledge-interest",
+      "headline": "List of Tim Curry performances",
+      "summary": "141,462 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/List_of_Tim_Curry_performances",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "trend-uk-f52ce90a67ddf1890a353dd4",
+      "type": "search-trend",
+      "headline": "chadwick boseman",
+      "summary": "Lupita Nyong’o pays tribute to Chadwick Boseman on anniversary of death",
+      "url": "https://www.belfasttelegraph.co.uk/entertainment/news/lupita-nyongo-pays-tribute-to-chadwick-boseman-on-anniversary-of-death/a/160676881.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T22:00:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSKEqz8bQTfgml-_GX-5RzZTmlkFfFtDE3-6VzcZGhhWUYzSxZDg62IRwzu7-k"
+    },
+    {
+      "id": "trend-australia-37caedc69b4ea29b80fb6999",
+      "type": "search-trend",
+      "headline": "pierce thiot",
+      "summary": "Pierce Thiot Dies: Emmy-Nominated Creative Exec At Maximum Effort Was 40",
+      "url": "https://deadline.com/2026/08/pierce-thiot-dead-maximum-effort-ryan-reynolds-1237062256/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQlTvybYU2Eh8s2iIneSe9e5iTIOv9VbIBuoeif-uiMH2z5aM_EWtS8L5qllLc"
+    },
+    {
+      "id": "trend-australia-e3c0900d3220e2c5cdc5507e",
+      "type": "search-trend",
+      "headline": "william, prince of wales",
+      "summary": "‘Must be something in it for Meghan’ as Sussexes return divides UK",
+      "url": "https://www.news.com.au/lifestyle/must-be-something-in-it-for-meghan-as-sussexes-return-divides-uk/video/9107963025ca85c61372214ebb0c2afd",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-au",
+      "region": "australia",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQcnUPEhoWrFRB7OUO7i7nbnqcUq_O0u0-vjfPySiZOC_LUaB-dlTkDziCa-fM"
+    },
+    {
+      "id": "trend-canada-0dcc77d3c7173de8e27d0f7b",
+      "type": "search-trend",
+      "headline": "jimmy kimmel live!",
+      "summary": "GOP congressman: Jelly Roll ‘not welcomed’ to Florida Panhandle after Trump jabs",
+      "url": "https://thehill.com/homenews/house/6054907-patronis-rips-jelly-roll-trump-jokes/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcQd4UFjIJEBWNYiLIv5nDOief33fzHW0S68mzNIwDBVZZAxAUGkNm8NEEFxa3w"
+    },
+    {
+      "id": "trend-canada-95faa9763134d3f4366c0977",
+      "type": "search-trend",
+      "headline": "parti libéral du canada",
+      "summary": "Une dernière prise de parole des libéraux avant le 31 août",
+      "url": "https://ici.radio-canada.ca/nouvelle/2278564/parti-liberal-canada-bagotville-investissement-elections-partielles",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:50:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcSWY9yTySCEhJ7Qc97owKHoswc9V6ac_NaXDHmpq0nhns-aKj8PlVMTGWJsk4Y"
+    },
+    {
+      "id": "trend-canada-6a72f0790ed530618f15317d",
+      "type": "search-trend",
+      "headline": "birthright citizenship in the united states",
+      "summary": "US judge denies injunction against Trump’s new birthright citizenship order",
+      "url": "https://www.aljazeera.com/news/2026/8/28/us-judge-denies-injunction-against-trumps-new-birthright-citizenship-order",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-ca",
+      "region": "canada",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcS5TVEKBAbvKcwgEqJoptQ-Uq25TWl6N9HKo2ENLLbbXTOiJgSHrpN5ywzL68c"
+    },
+    {
+      "id": "trend-uk-8488b62d4d423fed95c65f14",
+      "type": "search-trend",
+      "headline": "chase and status",
+      "summary": "Chase & Status announce new album, ‘Generic Everything’, share ‘Gone Too Far’ video: Watch",
+      "url": "https://djmag.com/news/chase-status-announce-new-album-generic-everything-share-gone-too-far-video-watch",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:40:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "music-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcQ1seD75_KyIERncPoguFetclNI8yYa7im9jwHsgUowQ_X0z9VagBkTQ1B0rwo"
+    },
+    {
+      "id": "trend-india-07863e7a6a2154ba864a71b0",
+      "type": "search-trend",
+      "headline": "mastercard",
+      "summary": "US removes Syria from terrorism sponsor list, lifting major investment obstacle",
+      "url": "https://www.reuters.com/world/middle-east/us-removes-syrias-designation-state-sponsor-terrorism-2026-08-24/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcT1UPl0qCO99A9tGgeRk-AdEhtGs_C4KRlzH7_B86T-dXtRIyoOoWiUghPAg6s"
+    },
+    {
+      "id": "trend-india-5b29654389a5e4e9b41c5c21",
+      "type": "search-trend",
+      "headline": "ferran torres",
+      "summary": "Lille 2-2 PSG: Resumen, resultado y goles del partido | Ligue 1 en directo",
+      "url": "https://as.com/futbol/internacional/lille-psg-en-directo-ligue-1-hoy-f202608-d/",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcTso09mnUt6BY5Kx5jX_gkDmph0v0CshJCNgHeuuHabGjcrVqa7TNSz6kCIKTQ"
+    },
+    {
+      "id": "trend-uk-fca965ad7ae41f11c50cb06e",
+      "type": "search-trend",
+      "headline": "katie holmes",
+      "summary": "Katie Holmes' Stunning Style Evolution",
+      "url": "https://www.yahoo.com/entertainment/videos/katie-holmes-stunning-style-evolution-163000316.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-gb",
+      "region": "uk",
+      "publishedAt": "2026-08-28T21:30:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn1.gstatic.com/images?q=tbn:ANd9GcRTtmeGt1W8d74XxAAtgP6k4facy6KwNdDxWMeyT5xrZdlxSYXWRrC-DFTU_fw"
+    },
+    {
+      "id": "trend-india-2c50f5f13be81835744ac3d9",
+      "type": "search-trend",
+      "headline": "nivin pauly",
+      "summary": "\"Nivin Pauly Is Perfect As The Boy-Next-Door\": Bethlehem Kudumba Unit Director Girish AD To NDTV",
+      "url": "https://www.ndtv.com/entertainment/nivin-pauly-is-perfect-as-the-boy-next-door-bethlehem-kudumba-unit-director-girish-ad-to-ndtv-11969464",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:20:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "trend-india-d033fee95ec3446cac963c3f",
+      "type": "search-trend",
+      "headline": "binance trading",
+      "summary": "Binance offering perpetual contracts with 20x leverage: How not to invest?",
+      "url": "https://finance.yahoo.com/video/binance-offering-perpetual-contracts-20x-120000082.html",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:20:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQLYciuRLoLKwx4zSYRqn2wLL1wpKKLNe0BmVetzW-Qtbhxoao7YmTjv-DxjA8"
+    },
+    {
+      "id": "trend-india-25ed2312aa596cf9fe89ef88",
+      "type": "search-trend",
+      "headline": "premier league standings",
+      "summary": "SCORE PREDICTOR: Can you predict the Matchweek 2 results?",
+      "url": "https://www.premierleague.com/en/news/4698616/score-predictor-can-you-predict-the-matchweek-2-results",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:00:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn3.gstatic.com/images?q=tbn:ANd9GcQctf42daNZd4ImvGmPAzWMdpXOa80a8SUwdH45r4QdDeGJgFzOIHXA-66I9No"
+    },
+    {
+      "id": "trend-india-56305c38e887cade66500534",
+      "type": "search-trend",
+      "headline": "the motley fool",
+      "summary": "BofA raises HP stock price target to $21 on tariff refunds",
+      "url": "https://in.investing.com/news/stock-market-news/bofa-raises-hp-stock-price-target-to-21-on-tariff-refunds-93CH-5573586",
+      "publisher": "Google Trends",
+      "sourceId": "google-trends-in",
+      "region": "india",
+      "publishedAt": "2026-08-28T21:00:00.000Z",
+      "momentum": 65,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ],
+      "imageUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnsaO0BC-N2dmHKembRQ2RmhNpQMmMleYC43zwPARjQDa30X71GLCXZWdNozE"
+    },
+    {
+      "id": "wiki-5f8e5b930da77d03d4a1a072",
+      "type": "knowledge-interest",
+      "headline": ".xxx",
+      "summary": "139,253 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/.xxx",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 64,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49454182",
+      "type": "community-story",
+      "headline": "Processing in Memory: DRAM Is About to Do Math",
+      "summary": "28 points · 7 comments",
+      "url": "https://ben3d.ca/blog/processing-in-memory",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-26T19:07:21.000Z",
+      "momentum": 64,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-b1ffa3b17014b6dd56764499",
+      "type": "knowledge-interest",
+      "headline": "Hayden Panettiere",
+      "summary": "134,172 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Hayden_Panettiere",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 63,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-2b0f44f92310828096d8b318",
+      "type": "knowledge-interest",
+      "headline": "Geetu Mohandas",
+      "summary": "120,511 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Geetu_Mohandas",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 62,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-e15a18aadcac09e6fa6469ce",
+      "type": "knowledge-interest",
+      "headline": "Nepal",
+      "summary": "118,095 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Nepal",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 61,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-a051fea20e143fc772859d39",
+      "type": "knowledge-interest",
+      "headline": "Spider-Man: Brand New Day",
+      "summary": "108,750 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Spider-Man%3A_Brand_New_Day",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 60,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49483038",
+      "type": "community-story",
+      "headline": "Show HN: Sesame - a local-first, open-source password manager",
+      "summary": "18 points · 15 comments",
+      "url": "https://usesesame.app/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-28T19:14:14.000Z",
+      "momentum": 60,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "hn-49415923",
+      "type": "community-story",
+      "headline": "Sloc Cloc and Code 4.0 (scc) – Finding the files that need the most attention",
+      "summary": "18 points · 0 comments",
+      "url": "https://boyter.org/posts/sloc-cloc-code-hotspots-finding-files-that-need-attention/",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-24T06:35:50.000Z",
+      "momentum": 60,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-fcde5d1f551e386e39bf0a9e",
+      "type": "knowledge-interest",
+      "headline": "Assassination of Lord Mountbatten",
+      "summary": "102,581 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Assassination_of_Lord_Mountbatten",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 59,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-c4bdaa69f687779e119f5e11",
+      "type": "knowledge-interest",
+      "headline": "Kuku Kohli",
+      "summary": "98,885 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Kuku_Kohli",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 58,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-f4d4564548686d3cb8613a6b",
+      "type": "knowledge-interest",
+      "headline": "Jaye P. Morgan",
+      "summary": "95,127 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Jaye_P._Morgan",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 57,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-a521d6c1a7530e750b14c6c0",
+      "type": "knowledge-interest",
+      "headline": "Stella Parton",
+      "summary": "92,460 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Stella_Parton",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 56,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-e8605bbbb5aa36a42a3b0a49",
+      "type": "knowledge-interest",
+      "headline": "Jed York",
+      "summary": "85,737 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Jed_York",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 55,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "hn-49420202",
+      "type": "community-story",
+      "headline": "You've heard of CSV files, but have you heard of CCSV files?",
+      "summary": "10 points · 3 comments",
+      "url": "https://robida.net/entries/2026/08/12/youve-heard-of-csv-files-but-have-you-heard-of-ccs",
+      "publisher": "Hacker News",
+      "sourceId": "hacker-news",
+      "region": "global",
+      "publishedAt": "2026-08-24T14:20:30.000Z",
+      "momentum": 55,
+      "tribeHints": [
+        "global-curious",
+        "builders-nerds",
+        "entrepreneurs"
+      ],
+      "formats": [
+        "article"
+      ]
+    },
+    {
+      "id": "wiki-553744304b5ceb6df7591422",
+      "type": "knowledge-interest",
+      "headline": "The Odyssey (2026 film)",
+      "summary": "84,583 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/The_Odyssey_(2026_film)",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 54,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-4655c4005e5eb63d4ce546f4",
+      "type": "knowledge-interest",
+      "headline": "2026–27 UEFA Conference League",
+      "summary": "83,706 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/2026%E2%80%9327_UEFA_Conference_League",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 53,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-85aee2ae004c71227bbc5d22",
+      "type": "knowledge-interest",
+      "headline": "2026–27 UEFA Europa League",
+      "summary": "82,994 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/2026%E2%80%9327_UEFA_Europa_League",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 52,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-5f0f0c1ce4faff56fed3969e",
+      "type": "knowledge-interest",
+      "headline": "Harald V",
+      "summary": "78,642 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Harald_V",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 51,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-9c85ce445e861b3d9512c562",
+      "type": "knowledge-interest",
+      "headline": "Neatsville, Kentucky",
+      "summary": "76,810 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Neatsville%2C_Kentucky",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 50,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-35a263e6406a8dcb53bed419",
+      "type": "knowledge-interest",
+      "headline": "Rachel Parton George",
+      "summary": "75,173 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Rachel_Parton_George",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 49,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-e1898686ccd753839fdcb8c7",
+      "type": "knowledge-interest",
+      "headline": "Kenny Rogers",
+      "summary": "73,391 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Kenny_Rogers",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 48,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-c28c5c23ffee217a49d19c67",
+      "type": "knowledge-interest",
+      "headline": "Anna's Archive",
+      "summary": "70,892 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Anna's_Archive",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 47,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-1fce3942430e6db0f62a658f",
+      "type": "knowledge-interest",
+      "headline": "Kyle Singler",
+      "summary": "70,299 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Kyle_Singler",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 46,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-367d05bc8f59013adcf28ab8",
+      "type": "knowledge-interest",
+      "headline": "Bradley Barcola",
+      "summary": "69,882 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Bradley_Barcola",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 45,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-a7c280e773d1d2e4f243d88f",
+      "type": "knowledge-interest",
+      "headline": "Pikachu",
+      "summary": "66,990 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Pikachu",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 44,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-7dca6ef276ee578676170ad9",
+      "type": "knowledge-interest",
+      "headline": "I Will Always Love You",
+      "summary": "65,737 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/I_Will_Always_Love_You",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 43,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-43be97c30102be9830761a30",
+      "type": "knowledge-interest",
+      "headline": ".xyz",
+      "summary": "65,647 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/.xyz",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 42,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-07de7ffb357975efbc4f93f4",
+      "type": "knowledge-interest",
+      "headline": "Randy Parton",
+      "summary": "64,388 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Randy_Parton",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 41,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-7ad772f1044f917833d87489",
+      "type": "knowledge-interest",
+      "headline": "Marianne Bachmeier",
+      "summary": "62,481 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Marianne_Bachmeier",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 40,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-50a4122943273ad2f00ea92b",
+      "type": "knowledge-interest",
+      "headline": "ChatGPT",
+      "summary": "61,729 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/ChatGPT",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 39,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-a9f2f9180ca49453712430f0",
+      "type": "knowledge-interest",
+      "headline": "Mattéo Guendouzi",
+      "summary": "61,018 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Matt%C3%A9o_Guendouzi",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 38,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-a4a392816f44bfce603624b1",
+      "type": "knowledge-interest",
+      "headline": "Porter Wagoner",
+      "summary": "60,490 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Porter_Wagoner",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 37,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-fd566ee3f7852fbdf499e961",
+      "type": "knowledge-interest",
+      "headline": "Portal:Current events",
+      "summary": "58,658 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Portal%3ACurrent_events",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 36,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-86d1256e1eb3859bda60727b",
+      "type": "knowledge-interest",
+      "headline": "The Dog Stars (film)",
+      "summary": "58,341 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/The_Dog_Stars_(film)",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 35,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-b38b274ff7f283a4a3082324",
+      "type": "knowledge-interest",
+      "headline": "Limonene",
+      "summary": "55,650 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Limonene",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 34,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-3057fb506495199c12265e6a",
+      "type": "knowledge-interest",
+      "headline": "Dollywood",
+      "summary": "54,642 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Dollywood",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 33,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-d98f30fb5a35b9befb0ea5ae",
+      "type": "knowledge-interest",
+      "headline": "UEFA Champions League",
+      "summary": "54,230 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/UEFA_Champions_League",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 32,
+      "tribeHints": [
+        "global-curious",
+        "sports-communities"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-cf89b11ffa66e1529f65db18",
+      "type": "knowledge-interest",
+      "headline": "Buddy (2026 film)",
+      "summary": "53,319 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Buddy_(2026_film)",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 31,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-e68bbcd87c33a4e3819eae1e",
+      "type": "knowledge-interest",
+      "headline": "List of highest-grossing films",
+      "summary": "52,911 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/List_of_highest-grossing_films",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 30,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-b8c4001ae44d6f4c09aa5b92",
+      "type": "knowledge-interest",
+      "headline": "Richard O'Brien",
+      "summary": "52,708 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Richard_O'Brien",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 29,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-3f3b210445714d0c7dca00fe",
+      "type": "knowledge-interest",
+      "headline": "Great Lakes",
+      "summary": "51,986 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Great_Lakes",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 28,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-1d8fa163518c10482232dde5",
+      "type": "knowledge-interest",
+      "headline": "Shelley Fabares",
+      "summary": "50,860 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Shelley_Fabares",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 27,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-dcf56c50db486670bcef804f",
+      "type": "knowledge-interest",
+      "headline": "Gulf of Mexico",
+      "summary": "50,847 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Gulf_of_Mexico",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 26,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-8209ed28fd160c806d9ff5bb",
+      "type": "knowledge-interest",
+      "headline": "9 to 5 (film)",
+      "summary": "50,742 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/9_to_5_(film)",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 25,
+      "tribeHints": [
+        "global-curious",
+        "culture-arts"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-1cf909a547ac15cdf6629edb",
+      "type": "knowledge-interest",
+      "headline": "Ted Kaczynski",
+      "summary": "50,405 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Ted_Kaczynski",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 24,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-32c7b0ed7e0687b0c76c04a1",
+      "type": "knowledge-interest",
+      "headline": "Coyote vs. Acme",
+      "summary": "50,197 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Coyote_vs._Acme",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 23,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-5715028db15c8c30c5755bab",
+      "type": "knowledge-interest",
+      "headline": "The Rocky Horror Show",
+      "summary": "49,703 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/The_Rocky_Horror_Show",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 22,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-b7b5db97eda8dedc3de88124",
+      "type": "knowledge-interest",
+      "headline": "Miley Cyrus",
+      "summary": "49,689 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Miley_Cyrus",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 21,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-1236052cf9c40a9a98a79711",
+      "type": "knowledge-interest",
+      "headline": "Lanterns (TV series)",
+      "summary": "49,076 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/Lanterns_(TV_series)",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 20,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    },
+    {
+      "id": "wiki-6335a7308df8f89bcc2920c4",
+      "type": "knowledge-interest",
+      "headline": "United States",
+      "summary": "49,644 English Wikipedia views in the latest complete day",
+      "url": "https://en.wikipedia.org/wiki/United_States",
+      "publisher": "Wikimedia Pageviews",
+      "sourceId": "wikimedia-top",
+      "region": "global",
+      "publishedAt": "2026-08-28T22:18:39.574Z",
+      "momentum": 20,
+      "tribeHints": [
+        "global-curious"
+      ],
+      "formats": [
+        "article",
+        "image"
+      ]
+    }
+  ]
+}

@@ -9,8 +9,9 @@ const MAX_TITLE = 180;
 const MAX_LABEL = 72;
 const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 const TOKEN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+const TRIBE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
-const SOURCES = new Set(["bundle", "fresh-stream", "chat-directed"]);
+const SOURCES = new Set(["bundle", "fresh-stream", "chat-directed", "radar-reserve"]);
 
 function cleanText(value, limit, multiline = false) {
   if (typeof value !== "string") return null;
@@ -51,12 +52,14 @@ function cleanChunk(candidate, now) {
   const title = cleanText(candidate.title, MAX_TITLE);
   const markdown = cleanText(candidate.markdown, MAX_MARKDOWN, true);
   const topicId = candidate.topicId === undefined ? null : cleanToken(candidate.topicId);
+  const tribes = Object.freeze([...new Set((Array.isArray(candidate.tribes) ? candidate.tribes : [])
+    .filter((value) => typeof value === "string" && TRIBE.test(value)))].slice(0, 8));
   const publishedAt = Number(candidate.publishedAt);
   if (id === null || kind === null || source === null || title === null || markdown === null) return null;
   if (source === "chat-directed" && internalAgentMaterial(title, markdown)) return null;
   if (!Number.isFinite(publishedAt) || publishedAt <= 0 || publishedAt > now + 5 * 60 * 1000) return null;
   if (now - publishedAt > CONTENT_TTL_MS) return null;
-  return Object.freeze({ id, kind, source, title, markdown, topicId, publishedAt });
+  return Object.freeze({ id, kind, source, title, markdown, topicId, tribes, publishedAt });
 }
 
 function cleanAnswer(candidate, now) {

@@ -27,7 +27,7 @@ export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels
   const visualContext = mediaUrls.length === 0
     ? "The rolling browser catalogue contains no generated public-image URLs yet. Start it with fresh verified imagery."
     : `Do not reuse these recent catalogue image URLs: ${mediaUrls.join("; ")}. Choose fresh, subject-relevant alternatives.`;
-  const editorial = createEditorialProfile(editorialProfile?.preset, editorialProfile?.customDirection ?? editorialProfile?.direction);
+  const editorial = createEditorialProfile(editorialProfile ?? "open");
   const editorialContext = `Reader-selected editorial direction — ${editorial.label}: ${editorial.direction} Treat this as explicit editorial configuration, not as evidence of identity or protected traits. Keep exact custom wording with the Codex lead; when delegating, translate it into bounded generic topic lanes without quoting the reader's text into a worker packet.`;
 
   return `# VIBE magazine update

@@ -1,120 +1,136 @@
-# Vibe generated-content streaming method
+# Vibe magazine lifecycle
 
-This document is the product and engineering contract for Vibe. The useful analogy is audio or video playout: the reader consumes one continuous edition while a local well, a persistent cache, and background generation keep enough material ahead of their reading position that generation time is normally invisible.
+This document is the product and engineering contract for Vibe. Vibe is one local, newest-first magazine shared by all DSH Chat threads. It is not a second chat client and it is not an autonomous background agent.
 
 ## Product decision
 
-Vibe is the product, not a launcher. Opening DSH opens a full-screen website-like editorial feed containing useful material immediately. There is no guide catalogue, recipe selection, prompt box, player-to-result transition, loading page, or ordinary DSH chrome inside Vibe.
+Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. The completed answer remains visible in Chat and can also become a formatted Vibe card.
 
-The only lean-forward escape is **Chat**. Chat reveals the conventional DSH conversation and technical controls. Its **Vibe** tab returns to the continuous feed. Returning or reloading always lands on Vibe; Chat is never remembered as the next home.
+Vibe changes for exactly two reasons:
+
+1. a Chat turn in any local DSH thread durably finishes with `turn/end: completed`; or
+2. the user deliberately pulls down at the top of Vibe or presses **Update**.
+
+Opening Vibe, scrolling, reaching the bottom, changing editorial settings, finishing an update, and returning from Chat never start model work.
 
 ```text
-open DSH
-  -> render saved stream and bundled editorial well synchronously
-  -> start background refill after the first frame
-  -> add each complete verified semantic chunk at the top
-  -> keep older material available below
+send a Chat request
+  -> that thread runs one turn
+  -> the final answer is visible in Chat
+  -> durable completion is read locally
+  -> a sanitized copy joins the shared Vibe magazine
+  -> the Chat thread is idle
 
-click Chat
-  -> reveal conventional DSH Chat / Trajectory / sessions / settings
-click Vibe
-  -> return to the newest item at the top of the same continuous edition
+pull down at the top / press Update
+  -> one dedicated magazine session receives one bounded update
+  -> complete verified chunks join the top as they become ready
+  -> the update turn completes and stops
+
+press Stop update
+  -> cancel only the dedicated magazine update session
 ```
 
-## Playout model
+## Four content layers
 
-Vibe uses four layers. The layers are implementation details; the page presents them as one uninterrupted editorial experience.
+The layers are implementation details; the reader sees one uninterrupted magazine.
 
-| Layer | Purpose | Current implementation |
+| Layer | Purpose | Model work |
 | --- | --- | --- |
-| L0 bundled well | Cold-start guarantee | 24 deterministic editorial chunks built from the validated catalogue and bundled credited photography. Text, images and questionnaires need no network or model call. |
-| L1 saved stream | Return-visit continuity | Up to 160 append-only chunks and 32 short questionnaire answers in bounded browser storage, with a 30-day expiry. |
-| L2 background refill | New depth and variety | Automatic batches of eight closed semantic chunks from fresh Codex-led DSH sessions. Three warm-up refills are attempted per Vibe visit; further refills use low-water demand. |
-| L3 Chat projection | Conversation continuity | Every completed rendered assistant answer becomes a newest-first in-memory card. Raw prompts and working detail stay in Chat; automatic projections never enter L1 storage. |
+| Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited local photography | None |
+| Saved magazine | Return-visit continuity: up to 160 bounded items and 32 short questionnaire choices for 30 days | None |
+| Completed Chat answers | Conversation continuity across every local DSH thread | None beyond the Chat turn the user already requested |
+| Explicit magazine update | New editorial depth and variety in one batch of eight complete semantic chunks | One bounded turn, only after Pull to update or Update |
 
-L0 and L1 are read synchronously during React state initialisation. They contain no await, network request, provider call, or dependency on the DSH session becoming ready. That is the basis of the under-one-second first-content target.
+Bundled and saved content are read synchronously during initial state creation. They contain no await, provider request, or dependency on a DSH session becoming ready. This provides useful first content without starting invisible work.
 
-## Buffer policy
+## Completed Chat projection
 
-The current policy is deliberately simple and measurable:
+The browser subscribes to DSH's session list and considers only idle, non-blank sessions whose durable activity changed. It pages through `session.history`, which can inspect a cold persisted log without resuming or publishing an Agent.
 
-- bundled well: 24 chunks;
-- generated batch: 8 chunks;
-- high-water target: 64 chunks;
-- low-water threshold: fewer than 14 chunks ahead of the reader;
-- warm-up: at least 3 sequential background refill runs per Vibe visit, continuing toward high water;
-- safety ceiling: 6 automatic refill runs per visit.
+For each thread, the bridge:
 
-The first refill is scheduled after the first rendered frame so it does not compete with initial content. Refill waves are sequential at the DSH-session level because the browser runner can prove a fresh idle session before submitting one request. Inside each wave, the Codex lead may use multiple independent source, culture, media, and editorial lanes under the live host policy. A completed wave triggers the next warm-up wave. Later, the scroll position triggers another wave before the reader reaches the tail.
+1. finds turns with a durable `turn/end` reason of `completed`;
+2. ignores aborted, interrupted, running, or incomplete turns;
+3. ignores every user message, prompt, attachment, reasoning block, tool call, approval, and progress event;
+4. selects the final eligible assistant text for each completed turn;
+5. rebuilds a bounded title and Markdown card;
+6. hashes transient session/message identity into a non-reversible local presentation id; and
+7. appends the card to the browser-local magazine.
 
-There is no “load more” control or loading spinner. If the runner cannot prove that a fresh session is safe, it fails closed and the already-present well remains readable. It does not submit into an unrelated Chat session or turn failure text into content.
+The bridge has history-read capability only. It does not call session create, prompt, resume, select, or cancel. A new Chat card therefore cannot wake an old thread or consume additional model quota. Visible DOM changes are not accepted as completion evidence.
 
-## Append-only storage, newest-first reading
+## Explicit update control
 
-Generated content uses closed envelopes:
+An editorial update is user-driven and bounded:
+
+- pull-to-update begins only when the magazine is already at the top;
+- a short pull springs back without doing work;
+- crossing the threshold and releasing requests exactly one update;
+- the accessible **Update** button provides the same action without a touch gesture;
+- a second update is refused while one is active;
+- **Stop update** cancels the exact dedicated session, not a Chat thread;
+- a 20-minute timeout cancels a stuck update; and
+- completion never schedules another update.
+
+The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Reuse avoids creating a growing stack of `VIBE continuous edition` sessions. One update may use multiple bounded worker lanes behind the active lead, but the lead verifies each publishable item and the parent turn still has one stop condition.
+
+## Complete semantic chunks
+
+Explicit updates and user-directed public-content answers can progressively publish complete envelopes:
 
 ```text
-<vibe-chunk id="refill-id-unique-item" kind="article" title="Reader-facing title">
+<vibe-chunk id="update-id-unique-item" kind="article" title="Reader-facing title">
 Complete Markdown for one semantic item.
 </vibe-chunk>
 ```
 
-Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. Automatic refills use this transport, and a user-explicit request to show, find, browse or recommend public reader-facing content may use it from Chat. The collector ignores plans, tool activity, ordinary progress, private or draft source material, raw worker output and incomplete envelopes.
+Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The collector accepts only complete closed envelopes. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe.
 
-Every browser run namespaces its chunk ids. Reusing a semantic id in a later run therefore creates a new entry rather than updating an old one. Storage remains append-only, but presentation reverses arrival order so each new item appears above the earlier edition. Earlier material is never silently replaced or collapsed into a canonical result. If deeper research changes the picture, the editor publishes a new follow-up such as “I dug further into this…” and explains the change in context.
-
-Completed Chat answers use a second path. Once DSH marks an assistant answer settled, the browser rebuilds safe Markdown from that rendered result and places it at the top. All settled answers in the visible conversation are eligible, including technical answers; Chat remains the detailed source view. Explicit user-role rows, prompts, reasoning, tool activity, approvals and incomplete output are excluded. These cards are memory-only and can be reconstructed from the current visible conversation after reload. Their bounded titles also become soft topic signals for a later refill, so Chat interests can alter the editor's subject mix without sending the raw prompt.
-
-This is intentionally different from token streaming. A chunk is a complete reading or interaction unit: its paragraph, list, citation cluster, media links, or questionnaire stay together. Small semantic units reduce time to the next useful item without creating broken prose or jumpy layout.
+Each update namespaces ids so a later update appends rather than replaces. Storage order remains append-only; presentation reverses arrival order so the newest item appears first. If later checking changes the picture, publish a clearly contextualised follow-up instead of silently rewriting the old item.
 
 ## Questionnaire method
 
-Questionnaires are content, not interruptions. They appear as designed cards among articles and images, normally with two to six one-tap options. The stream continues regardless of whether the reader answers.
+Questionnaires are optional content cards with two to six one-tap choices. The browser stores only the visible chosen label and the chunk id. A choice can influence the next explicitly requested update, but it never starts one and never modifies work already in flight.
 
-The browser stores only the visible chosen label and the chunk id. A later refill receives recent labels as soft editorial signals. They are not treated as personal facts, commands, diagnoses, or a profile. They never modify an already-running refill, which keeps the causal contract honest.
-
-Choices must have a real downstream effect. Vibe can create the visual abundance and low-friction exploration familiar from streaming services, but it must not present a button as meaningful when the system knowingly ignores it. When Codex delegates, it converts any useful signal into a bounded topic task; it does not copy private questionnaire input into a worker packet merely to save quota.
+Choices are soft editorial signals, not personal facts, commands, diagnoses, or a profile. When the lead delegates, it converts a useful choice into a bounded topic task instead of copying private reader input into a worker packet merely to save quota.
 
 ## Worker method
 
-Vibe can spend substantial background effort, but concurrency is useful only when it increases verified playout rate.
+One explicit update can use several independent lanes when this improves verified delivery:
 
-1. The browser publishes L0/L1 with no worker.
-2. The Codex lead receives one refill contract and releases a fast non-current editorial text chunk first.
-3. Independent bounded lanes can check sources, visual culture, music/video routes, recommendations, or questionnaire ideas.
-4. Codex verifies each lane and releases a closed chunk as soon as that chunk is safe; a slow lane cannot hold an earlier completed item.
-5. Chat receives a short refill record rather than a second copy of the edition.
-6. The buffer scheduler starts the next refill only after the prior DSH session has completed or the reader reaches low water.
+1. the lead receives one update contract and acceptance boundary;
+2. a fast, non-current editorial item can be prepared first;
+3. separate source, culture, media, recommendation, or questionnaire lanes may run;
+4. the lead verifies each artifact or source before releasing a closed chunk;
+5. a slow lane cannot block an earlier completed item; and
+6. the parent update finishes after the requested batch and does not ask for another run.
 
-The browser does not directly create tens of provider calls. It creates bounded refill waves. The Codex lead decides the appropriate lane count for each wave, keeps approval and privacy decisions, verifies artifacts and sources, and remains final acceptance authority. This allows many workers over a long reading session without turning uncontrolled fan-out, duplicated searches, or verification debt into a slower stream.
+The browser does not create a fan-out of provider calls itself. The lead selects an appropriate bounded lane count under the live routing, privacy, approval, and cost policy.
 
-## Persistent store
+## Browser-local persistence
 
-`dsh-vibeify.feed.v2` contains only allow-listed presentation data:
+`dsh-vibeify.feed.v2` uses schema version 3 and stores only allow-listed presentation data:
 
 ```text
-chunk: id, kind, source class, title, Markdown, catalogue topic id, published time
+chunk: hashed/local id, kind, source class, title, bounded Markdown, catalogue topic id, publication time
 answer: chunk id, visible option label, answered time
 ```
 
-It never accepts prompts, DSH session ids, account data, attachments, arbitrary form values, automatic Chat projections, worker payloads, or credentials. Deliberately published closed public-content chunks may persist; completed Chat cards remain in memory only. Entries expire after 30 days. Duplicate ids retain the first entry. Oldest entries fall out after 160 chunks. Corrupt, future-dated, oversized, wrong-version, stale, or malformed entries are discarded. Quota failure disables persistence without disabling the page.
+It never stores raw prompts, DSH session or message ids, account data, attachments, reasoning, tool calls, approvals, arbitrary form values, worker payloads, or credentials. Both explicitly published chunks and sanitized completed-Chat cards may persist. Entries expire after 30 days, duplicate ids retain the first entry, and the oldest items fall out after 160 chunks. Corrupt, future-dated, oversized, stale, or malformed entries are discarded. Storage failure leaves the current in-memory edition working.
 
-The current synchronous store is intentionally bounded. If measurement shows that richer media metadata or a larger well makes parsing material to the first-frame budget, the next storage layer should be IndexedDB with a small synchronous index and an in-memory L0 well—not unbounded `localStorage`.
+## Content-free measurement
 
-## Measurement
-
-The local content-free ledger records at most 200 timing events. A record has exactly: event, run id, duration in milliseconds, source class, and timestamp. It contains no content, URL, answer, prompt, session, account, or worker payload and performs no analytics request.
+The local ledger holds at most 200 records. Each record contains only event, opaque run id, duration, source class, and timestamp. It contains no content, prompt, URL, answer, session, account, or worker payload and sends no analytics request.
 
 Recorded events are:
 
-- `home-first-frame` — navigation start to first Vibe frame;
-- `feed-restored` — saved/bundled stream available to the page;
-- `buffer-run-started` — automatic refill handed to the runner;
-- `chunk-appended` — one or more closed fresh chunks entered the feed;
-- `buffer-run-complete` — refill session reached a completed answer;
-- `buffer-low-water` — reading position crossed the refill threshold;
-- `questionnaire-answered` — an interaction occurred, without recording its answer.
-- `editorial-direction-changed` — the local direction changed, without recording its label or custom text.
+- `home-first-frame`;
+- `feed-restored`;
+- `magazine-update-started`;
+- `chunk-appended`;
+- `magazine-update-complete`;
+- `questionnaire-answered`; and
+- `editorial-direction-changed`.
 
 Initial service-level gates are:
 
@@ -122,40 +138,32 @@ Initial service-level gates are:
 | --- | --- |
 | Warm local `home-first-frame` p95 | under 1,000 ms |
 | Blank content time | 0 ms by design |
-| Saved-stream restore | same initial render, not a later network phase |
-| Reader reaches an empty tail | 0 normal sessions |
-| Gap between ready verified chunks | measured by refill and content category before changing lane count |
-
-The important operational measurement is not only model duration. It is **buffer ahead in readable chunks divided by observed consumption rate**. That converts worker and research latency into the same question a media player asks: how many minutes of useful material remain before underrun?
+| Saved-magazine restore | same initial render, not a later network phase |
+| Unrequested model calls from Vibe | 0 |
+| One gesture starting multiple parent updates | 0 |
+| Completed answer waking its source thread | 0 |
 
 ## Failure and safety behaviour
 
-- Empty/corrupt cache: render the bundled 24-chunk well.
-- Storage unavailable: keep the in-memory edition and timing-free operation.
-- Fresh session unavailable: stop automatic refills for the visit; do not expose an error page.
-- Worker/source lane failure: omit that item or publish a smaller honest item after Codex verification.
-- Repeated semantic topic: append a contextual follow-up, never mutate the earlier entry.
-- Protected external action: describe it in content if useful, but perform it only from Chat with the normal confirmation.
-- Chat opened during a refill: the active task may finish, but new refill waves do not start until the reader returns to Vibe.
+- Empty or corrupt cache: render the bundled 24-item well.
+- Storage unavailable: retain the in-memory edition.
+- History read unavailable: leave Chat untouched and retry only after session state changes.
+- Update session unavailable: show an update error while preserving the existing magazine.
+- Update exceeds 20 minutes: cancel it and show a timeout status.
+- Worker or source lane fails: omit the item or publish a smaller honest item after lead verification.
+- Protected external action: describe it if useful, but perform it only from Chat with normal confirmation.
+- User enters Chat during an update: the update may finish or be stopped; no next update is scheduled.
 
 ## Implementation map
 
-- `client-src/experience/shell.jsx` — continuous website shell, scroll playout, automatic refill scheduler, questionnaire cards, Chat escape, and timing hooks.
-- `client-src/experience/feed.js` — 24-chunk bundled well, newest-first presentation, questionnaire parsing, and high/low-water policy.
-- `client-src/experience/content-store.js` — append-only bounded stream and visible-answer cache.
-- `client-src/experience/editorial-settings.js` — local default, preset and custom direction with bounded sanitisation.
-- `client-src/experience/stream-recipe.js` — continuous refill, editorial direction, recent-Chat topic, worker and publication contract.
-- `client-src/experience/recipe-runner.js` — fresh-session fail-closed submission.
-- `client-src/experience/vibe-result.js` — closed-chunk collector, completed-Chat projector, safe Markdown renderer, completion detector, and the Vibe return tab inside Chat.
+- `client-src/experience/shell.jsx` — magazine presentation, Update/Stop, pull gesture, Chat escape, cards, and status.
+- `client-src/experience/thread-magazine.js` — all-thread durable-history projection without Agent activation.
+- `client-src/experience/refresh-control.js` — pure top-of-page pull state machine.
+- `client-src/experience/recipe-runner.js` — one reusable dedicated session, overlap guard, exact Stop, and timeout.
+- `client-src/experience/stream-recipe.js` — one-batch update, worker, editorial, and publication contract.
+- `client-src/experience/feed.js` — bundled well, newest-first presentation, imagery, and questionnaire parsing; no scheduler.
+- `client-src/experience/content-store.js` — append-only bounded presentation and visible-choice cache.
+- `client-src/experience/vibe-result.js` — closed-envelope parser, safe Markdown renderer, and Vibe return tab.
+- `client-src/experience/editorial-settings.js` — local editorial direction; changing it does not start work.
 - `client-src/experience/state.js` — Vibe/Chat navigation plus saved and last-read ids.
-- `client-src/experience/stream-metrics.js` — content-free duration and buffer event ledger.
-
-## Next evidence-led improvements
-
-- Replace chunk-count buffering with measured reading-time estimates per format and per reader.
-- Schedule media discovery earlier when text buffer is healthy, so images, audio, and video arrive before they are needed.
-- Add a dedicated multi-wave host scheduler if browser-session sequencing becomes the bottleneck; do not infer this merely from worker count.
-- Learn which questionnaire placements increase continued reading without becoming repetitive or manipulative.
-- Separate durable and perishable expiry rules: prices and availability should age faster than essays or creator profiles.
-- Introduce IndexedDB and media-aware pre-caching when the content mix justifies it.
-- Measure topic repetition and editorial transition quality, not only quantity and latency.
+- `client-src/experience/stream-metrics.js` — content-free local lifecycle ledger.

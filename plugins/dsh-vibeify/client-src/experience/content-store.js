@@ -1,5 +1,5 @@
 export const CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
-export const CONTENT_STORE_VERSION = 2;
+export const CONTENT_STORE_VERSION = 3;
 export const CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_STREAM_CHUNKS = 160;
 export const MAX_STREAM_ANSWERS = 32;
@@ -10,7 +10,7 @@ const MAX_LABEL = 72;
 const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 const TOKEN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
-const SOURCES = new Set(["bundle", "fresh-stream"]);
+const SOURCES = new Set(["bundle", "fresh-stream", "chat-directed"]);
 
 function cleanText(value, limit, multiline = false) {
   if (typeof value !== "string") return null;
@@ -65,7 +65,7 @@ function readStore(storage, now = Date.now()) {
   if (storage === null || storage === undefined || typeof storage.getItem !== "function") return emptyStore();
   try {
     const parsed = JSON.parse(storage.getItem(CONTENT_STORE_KEY) ?? "null");
-    if (parsed === null || typeof parsed !== "object" || parsed.version !== CONTENT_STORE_VERSION) return emptyStore();
+    if (parsed === null || typeof parsed !== "object" || ![2, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
     const chunks = [];
     const seen = new Set();
     for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {

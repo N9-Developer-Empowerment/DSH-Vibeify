@@ -835,7 +835,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["sessions", "settingsScope", "slots"];
+		exports.inject = ["connection", "sessions", "settingsScope", "slots"];
 		return module.exports;
 	},
 });

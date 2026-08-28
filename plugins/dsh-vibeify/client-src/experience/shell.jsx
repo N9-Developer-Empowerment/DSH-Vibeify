@@ -3,16 +3,15 @@ import React from "react";
 import { createExperienceCatalog } from "./catalog.js";
 import { createEditorialEdition } from "./editorial.js";
 import {
-  MAX_AUTO_RUNS_PER_VISIT,
   STREAM_BATCH_SIZE,
   createBundledStream,
   newestFirst,
   questionnaireIntroduction,
   questionnaireOptions,
-  shouldStartStreamRun,
   visualEpisodeForChunk,
 } from "./feed.js";
 import {
+  CONTENT_STORE_KEY,
   appendCachedChunks,
   getCachedStream,
   saveStreamAnswer,
@@ -34,21 +33,25 @@ import {
   VIBE_CHAT_RESULT_EVENT,
   VIBE_HOME_EVENT,
   VIBE_STREAM_CHUNKS_EVENT,
-  VIBE_STREAM_STATUS_EVENT,
   installVibeStreamBridge,
   markdownFragment,
 } from "./vibe-result.js";
 import {
   RECIPE_RUN_EVENT,
   RECIPE_STATUS_EVENT,
+  RECIPE_STOP_EVENT,
   createStreamEnvelope,
   installRecipeRunner,
 } from "./recipe-runner.js";
+import {
+  createPullRefreshState,
+  reducePullRefresh,
+} from "./refresh-control.js";
+import { installThreadMagazineBridge } from "./thread-magazine.js";
 
 const STYLE_ID = "dsh-vibeify-experience-style";
 const SLOT_ID = "vibeify-experience";
 const BUNDLED_WELL_SIZE = 24;
-const MIN_BACKGROUND_RUNS_PER_VISIT = 3;
 const NAVIGATION_STARTED_AT = typeof performance === "undefined"
   ? 0
   : (performance.getEntriesByType?.("navigation")[0]?.startTime ?? 0);
@@ -100,13 +103,22 @@ function Markdown({ value }) {
   return <div ref={ref} className="vfx-markdown" />;
 }
 
-function Header({ editorialLabel, onChat, onHome }) {
+function Header({ editorialLabel, updateState, onChat, onHome, onUpdate, onStop }) {
+  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
   return (
     <header className="vfx-header">
       <button type="button" className="vfx-wordmark" aria-label="VIBE home and newest content" onClick={onHome}>
-        <span>VIBE</span><small>newest first · edited from Chat</small>
+        <span>VIBE</span><small>one magazine · all completed chats</small>
       </button>
       <span className="vfx-edition">{editorialLabel} · {CATALOG.editorial.label}</span>
+      <button
+        type="button"
+        className={`vfx-update${updating ? " is-active" : ""}`}
+        onClick={updating ? onStop : onUpdate}
+        aria-label={updating ? "Stop Vibe magazine update" : "Update Vibe magazine"}
+      >
+        {updateState === "stopping" ? "Stopping…" : updating ? "Stop update" : "Update"}
+      </button>
       <button type="button" className="vfx-chat" onClick={onChat}><Icon name="chat" /> Chat</button>
     </header>
   );
@@ -167,8 +179,8 @@ function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
         {chunk.kind === "questionnaire"
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
           : <Markdown value={chunk.markdown} />}
-        {chunk.source === "fresh-stream" ? <span className="vfx-next-page"><Icon name="arrow" /> another page in today's edit</span> : null}
-        {isChatResult ? <span className="vfx-next-page"><Icon name="arrow" /> from Chat · kept out of the local content cache</span> : null}
+        {chunk.source === "fresh-stream" ? <span className="vfx-next-page"><Icon name="arrow" /> from an explicit magazine update</span> : null}
+        {isChatResult ? <span className="vfx-next-page"><Icon name="arrow" /> completed in Chat · shared locally across threads</span> : null}
       </div>
     </article>
   );
@@ -178,6 +190,8 @@ function ExperienceShell() {
   const [state, dispatch] = React.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
   const [chunks, setChunks] = React.useState(initialStream);
   const [editorialProfile, setEditorialProfile] = React.useState(() => loadEditorialProfile(browserStorage()));
+  const [updateState, setUpdateState] = React.useState("idle");
+  const [pullDistance, setPullDistance] = React.useState(0);
   const [answers, setAnswers] = React.useState(() => {
     const store = getCachedStream(browserStorage());
     return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
@@ -187,7 +201,8 @@ function ExperienceShell() {
   const stateRef = React.useRef(state);
   const answersRef = React.useRef(answers);
   const editorialProfileRef = React.useRef(editorialProfile);
-  const scheduler = React.useRef({ active: false, activeId: null, blocked: false, consumed: 0, runsStarted: 0, scrollFrame: null, directionPending: false });
+  const scheduler = React.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+  const pull = React.useRef(createPullRefreshState());
 
   React.useEffect(() => { chunksRef.current = chunks; }, [chunks]);
   React.useEffect(() => { stateRef.current = state; }, [state]);
@@ -198,23 +213,14 @@ function ExperienceShell() {
     appendStreamMetric(browserStorage(), { event, recipeId, durationMs, source });
   }, []);
 
-  const maybeStartRun = React.useCallback(() => {
+  const startRun = React.useCallback(() => {
     const current = scheduler.current;
-    const forceWarmWell = current.runsStarted < MIN_BACKGROUND_RUNS_PER_VISIT;
-    const forceDirectionRefresh = current.directionPending;
-    const policyAllows = shouldStartStreamRun({
-      totalChunks: chunksRef.current.length,
-      consumedChunks: current.consumed,
-      active: current.active,
-      runsStarted: current.runsStarted,
-    });
-    if (stateRef.current.view !== "home" || current.blocked || current.active || current.runsStarted >= MAX_AUTO_RUNS_PER_VISIT) return;
-    if (!forceWarmWell && !forceDirectionRefresh && !policyAllows) return;
+    if (stateRef.current.view !== "home" || current.active) return;
     current.runsStarted += 1;
     current.active = true;
-    current.directionPending = false;
     const runId = `refill-${Date.now().toString(36)}-${current.runsStarted}`;
     current.activeId = runId;
+    setUpdateState("starting");
     const answerLabels = Object.values(answersRef.current).slice(-12);
     const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
     const chatTopics = chunksRef.current
@@ -230,9 +236,16 @@ function ExperienceShell() {
       editorialProfile: editorialProfileRef.current,
     });
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: STREAM_BATCH_SIZE, answerLabels });
-    record("buffer-run-started", runId, 0, "fresh-stream");
+    record("magazine-update-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
   }, [record]);
+
+  const stopRun = React.useCallback(() => {
+    const current = scheduler.current;
+    if (!current.active || current.activeId === null) return;
+    setUpdateState("stopping");
+    window.dispatchEvent(new CustomEvent(RECIPE_STOP_EVENT, { detail: { id: current.activeId } }));
+  }, []);
 
   React.useEffect(() => {
     const now = Date.now();
@@ -242,7 +255,6 @@ function ExperienceShell() {
       record("home-first-frame", "home", durationMs, "bundle");
       record("feed-restored", "home", durationMs, chunks.some(({ source }) => source === "fresh-stream") ? "local-cache" : "bundle");
       document.body.dataset.vibeifyFirstFrameMs = String(Math.round(durationMs));
-      window.setTimeout(maybeStartRun, 120);
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
@@ -250,44 +262,44 @@ function ExperienceShell() {
   React.useEffect(() => {
     saveExperienceState(browserStorage(), state);
     document.body.dataset.vibeifyExperience = state.view;
-    if (state.view === "home") window.setTimeout(maybeStartRun, 80);
     return () => delete document.body.dataset.vibeifyExperience;
-  }, [maybeStartRun, state]);
+  }, [state]);
 
   React.useEffect(() => {
     const onChunks = (event) => {
       const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
-      const appended = appendCachedChunks(browserStorage(), incoming);
-      if (appended.length === 0) return;
+      appendCachedChunks(browserStorage(), incoming);
+      const acceptedIds = new Set(getCachedStream(browserStorage()).chunks.map(({ id }) => id));
+      const accepted = incoming.filter(({ id }) => acceptedIds.has(id));
+      if (accepted.length === 0) return;
       setChunks((current) => {
         const seen = new Set(current.map(({ id }) => id));
-        const next = [...current, ...appended.filter(({ id }) => !seen.has(id))].slice(-160);
+        const next = [...current, ...accepted.filter(({ id }) => !seen.has(id))].slice(-160);
         chunksRef.current = next;
         return next;
       });
       record("chunk-appended", event.detail?.runId ?? "stream", event.detail?.durationMs ?? 0, "fresh-stream");
     };
-    const onStreamStatus = (event) => {
-      const current = scheduler.current;
-      if (event.detail?.id !== current.activeId || event.detail?.state !== "complete") return;
-      current.active = false;
-      current.activeId = null;
-      record("buffer-run-complete", event.detail.id, event.detail.durationMs ?? 0, "fresh-stream");
-      window.setTimeout(maybeStartRun, 180);
-    };
     const onRecipeStatus = (event) => {
       const current = scheduler.current;
       if (event.detail?.id !== current.activeId) return;
-      if (event.detail?.state === "blocked" || event.detail?.state === "preview" || event.detail?.state === "ready") {
+      const nextState = event.detail?.state;
+      if (["starting", "submitted", "stopping"].includes(nextState)) {
+        setUpdateState(nextState);
+        return;
+      }
+      if (["complete", "stopped", "timed-out", "busy", "error"].includes(nextState)) {
+        if (nextState === "complete") record("magazine-update-complete", event.detail.id, event.detail.durationMs ?? 0, "fresh-stream");
         current.active = false;
         current.activeId = null;
-        current.blocked = true;
+        setUpdateState(nextState);
       }
     };
     const onChatResult = (event) => {
       const chunk = event.detail?.chunk;
       if (chunk === null || typeof chunk !== "object" || chunk.source !== "chat-directed") return;
       if (typeof chunk.id !== "string" || typeof chunk.title !== "string" || typeof chunk.markdown !== "string") return;
+      appendCachedChunks(browserStorage(), [chunk]);
       setChunks((current) => {
         if (current.some(({ id }) => id === chunk.id)) return current;
         const next = [...current, chunk].slice(-160);
@@ -299,9 +311,17 @@ function ExperienceShell() {
       const profile = createEditorialProfile(event.detail?.preset, event.detail?.customDirection ?? event.detail?.direction);
       editorialProfileRef.current = profile;
       setEditorialProfile(profile);
-      scheduler.current.directionPending = true;
       record("editorial-direction-changed", "home", 0, "user");
-      window.setTimeout(maybeStartRun, 80);
+    };
+    const onStorage = (event) => {
+      if (event.key !== CONTENT_STORE_KEY && event.key !== null) return;
+      const cached = getCachedStream(browserStorage()).chunks;
+      setChunks((current) => {
+        const seen = new Set(current.map(({ id }) => id));
+        const next = [...current, ...cached.filter(({ id }) => !seen.has(id))].slice(-160);
+        chunksRef.current = next;
+        return next;
+      });
     };
     const onVibeHome = () => {
       dispatch({ type: "home" });
@@ -309,19 +329,19 @@ function ExperienceShell() {
     };
     window.addEventListener(VIBE_CHAT_RESULT_EVENT, onChatResult);
     window.addEventListener(VIBE_STREAM_CHUNKS_EVENT, onChunks);
-    window.addEventListener(VIBE_STREAM_STATUS_EVENT, onStreamStatus);
     window.addEventListener(RECIPE_STATUS_EVENT, onRecipeStatus);
     window.addEventListener(VIBE_HOME_EVENT, onVibeHome);
     window.addEventListener(EDITORIAL_SETTINGS_EVENT, onEditorialSettings);
+    window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(VIBE_STREAM_CHUNKS_EVENT, onChunks);
-      window.removeEventListener(VIBE_STREAM_STATUS_EVENT, onStreamStatus);
       window.removeEventListener(RECIPE_STATUS_EVENT, onRecipeStatus);
       window.removeEventListener(VIBE_CHAT_RESULT_EVENT, onChatResult);
       window.removeEventListener(VIBE_HOME_EVENT, onVibeHome);
       window.removeEventListener(EDITORIAL_SETTINGS_EVENT, onEditorialSettings);
+      window.removeEventListener("storage", onStorage);
     };
-  }, [maybeStartRun, record]);
+  }, [record]);
 
   const onScroll = React.useCallback(() => {
     const current = scheduler.current;
@@ -340,12 +360,24 @@ function ExperienceShell() {
       current.consumed = consumed;
       const last = cards[Math.max(0, consumed - 1)]?.dataset.chunkId;
       if (last !== undefined) dispatch({ type: "mark-read", chunkId: last });
-      if (chunksRef.current.length - consumed < 14) {
-        record("buffer-low-water", "home", 0, "user");
-        maybeStartRun();
-      }
     });
-  }, [maybeStartRun, record]);
+  }, []);
+
+  const onTouchStart = React.useCallback((event) => {
+    const y = event.touches?.[0]?.clientY;
+    pull.current = reducePullRefresh(pull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
+  }, []);
+  const onTouchMove = React.useCallback((event) => {
+    const y = event.touches?.[0]?.clientY;
+    pull.current = reducePullRefresh(pull.current, { type: "move", y });
+    setPullDistance(pull.current.distance);
+  }, []);
+  const finishPull = React.useCallback(() => {
+    const ended = reducePullRefresh(pull.current, { type: "end" });
+    pull.current = createPullRefreshState();
+    setPullDistance(0);
+    if (ended.requested) startRun();
+  }, [startRun]);
 
   const onAnswer = React.useCallback((chunkId, label) => {
     if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
@@ -356,16 +388,41 @@ function ExperienceShell() {
   const onSave = React.useCallback((chunkId) => dispatch({ type: "toggle-save", chunkId }), []);
   const displayChunks = newestFirst(chunks);
   const goHome = React.useCallback(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }), []);
+  const updateNotice = {
+    complete: "Magazine updated. It will stay still until another Chat answer completes or you request an update.",
+    stopped: "Magazine update stopped.",
+    "timed-out": "Magazine update reached its time limit and stopped.",
+    error: "The magazine could not update. Your existing edition is unchanged.",
+  }[updateState];
 
   return (
     <div className="vfx-shell" data-view={state.view}>
       {state.view === "home" ? (
-        <main ref={streamRef} className="vfx-stream" onScroll={onScroll}>
-          <Header editorialLabel={editorialProfile.label} onHome={goHome} onChat={() => dispatch({ type: "enter-chat" })} />
+        <main
+          ref={streamRef}
+          className="vfx-stream"
+          onScroll={onScroll}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={finishPull}
+          onTouchCancel={finishPull}
+        >
+          <Header
+            editorialLabel={editorialProfile.label}
+            updateState={updateState}
+            onHome={goHome}
+            onUpdate={startRun}
+            onStop={stopRun}
+            onChat={() => dispatch({ type: "enter-chat" })}
+          />
+          <div className={`vfx-pull${pullDistance >= 72 ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
+            <span>{pullDistance >= 72 ? "Release to update" : "Pull to update"}</span>
+          </div>
           <section className="vfx-edition-intro">
             <span>Newest first · {editorialProfile.label}</span>
             <h1>Your conversation, edited into a better view.</h1>
-            <p>Completed Chat answers and the editor's discoveries arrive here at the top. Chat keeps the detailed working view.</p>
+            <p>Completed answers from every Chat thread arrive here automatically. Pull down or choose Update when you want one new editorial pass; no background refill starts by itself.</p>
+            {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
           </section>
           <div className="vfx-chunks">
             {displayChunks.map((chunk, index) => (
@@ -402,12 +459,16 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-wordmark span { font-size:24px; font-weight:900; letter-spacing:.18em; background:linear-gradient(100deg,#fff 5%,#ff88ad 55%,#9f8cff); background-clip:text; color:transparent; }
 .vfx-wordmark small { color:#ab9ca7; font-size:9px; letter-spacing:.12em; text-transform:uppercase; }
 .vfx-edition { margin-left:auto; color:#94858f; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+.vfx-update { min-height:39px; padding:0 16px; border:1px solid rgba(255,255,255,.19); border-radius:999px; background:rgba(255,255,255,.04); cursor:pointer; font-size:12px; font-weight:760; }
+.vfx-update:hover { background:rgba(255,255,255,.12); }.vfx-update.is-active { color:#190d13; border-color:#ff9aba; background:#ff9aba; }
 .vfx-chat { min-height:39px; padding:0 16px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.25); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:13px; font-weight:700; }
 .vfx-chat:hover { background:rgba(255,255,255,.14); }
+.vfx-pull { height:0; overflow:hidden; display:grid; place-items:end center; color:#9d8f99; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; transition:height .18s ease; }.vfx-pull span { padding:0 0 12px; }.vfx-pull.is-armed { color:#ff8db1; }
 .vfx-edition-intro { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:clamp(34px,5vw,64px) 0 clamp(34px,5vw,58px); }
 .vfx-edition-intro>span { color:#ff85aa; font-size:10px; font-weight:850; letter-spacing:.16em; text-transform:uppercase; }
 .vfx-edition-intro h1 { max-width:940px; margin:9px 0 13px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(36px,5vw,70px); font-weight:500; line-height:.94; letter-spacing:-.055em; text-wrap:balance; }
 .vfx-edition-intro p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.35vw,18px); line-height:1.5; }
+.vfx-edition-intro .vfx-update-note { margin-top:14px; color:#ffb3cb; font-size:12px; font-weight:700; }
 .vfx-chunks { width:min(1180px,calc(100% - 40px)); margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:clamp(20px,3vw,42px); }
 .vfx-chunk { grid-column:span 6; min-width:0; align-self:start; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
 .vfx-chunk:nth-child(5n+2),.vfx-chunk:nth-child(5n+4) { grid-column:span 5; }
@@ -436,7 +497,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 @media (max-width:820px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:280px; height:280px; }.vfx-question-options { grid-template-columns:1fr; } }
-@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; }.vfx-wordmark small { display:none; }.vfx-chat { padding:0 12px; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:230px; height:230px; }.vfx-footer { flex-direction:column; } }
+@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:230px; height:230px; }.vfx-footer { flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 `;
 
@@ -455,5 +516,6 @@ export function registerExperienceShell(ctx) {
   installStyles(ctx);
   installVibeStreamBridge(ctx);
   installRecipeRunner(ctx);
+  installThreadMagazineBridge(ctx);
   ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, ExperienceShell));
 }

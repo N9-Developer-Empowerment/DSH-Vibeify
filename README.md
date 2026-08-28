@@ -10,18 +10,18 @@ DSH Vibeify does **not** create or host a public website. It turns [DeepSeek Har
 
 ## The idea: generative AI beyond turn-by-turn chat
 
-Most AI products begin with an empty box. The person writes a prompt, waits for one answer, and repeats. DSH Vibeify begins with something useful to explore and keeps generating complete, verified content into the same continuous edition.
+Most AI products begin with an empty box. The person writes a prompt, waits for one answer, and repeats. DSH Vibeify begins with something useful to explore and turns completed answers from any Chat thread into one continuous edition. It generates extra magazine material only when the reader asks for an update.
 
 ```mermaid
 flowchart LR
     OPEN["Open local DSH"] --> VIBE["Vibe already contains a visual edition"]
     VIBE --> EXPLORE["Read · watch · save · respond"]
-    EXPLORE --> SIGNAL["A request, editorial direction or low-water signal"]
+    EXPLORE --> SIGNAL["A Chat request, pull-to-update, or Update click"]
     SIGNAL --> HARNESS["DSH harness\nsessions · tools · models · permissions"]
     HARNESS --> LEAD["Active lead agent\nplans and defines acceptance"]
     LEAD --> WORK["Lead and optional specialist workers\nresearch · build · analyse"]
     WORK --> CHECK["Lead verifies sources, evidence and artifacts"]
-    CHECK --> PUBLISH["Complete content pages arrive at the top"]
+    CHECK --> PUBLISH["One bounded answer or update completes, then stops"]
     PUBLISH --> VIBE
     EXPLORE -. "open when you want control or detail" .-> CHAT["Chat\nask · queue · steer · approve · inspect"]
     CHAT --> HARNESS
@@ -33,14 +33,14 @@ The visible surface is website-like, but the machinery underneath is an agent ha
 | --- | --- |
 | **DSH** | Runs sessions, agents, model routes, tools, permissions and approvals on the user's machine. |
 | **Vibeify** | Adds the continuous editorial stream, visual presentation, local content buffer and safe route between generated work and the stream. |
-| **Vibe** | Presents complete content as one newest-first, continuously replenished edition. It is not a separate public site. |
+| **Vibe** | Presents completed answers from every thread as one newest-first edition. Extra editorial work runs only after Pull to update or Update. It is not a separate public site. |
 | **Chat** | Lets the user ask directly, queue or steer work, approve protected actions and inspect progress or technical evidence. |
 | **Lead agent** | Plans, sets the acceptance bar, validates work and owns the final result. This is Codex in governed ChatGPT/combined mode, or the native DSH agent in DeepSeek-only mode. |
 | **Workers** | Optionally perform bounded research, coding, analysis or media work; their output is not published merely because they say it is finished. |
 
-“Streaming” here means a continuous stream of **complete content items**, not merely text appearing token by token. The edition is available immediately from local bundled and saved material; background refill adds new pages at the top without replacing the older ones. A person can lean back and browse, or move into Chat whenever they want to direct the agents.
+“Streaming” here means a continuous stream of **complete content items**, not merely text appearing token by token. The edition is available immediately from local bundled and saved material. A completed Chat answer joins the top without another AI call; a deliberate pull or Update click may request one bounded editorial batch. Opening, scrolling, changing settings, or finishing a batch never starts another one.
 
-This is the different paradigm: **Chat is an available control surface, not the whole product.** The generative system can keep a rich information environment alive while DSH continues to provide the orchestration, safety and evidence boundaries expected from an agent harness.
+This is the different paradigm: **Chat is an available control surface, not the whole product.** Each Chat thread remains request-driven and becomes idle after it answers. Vibe is the shared presentation layer across those threads, with an explicit update gesture when the reader wants more.
 
 Choose the provider setup that suits you:
 
@@ -50,7 +50,7 @@ Choose the provider setup that suits you:
 
 Neither account is individually compulsory, and installation can finish before either is connected. At least one working provider is required before asking the agent to perform AI work. DeepSeek billing and ChatGPT plan limits remain separate.
 
-The first screen is Vibe itself: a full-screen editorial feed is already populated from a bundled well and the reader's saved stream. No guide, tile, recipe, or prompt must be selected. New editor pages and completed Chat answers arrive at the top, so **Vibe** always returns to the latest material while older pages remain intact below. **Chat** is the detailed source view with the conventional DSH conversation and technical controls.
+The first screen is Vibe itself: a full-screen editorial feed is already populated from a bundled well and the reader's saved magazine. No guide, tile, recipe, or prompt must be selected. Completed answers from all local DSH threads arrive at the top only after their turns finish successfully. **Chat** remains the detailed source view with the conventional DSH conversation and technical controls.
 
 > DSH is a fast-moving developer preview. Vibeify pins the versions it has tested and includes a health check, but you should still expect upstream changes.
 
@@ -88,23 +88,23 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 ## What you get
 
 - **A continuous editorial website.** Vibe covers the DSH work surface completely and opens directly into one long, responsive edition. There is no catalogue-to-player-to-result transition.
-- **A deep local well.** Twenty-four deterministic editorial chunks—text, credited photography, and questionnaire cards—are available synchronously on a cold visit. Every tile receives a stable local photograph, later images decode lazily, automatic refills build toward a 64-chunk buffer, and up to 160 chunks persist for return visits.
-- **Automatic background refill.** Three warm-up waves are attempted per Vibe visit, with later waves triggered before fewer than fourteen chunks remain ahead. Each refill asks for eight complete semantic items and can use several independently verified worker lanes.
+- **A deep local well.** Twenty-four deterministic editorial chunks—text, credited photography, and questionnaire cards—are available synchronously on a cold visit. Every tile receives a stable local photograph, later images decode lazily, and up to 160 completed magazine items persist for return visits.
+- **Explicit, bounded updates.** Pull down from the top of Vibe or choose **Update** to request one batch of eight complete semantic items. **Stop update** cancels only that dedicated magazine turn, and a 20-minute ceiling stops a stuck update. No mount, scroll, settings change, or completion event can chain another run.
 - **Newest-first, append-only depth.** Fresh chunks join the top of the same edition while storage remains append-only. They never replace earlier material; deeper research becomes a visible editorial follow-up above the earlier page.
-- **Questionnaires are content.** One-tap cards create useful engagement time and softly shape later refills without blocking reading or pretending to change a request already in flight.
-- **Chat is the detailed source view.** Every completed rendered assistant answer is projected into the top of Vibe as an edited, in-memory card, including finished technical answers. Chat retains the working detail. Raw prompts, attachments, reasoning, tool activity, approvals and incomplete progress are never copied; explicit public-content requests can still publish richer verified cards progressively.
-- **No empty wait.** Bundled and saved content render in the first local frame. A content-free ledger measures first frame, restore, buffer waves, chunk arrival, low-water events, and engagement.
+- **Questionnaires are content.** One-tap cards create useful engagement time and softly shape the next explicitly requested update without blocking reading or pretending to change a request already in flight.
+- **One magazine across every Chat thread.** Vibe reads local DSH history without reopening or resuming a thread and accepts only turns durably marked completed. The final assistant answer is sanitised into a browser-local card. Raw prompts, attachments, reasoning, tool activity, approvals, session identifiers, aborted work and incomplete progress are never copied.
+- **No empty wait or hidden work.** Bundled and saved content render in the first local frame. A content-free ledger measures first frame, restore, explicit updates, chunk arrival, and engagement. Simply reading the magazine consumes no model quota.
 - **Real photography, labelled AI graphics.** Six locally bundled photographs retain visible photographer/source credit and an Unsplash licence record in `assets/experience/PHOTO_CREDITS.json`. AI is used for graphic treatment—colour, typography, layout and motion—not to impersonate documentary or editorial photography.
 - **Provider-neutral Vibe.** `dsh-vibeify-experience` supplies Vibe without installing a Codex provider, so native DSH/DeepSeek remains in control.
 - **Optional governed mode.** `dsh-vibeify` uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process. In this mode Codex remains the lead.
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
 - **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
 - **A Codex capability setting.** Open **Settings → Codex** to choose Efficient, Balanced, Frontier, or Maximum. Frontier—GPT-5.6 Sol with Extra High reasoning—is the quality-preserving default.
-- **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and automatic refills or explicit public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose.
+- **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and explicit magazine updates or public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose.
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
 - **Connected Codex apps.** Installed tools can be surfaced through their normal Codex approval boundaries; desktop-only capabilities still require the appropriate host connection.
 - **Image support.** Images can be uploaded to Codex; sending them to another provider always requires explicit intent.
-- **Colour and editorial settings.** In Chat, **VIBE settings** combines System, Ocean, Broadcast, Forest and Synthwave colour themes with an editorial direction: Open mix, Style & social life, Football, AI & cars, or a short custom brief. Colour remains presentation-only; editorial direction shapes future Codex-led Vibe refills without changing models, permissions, routing or billing.
+- **Colour and editorial settings.** In Chat, **VIBE settings** combines System, Ocean, Broadcast, Forest and Synthwave colour themes with an editorial direction: Open mix, Style & social life, Football, AI & cars, or a short custom brief. Colour remains presentation-only; editorial direction shapes the next user-requested Vibe update without changing models, permissions, routing or billing.
 
 ## What “lower cost without lower quality” means in combined mode
 
@@ -125,9 +125,9 @@ DeepSeek API calls are billed separately by DeepSeek. Pricing and model availabi
 
 ## Experience Shell and VIBEs
 
-The **Vibe home** owns the lean-back stream, saved chunks, local buffer, questionnaire cards, automatic refill waves, completed-Chat projections, user-directed public-content pages, and reading position. It is the landing page on every visit; a previous Chat visit is not restored as home. **Chat** reveals the normal DSH conversation, **Trajectory** retains technical work, and **Vibe** returns to the top of the continuous newest-first edition. Completed rendered assistant answers are projected in memory and are not written to the persistent content cache. The uppercase **VIBE settings** control remains separate: colour affects Chat presentation, while the explicit editorial direction affects later Vibe refill prompts. Neither changes models, permissions, routing, protected-action confirmation, or billing policy. In DeepSeek-only mode, Codex-specific capability and progress controls are omitted. See [Vibe generated-content streaming](docs/CONTENT_STREAMING.md) for the playout, cache, timing, chunking, worker-lane, and engagement method.
+The **Vibe home** owns one lean-back magazine, saved chunks, questionnaire cards, completed-Chat projections from every local thread, explicit update controls, user-directed public-content pages, and reading position. It is the landing page on every visit; a previous Chat visit is not restored as home. **Chat** reveals the normal DSH conversation, **Trajectory** retains technical work, and **Vibe** returns to the top of the newest-first edition. Completed answers and explicitly published chunks are retained in a bounded 30-day browser-local cache; prompts, session ids and working activity are not. The uppercase **VIBE settings** control remains separate: colour affects Chat presentation, while editorial direction affects only the next requested magazine update. Neither changes models, permissions, routing, protected-action confirmation, or billing policy. In DeepSeek-only mode, Codex-specific capability and progress controls are omitted. See [Vibe generated-content streaming](docs/CONTENT_STREAMING.md) for the lifecycle, local-history projection, cache, timing, chunking, and worker method.
 
-Select **Chat**, then **VIBE settings** at the bottom-right of the conventional DSH UI to choose a colour palette and editorial direction. Both settings are stored only in that browser; the direction is passed to the Codex lead for future editor refills. Select the **Vibe** session tab to return directly to the newest material.
+Select **Chat**, then **VIBE settings** at the bottom-right of the conventional DSH UI to choose a colour palette and editorial direction. Both settings are stored only in that browser; the direction is passed to the lead only when you next pull to update or choose **Update**. Select the **Vibe** session tab to return directly to the newest material.
 
 Daniela Elliott leads the project’s experience design, look and feel, and visual VIBEs. The current palettes are a starting point for a more expressive, user-shaped agent workspace. See [VIBEs](docs/VIBES.md) to add or refine a palette.
 
@@ -159,7 +159,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.8.0`
+- DSH Vibeify `0.9.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

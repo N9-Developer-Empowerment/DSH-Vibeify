@@ -19,14 +19,14 @@ export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels
     ? "No prior generated titles were supplied."
     : `Avoid repeating these recent titles or their obvious angle: ${titles.join("; ")}.`;
   const chatContext = completedChatTopics.length === 0
-    ? "There are no recent completed Chat answer topics to carry into this refill."
+    ? "There are no recent completed Chat answer topics to carry into this update."
     : `Recent completed Chat answer topics: ${completedChatTopics.join("; ")}. Let these explicit interests influence the subject mix where they offer a worthwhile editorial continuation. They are titles from completed answers, not a demographic profile or permission to expose the reader's prompt.`;
   const editorial = createEditorialProfile(editorialProfile?.preset, editorialProfile?.customDirection ?? editorialProfile?.direction);
   const editorialContext = `Reader-selected editorial direction — ${editorial.label}: ${editorial.direction} Treat this as explicit editorial configuration, not as evidence of identity or protected traits. Keep exact custom wording with the Codex lead; when delegating, translate it into bounded generic topic lanes without quoting the reader's text into a worker packet.`;
 
-  return `# VIBE continuous edition refill
+  return `# VIBE magazine update
 
-You are the Codex lead editing a continuous lean-back VIBE stream. The reader already has a substantial bundled and locally saved edition on screen. They did not select a guide and they are not waiting at a blank prompt. Add ${count} complete, worthwhile semantic chunks to the top of that same edition. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
+You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. Add ${count} complete, worthwhile semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
 
 ## Editorial contract
 
@@ -47,7 +47,7 @@ Publish each ready item as a commentary update using exactly one closed envelope
 Complete Markdown for this one item, including its relevant source links when claims require them.
 </vibe-chunk>
 
-Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with “${runId}-” and never reuse an id. A questionnaire is content: give it a concise invitation followed by 2–6 Markdown bullet options. It must be optional, enjoyable, answerable in one tap, and useful for shaping a later refill. Do not ask the reader to wait or finish a form.
+Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with “${runId}-” and never reuse an id. A questionnaire is content: give it a concise invitation followed by 2–6 Markdown bullet options. It must be optional, enjoyable, answerable in one tap, and useful for shaping a later update. Do not ask the reader to wait or finish a form.
 
 Only close and publish an envelope after that individual chunk is safe to show. Plans, partial paragraphs, raw search notes, unresolved claims, worker prose, citations not yet checked, and tool activity stay outside the envelope. Do not hold an early completed chunk behind a slower lane. Do not split a paragraph, table, quotation, citation cluster, or questionnaire across envelopes.
 
@@ -65,5 +65,5 @@ ${chatContext}
 
 ${editorialContext}
 
-The final assistant answer in Chat should briefly record that refill ${runId} completed and summarise its item titles. Do not duplicate the full chunk bodies there. The VIBE page consumes only the closed chunk envelopes, presents this material above the earlier edition, and leaves every older item intact beneath it.`;
+The final assistant answer in Chat should briefly record that update ${runId} completed and summarise its item titles. Do not duplicate the full chunk bodies there. The VIBE page consumes only the closed chunk envelopes, presents this material above the earlier edition, and leaves every older item intact beneath it. End the turn after this single batch; do not ask a follow-up question, start another run, or continue generating in the background.`;
 }

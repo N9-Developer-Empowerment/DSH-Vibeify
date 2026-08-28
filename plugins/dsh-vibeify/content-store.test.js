@@ -41,7 +41,7 @@ test("stream cache restores previous content and discards stale or corrupt data"
   assert.equal(getCachedStream(storage, now + CONTENT_TTL_MS - 1).chunks.length, 1);
   assert.equal(getCachedStream(storage, now + CONTENT_TTL_MS + 1).chunks.length, 0);
   storage.values.set(CONTENT_STORE_KEY, "not json");
-  assert.deepEqual(getCachedStream(storage, now), { version: 2, chunks: [], answers: [] });
+  assert.deepEqual(getCachedStream(storage, now), { version: 3, chunks: [], answers: [] });
 });
 
 test("stream cache is bounded without changing the order of retained entries", () => {
@@ -84,4 +84,23 @@ test("unavailable or quota-failing storage never blocks the in-memory stream", (
   const quota = { getItem: () => null, setItem: () => { throw new Error("quota"); } };
   assert.equal(appendCachedChunks(quota, [chunk("run:first")]).length, 1);
   assert.equal(saveStreamAnswer(quota, "run:first", "Useful"), false);
+});
+
+test("completed Chat answers persist locally with the shared magazine but prompts and session ids are absent", () => {
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  const appended = appendCachedChunks(storage, [{
+    id: "chat-result-safehash",
+    kind: "article",
+    source: "chat-directed",
+    title: "Finished answer",
+    markdown: "Only the rendered assistant answer.",
+    topicId: null,
+    publishedAt: now,
+  }], now);
+  assert.equal(appended.length, 1);
+  const raw = storage.values.get(CONTENT_STORE_KEY);
+  assert.match(raw, /Finished answer/);
+  assert.doesNotMatch(raw, /user prompt|session-/i);
+  assert.equal(getCachedStream(storage, now + 1).chunks[0].source, "chat-directed");
 });

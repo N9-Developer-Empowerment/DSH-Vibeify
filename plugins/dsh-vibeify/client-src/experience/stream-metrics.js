@@ -6,9 +6,8 @@ export const STREAM_METRIC_EVENTS = Object.freeze([
   "chunk-appended",
   "questionnaire-answered",
   "editorial-direction-changed",
-  "buffer-run-started",
-  "buffer-run-complete",
-  "buffer-low-water",
+  "magazine-update-started",
+  "magazine-update-complete",
 ]);
 export const STREAM_METRIC_SOURCES = Object.freeze(["bundle", "local-cache", "fresh-stream", "user"]);
 

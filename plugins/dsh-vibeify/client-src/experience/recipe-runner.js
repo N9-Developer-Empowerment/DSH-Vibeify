@@ -1,5 +1,9 @@
 export const RECIPE_RUN_EVENT = "dsh-vibeify:run-recipe";
 export const RECIPE_STATUS_EVENT = "dsh-vibeify:recipe-status";
+export const RECIPE_STOP_EVENT = "dsh-vibeify:stop-recipe";
+export const VIBE_UPDATE_TIMEOUT_MS = 20 * 60 * 1000;
+
+const UPDATE_SESSION_KEY = "dsh-vibeify.magazine-session.v1";
 
 export function createStreamEnvelope({ id, prompt, batchSize, answerLabels = [] }) {
   if (typeof id !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) throw new TypeError("stream id is invalid");
@@ -10,11 +14,11 @@ export function createStreamEnvelope({ id, prompt, batchSize, answerLabels = [] 
     : [];
   return Object.freeze({
     id,
-    title: "VIBE background refill",
+    title: "VIBE magazine update",
     prompt,
     batchSize,
     answers: Object.freeze(answers),
-    mode: "continuous-stream",
+    mode: "manual-stream-update",
   });
 }
 
@@ -49,92 +53,196 @@ function status(detail) {
   window.dispatchEvent(new CustomEvent(RECIPE_STATUS_EVENT, { detail }));
 }
 
-function visible(element) {
-  return element instanceof HTMLElement && element.getClientRects().length > 0;
+function storage() {
+  try { return window.localStorage; } catch { return null; }
 }
 
-function setComposerValue(composer, prompt) {
-  if (composer instanceof HTMLTextAreaElement) {
-    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
-    setter?.call(composer, prompt);
-  } else {
-    composer.textContent = prompt;
+function storedSessionId() {
+  try {
+    const value = storage()?.getItem(UPDATE_SESSION_KEY) ?? "";
+    return /^[a-z0-9][a-z0-9-]{7,95}$/i.test(value) ? value : null;
+  } catch {
+    return null;
   }
-  composer.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: prompt }));
-  composer.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-function wait(milliseconds) {
-  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+function saveSessionId(sessionId) {
+  try { storage()?.setItem(UPDATE_SESSION_KEY, sessionId); } catch { /* A fresh session can be created next time. */ }
 }
 
-function selectedSessionSnapshot() {
-  const element = document.querySelector('[role="treeitem"][aria-selected="true"]');
-  if (!(element instanceof HTMLElement)) return null;
-  return { element, label: element.textContent?.trim() ?? "" };
+function currentSessionDefaults(sessions) {
+  const snapshot = sessions.list.getSnapshot();
+  const current = snapshot.current === undefined ? null : snapshot.byId?.[snapshot.current];
+  return current === null || current === undefined ? {} : {
+    ...(typeof current.cwd === "string" ? { cwd: current.cwd } : {}),
+    ...(typeof current.agentPreset === "string" ? { agentPreset: current.agentPreset } : {}),
+  };
 }
 
-function sessionChanged(previous) {
-  if (previous === null) return true;
-  const current = selectedSessionSnapshot();
-  if (current === null) return true;
-  return current.element !== previous.element && current.label !== previous.label;
-}
-
-function composerIsEmpty(composer) {
-  if (composer instanceof HTMLTextAreaElement) return composer.value.trim().length === 0;
-  return (composer.textContent ?? "").trim().length === 0;
-}
-
-async function waitForFreshComposer(runId, currentRun, previousSession) {
-  for (let attempt = 0; attempt < 40 && runId === currentRun(); attempt += 1) {
-    const composer = document.querySelector('[data-composer-seat] textarea,[data-composer-seat] [contenteditable="true"]');
-    const send = composer?.closest("[data-composer-seat]")?.querySelector('button[aria-label="Send message"],button[aria-label="Send"]');
-    if (sessionChanged(previousSession) && visible(composer) && visible(send) && composerIsEmpty(composer)) return composer;
-    await wait(100);
+function timeZone() {
+  try {
+    const value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+  } catch {
+    return undefined;
   }
-  return null;
+}
+
+function latestTurnEnd(entries) {
+  let latest = null;
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const event = entry?.event ?? entry;
+    if (event?.type !== "turn/end" || !Number.isFinite(event.seq)) continue;
+    if (latest === null || event.seq > latest.seq) latest = { seq: event.seq, kind: event.data?.reason?.kind };
+  }
+  return latest;
+}
+
+async function historyEnd(connection, sessionId) {
+  try {
+    const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
+    if (!response?.result?.ok) return null;
+    return latestTurnEnd(response.result.value.events);
+  } catch {
+    return null;
+  }
 }
 
 export function installRecipeRunner(ctx) {
+  const connection = ctx.get("connection");
+  const sessions = ctx.get("sessions");
   ctx.effect(() => {
-    let runId = 0;
+    let active = null;
+    let generation = 0;
+    let timeout = null;
+
+    const clearActive = () => {
+      if (timeout !== null) window.clearTimeout(timeout);
+      timeout = null;
+      active = null;
+    };
+
+    const checkSettled = async () => {
+      if (active === null || active.sessionId === null || active.submitted !== true) return;
+      if (active.checking === true) {
+        active.checkAgain = true;
+        return;
+      }
+      const candidate = active;
+      const summary = sessions.list.getSnapshot().byId?.[candidate.sessionId];
+      if (summary === undefined) return;
+      if (summary.running === true) {
+        candidate.sawRunning = true;
+        return;
+      }
+      candidate.checking = true;
+      candidate.checkAgain = false;
+      const end = await historyEnd(connection, candidate.sessionId);
+      if (active !== candidate) return;
+      candidate.checking = false;
+      if (end === null || end.seq <= candidate.baselineEndSeq) {
+        if (candidate.checkAgain) void checkSettled();
+        return;
+      }
+      clearActive();
+      const state = end.kind === "completed" ? "complete" : end.kind === "aborted" ? "stopped" : "error";
+      status({ state, id: candidate.id, title: candidate.title, sessionId: candidate.sessionId });
+    };
+
+    const stopActive = async (state = "stopped") => {
+      if (active === null) return;
+      const stopping = active;
+      if (stopping.sessionId === null) {
+        generation += 1;
+        clearActive();
+        status({ state, id: stopping.id, title: stopping.title });
+        return;
+      }
+      const response = await connection.api.sessions.cancel({ sessionId: stopping.sessionId });
+      if (active !== stopping) return;
+      if (!response?.result?.ok) {
+        status({ state: "error", id: stopping.id, title: stopping.title, sessionId: stopping.sessionId, message: "The magazine update could not be stopped." });
+        return;
+      }
+      clearActive();
+      status({ state, id: stopping.id, title: stopping.title, sessionId: stopping.sessionId });
+    };
+
     const onRun = async (event) => {
       const recipe = event.detail;
-      if (recipe === null || typeof recipe !== "object" || typeof recipe.prompt !== "string") return;
-      runId += 1;
-      const thisRun = runId;
+      if (recipe === null || typeof recipe !== "object" || recipe.mode !== "manual-stream-update" || typeof recipe.prompt !== "string") return;
+      if (active !== null) {
+        status({ state: "busy", id: recipe.id, title: recipe.title, sessionId: active.sessionId });
+        return;
+      }
+      generation += 1;
+      const thisGeneration = generation;
+      active = {
+        id: recipe.id,
+        title: recipe.title,
+        sessionId: null,
+        sawRunning: false,
+        submitted: false,
+        baselineEndSeq: -1,
+        checking: false,
+        checkAgain: false,
+      };
       status({ state: "starting", id: recipe.id, title: recipe.title });
-      await wait(160);
-      const newSession = [...document.querySelectorAll('button[aria-label="New session"]')].find(visible);
-      const existingComposer = document.querySelector("[data-composer-seat]");
-      if (!(newSession instanceof HTMLElement)) {
-        status({ state: existingComposer === null ? "preview" : "blocked", id: recipe.id, title: recipe.title });
+      let sessionId = storedSessionId();
+      const snapshot = sessions.list.getSnapshot();
+      if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
+        clearActive();
+        status({ state: "busy", id: recipe.id, title: recipe.title, sessionId });
         return;
       }
-      const previousSession = selectedSessionSnapshot();
-      newSession.click();
-      const composer = await waitForFreshComposer(thisRun, () => runId, previousSession);
-      if (!(composer instanceof HTMLElement) || thisRun !== runId) {
-        status({ state: "blocked", id: recipe.id, title: recipe.title });
+      if (sessionId === null || snapshot.byId?.[sessionId] === undefined) {
+        const created = await connection.api.sessions.create(currentSessionDefaults(sessions));
+        if (thisGeneration !== generation || active === null) return;
+        if (!created?.result?.ok) {
+          clearActive();
+          status({ state: "error", id: recipe.id, title: recipe.title, message: "The magazine update session could not be created." });
+          return;
+        }
+        sessionId = created.result.value.sessionId;
+        saveSessionId(sessionId);
+        await connection.api.sessions.rename({ sessionId, title: "VIBE magazine updates" });
+        if (thisGeneration !== generation || active === null) return;
+      }
+      active.sessionId = sessionId;
+      active.baselineEndSeq = (await historyEnd(connection, sessionId))?.seq ?? -1;
+      if (thisGeneration !== generation || active === null) return;
+      const zone = timeZone();
+      const submitted = await connection.api.sessions.prompt({
+        sessionId,
+        mode: "queue",
+        content: [{ type: "text", text: recipe.prompt }],
+        ...(zone === undefined ? {} : { clientTimeZone: zone }),
+      });
+      if (thisGeneration !== generation || active === null) return;
+      if (!submitted?.result?.ok) {
+        clearActive();
+        status({ state: "error", id: recipe.id, title: recipe.title, sessionId, message: "The magazine update was not accepted." });
         return;
       }
-      setComposerValue(composer, recipe.prompt);
-      await wait(80);
-      const seat = composer.closest("[data-composer-seat]");
-      const send = seat?.querySelector('button[aria-label="Send message"],button[aria-label="Send"],button[type="submit"]');
-      if (!(send instanceof HTMLButtonElement) || send.disabled) {
-        composer.focus();
-        status({ state: "ready", id: recipe.id, title: recipe.title });
-        return;
-      }
-      send.click();
-      status({ state: "submitted", id: recipe.id, title: recipe.title });
+      active.submitted = true;
+      status({ state: "submitted", id: recipe.id, title: recipe.title, sessionId });
+      timeout = window.setTimeout(() => { void stopActive("timed-out"); }, VIBE_UPDATE_TIMEOUT_MS);
+      void checkSettled();
     };
+    const onStop = (event) => {
+      if (active === null || (event.detail?.id !== undefined && event.detail.id !== active.id)) return;
+      status({ state: "stopping", id: active.id, title: active.title, sessionId: active.sessionId });
+      void stopActive("stopped");
+    };
+    const unsubscribe = sessions.list.subscribe(() => { void checkSettled(); });
     window.addEventListener(RECIPE_RUN_EVENT, onRun);
+    window.addEventListener(RECIPE_STOP_EVENT, onStop);
     return () => {
-      runId += 1;
+      generation += 1;
+      if (timeout !== null) window.clearTimeout(timeout);
+      unsubscribe();
       window.removeEventListener(RECIPE_RUN_EVENT, onRun);
+      window.removeEventListener(RECIPE_STOP_EVENT, onStop);
     };
-  }, "dsh-vibeify: fresh-session content refill runner");
+  }, "dsh-vibeify: explicit bounded magazine update runner");
 }

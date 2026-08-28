@@ -4,12 +4,9 @@ import assert from "node:assert/strict";
 import { createExperienceCatalog } from "./client-src/experience/catalog.js";
 import { createEditorialEdition } from "./client-src/experience/editorial.js";
 import {
-  MAX_AUTO_RUNS_PER_VISIT,
-  STREAM_LOW_WATER,
   createBundledStream,
   newestFirst,
   questionnaireOptions,
-  shouldStartStreamRun,
   visualEpisodeForChunk,
 } from "./client-src/experience/feed.js";
 
@@ -33,14 +30,6 @@ test("instant content mixes articles, images and optional questionnaires without
   const question = stream.find(({ kind }) => kind === "questionnaire");
   assert.ok(questionnaireOptions(question.markdown).length >= 2);
   for (const chunk of stream.filter(({ topicId }) => topicId !== null)) assert.ok(catalog.byId[chunk.topicId]);
-});
-
-test("buffer policy starts immediately, refills near low water, and remains bounded", () => {
-  assert.equal(shouldStartStreamRun({ totalChunks: 72, consumedChunks: 0, active: false, runsStarted: 0 }), true);
-  assert.equal(shouldStartStreamRun({ totalChunks: 72, consumedChunks: 72 - STREAM_LOW_WATER + 1, active: false, runsStarted: 3 }), true);
-  assert.equal(shouldStartStreamRun({ totalChunks: 72, consumedChunks: 1, active: false, runsStarted: 3 }), false);
-  assert.equal(shouldStartStreamRun({ totalChunks: 1, consumedChunks: 0, active: true, runsStarted: 1 }), false);
-  assert.equal(shouldStartStreamRun({ totalChunks: 1, consumedChunks: 0, active: false, runsStarted: MAX_AUTO_RUNS_PER_VISIT }), false);
 });
 
 test("the feed presents newest arrivals first without mutating append-only storage order", () => {

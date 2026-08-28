@@ -84,7 +84,7 @@ test("the Vibe return control only attaches inside the native Chat surface", () 
   assert.equal(isNativeResultTabList(tabList(["Chat", "Vibe"])), false);
 });
 
-test("every completed answer can become an in-memory Vibe page without storing its prompt", () => {
+test("a rendered answer can become a sanitized Vibe page without storing its prompt", () => {
   const greeting = element("div", [element("p", [textNode("Hello! What would you like to work on?")])]);
   const webcomics = element("div", [
     textNode("\n    "),
@@ -204,7 +204,7 @@ test("the current DSH icon-only Copy action marks only its own closing assistant
   environment.restore();
 });
 
-test("a settled answer is appended to the live Vibe stream without a page refresh", async () => {
+test("DOM mutations never publish duplicate or incomplete Chat content into Vibe", async () => {
   const answers = [];
   const environment = installVibeBridgeBrowser(answers);
   let cleanup;
@@ -220,8 +220,7 @@ test("a settled answer is appended to the live Vibe stream without a page refres
   environment.mutate();
   await new Promise(queueMicrotask);
 
-  assert.equal(published?.title, "Frederick Road");
-  assert.match(published?.markdown, /local history story/);
+  assert.equal(published, undefined);
   cleanup();
   environment.restore();
 });

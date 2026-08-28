@@ -1,5 +1,3 @@
-import { RECIPE_RUN_EVENT } from "./recipe-runner.js";
-
 const TAB_ID = "dsh-vibeify-vibe-tab";
 const MARKDOWN_SELECTOR = 'div[class*="_markdown_"]';
 const CHUNK_PATTERN = /<vibe-chunk\s+id="([a-z0-9][a-z0-9_-]{0,63})"\s+kind="(article|editorial|recommendation|image|music|video|questionnaire)"\s+title="([^"]{1,180})"\s*>([\s\S]*?)<\/vibe-chunk>/gi;
@@ -283,27 +281,11 @@ function removeLegacyChatPresentation() {
   }
 }
 
-/** Collects closed editor chunks and projects every completed rendered Chat answer into Vibe. */
+/** Keeps the Vibe return tab attached; completed content is projected from durable local histories. */
 export function installVibeStreamBridge(ctx) {
   ctx.effect(() => {
-    let currentRun = null;
-    let baselineAnswers = new Set();
-    let baselineThinkRows = new Set(document.querySelectorAll('[data-variant="think"]'));
-    const seenChunkKeys = new Set();
-    let completionReported = false;
-    let runStartedAt = 0;
     let frame = null;
     let disposed = false;
-    const seenChatAnswers = new WeakSet();
-    let lastChatPublishedAt = 0;
-
-    const clock = () => typeof performance === "undefined" ? Date.now() : performance.now();
-    const emitStatus = (state, extra = {}) => {
-      if (currentRun === null) return;
-      window.dispatchEvent(new CustomEvent(VIBE_STREAM_STATUS_EVENT, {
-        detail: { state, id: currentRun.id, durationMs: Math.max(0, clock() - runStartedAt), ...extra },
-      }));
-    };
 
     const ensureVibeTab = () => {
       const tabList = nativeTabList();
@@ -324,62 +306,11 @@ export function installVibeStreamBridge(ctx) {
       trajectory.insertAdjacentElement("afterend", vibeTab);
     };
 
-    const publishClosedChunks = () => {
-      const rows = [...document.querySelectorAll('[data-variant="think"]')].filter((row) => !baselineThinkRows.has(row));
-      const found = [];
-      const namespace = currentRun?.id ?? "chat";
-      for (const row of rows) {
-        for (const chunk of extractPublishedChunks(row.textContent)) {
-          if (!chunkBelongsToPublication(currentRun?.id ?? null, chunk.id)) continue;
-          const key = `${namespace}:${chunk.id}`;
-          if (seenChunkKeys.has(key)) continue;
-          seenChunkKeys.add(key);
-          found.push(chunk);
-        }
-      }
-      if (found.length === 0) return;
-      const chunks = namespaceStreamChunks(namespace, found);
-      window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
-        detail: { runId: namespace, chunks, durationMs: currentRun === null ? 0 : Math.max(0, clock() - runStartedAt) },
-      }));
-      if (currentRun === null) {
-        window.dispatchEvent(new CustomEvent(VIBE_HOME_EVENT));
-      } else {
-        emitStatus("chunks", { count: chunks.length });
-      }
-    };
-
-    const reportCompletion = () => {
-      if (currentRun === null || completionReported) return;
-      const source = answerNodes().filter((node) => !baselineAnswers.has(node)).at(-1);
-      if (source === undefined || !completedAnswer(source)) return;
-      seenChatAnswers.add(source);
-      completionReported = true;
-      emitStatus("complete");
-      currentRun = null;
-    };
-
-    const publishCompletedChatAnswers = () => {
-      if (currentRun !== null) return;
-      for (const source of answerNodes()) {
-        if (seenChatAnswers.has(source) || !completedAnswer(source) || !isAssistantAnswer(source)) continue;
-        seenChatAnswers.add(source);
-        const publishedAt = Math.max(Date.now(), lastChatPublishedAt + 1);
-        const chunk = createChatResultChunk(source, publishedAt);
-        if (chunk === null) continue;
-        lastChatPublishedAt = publishedAt;
-        window.dispatchEvent(new CustomEvent(VIBE_CHAT_RESULT_EVENT, { detail: { chunk } }));
-      }
-    };
-
     const refresh = () => {
       frame = null;
       if (disposed) return;
       removeLegacyChatPresentation();
       ensureVibeTab();
-      publishClosedChunks();
-      reportCompletion();
-      publishCompletedChatAnswers();
     };
 
     const schedule = () => {
@@ -387,19 +318,6 @@ export function installVibeStreamBridge(ctx) {
       frame = requestAnimationFrame(refresh);
     };
 
-    const onRun = (event) => {
-      const recipe = event.detail;
-      if (recipe === null || typeof recipe !== "object" || recipe.mode !== "continuous-stream") return;
-      currentRun = recipe;
-      baselineAnswers = new Set(answerNodes());
-      baselineThinkRows = new Set(document.querySelectorAll('[data-variant="think"]'));
-      completionReported = false;
-      runStartedAt = clock();
-      emitStatus("starting");
-      schedule();
-    };
-
-    window.addEventListener(RECIPE_RUN_EVENT, onRun);
     const observer = new MutationObserver(schedule);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     removeLegacyChatPresentation();
@@ -408,11 +326,10 @@ export function installVibeStreamBridge(ctx) {
     return () => {
       disposed = true;
       observer.disconnect();
-      window.removeEventListener(RECIPE_RUN_EVENT, onRun);
       if (frame !== null) cancelAnimationFrame(frame);
       document.getElementById(TAB_ID)?.remove();
     };
-  }, "dsh-vibeify: newest-first Vibe and completed Chat bridge");
+  }, "dsh-vibeify: Vibe return tab bridge");
 }
 
 export const installVibeResultSurface = installVibeStreamBridge;

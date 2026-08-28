@@ -1,7 +1,4 @@
-export const STREAM_HIGH_WATER = 64;
-export const STREAM_LOW_WATER = 14;
 export const STREAM_BATCH_SIZE = 8;
-export const MAX_AUTO_RUNS_PER_VISIT = 6;
 
 const QUESTIONNAIRES = Object.freeze([
   Object.freeze({
@@ -121,13 +118,4 @@ export function visualEpisodeForChunk(catalog, chunk) {
     hash = Math.imul(hash, 16777619);
   }
   return catalog.episodes[(hash >>> 0) % catalog.episodes.length];
-}
-
-/** Start once per visit, then refill when the amount ahead falls below the low-water mark. */
-export function shouldStartStreamRun({ totalChunks, consumedChunks, active, runsStarted }) {
-  if (![totalChunks, consumedChunks, runsStarted].every(Number.isInteger)) return false;
-  if (totalChunks < 0 || consumedChunks < 0 || runsStarted < 0 || active || runsStarted >= MAX_AUTO_RUNS_PER_VISIT) return false;
-  if (runsStarted === 0) return true;
-  const remaining = Math.max(0, totalChunks - consumedChunks);
-  return totalChunks < STREAM_HIGH_WATER || remaining < STREAM_LOW_WATER;
 }

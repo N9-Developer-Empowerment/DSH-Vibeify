@@ -29,7 +29,7 @@ test("generated artifact can be loaded by DSH before any browser UI renders", ()
     return {};
   });
   assert.equal(typeof exports.apply, "function");
-  assert.deepEqual([...exports.inject], ["sessions", "settingsScope", "slots"]);
+  assert.deepEqual([...exports.inject], ["connection", "sessions", "settingsScope", "slots"]);
 });
 
 test("browser artifact contains the creator-first catalogue and self-contained real photography", () => {
@@ -42,15 +42,19 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /photographer/);
   assert.doesNotMatch(client, /AI concept art/);
   assert.match(client, /Your conversation, edited into a better view/);
-  assert.match(client, /newest first \\xB7 edited from Chat/);
-  assert.match(client, /VIBE background refill/);
+  assert.match(client, /all completed chats/);
+  assert.match(client, /VIBE magazine update/);
+  assert.match(client, /Pull to update/);
+  assert.match(client, /Stop update/);
   assert.match(client, /dsh-vibeify\.feed\.v2/);
   assert.match(client, /home-first-frame/);
   assert.match(client, /feed-restored/);
   assert.match(client, /chunk-appended/);
   assert.match(client, /questionnaire-answered/);
-  assert.match(client, /buffer-run-started/);
-  assert.match(client, /continuous-stream/);
+  assert.match(client, /magazine-update-started/);
+  assert.match(client, /manual-stream-update/);
+  assert.match(client, /completed threads to one local magazine/);
+  assert.match(client, /sessions\.history/);
   assert.match(client, /<vibe-chunk/);
   assert.match(client, /chat-directed/);
   assert.match(client, /dsh-vibeify:chat-result/);
@@ -68,6 +72,7 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.doesNotMatch(client, /Copy answer/);
   assert.doesNotMatch(client, /Take it further/);
   assert.doesNotMatch(client, /vfx-brief/);
+  assert.doesNotMatch(client, /MIN_BACKGROUND_RUNS_PER_VISIT|buffer-low-water|shouldStartStreamRun|continuous-stream/);
 });
 
 test("new presentation retains the existing DSH safety controls", () => {

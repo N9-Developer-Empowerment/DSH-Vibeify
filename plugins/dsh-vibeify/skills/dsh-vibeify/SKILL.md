@@ -1,6 +1,6 @@
 ---
 name: dsh-vibeify
-description: Install, configure, diagnose, update, or explain DSH Vibeify, including DeepSeek-only, ChatGPT-only, and combined Codex-led modes, Codex capability levels, connected-app approvals, image support, progress UI, queue/steer controls, and VIBE themes. Use for DSH Vibeify setup, operation, failures, routing, permissions, or personalization. Do not restart a running DSH task, expose credentials, auto-approve external writes, or forward private inputs to another provider without explicit permission.
+description: Install, configure, diagnose, update, or explain DSH Vibeify, including provider modes, Codex capability, approvals, images, progress, queue/steer, VIBE themes, and the shared magazine lifecycle. Use for DSH Vibeify setup, operation, failures, routing, permissions, or personalization. Do not restart a running DSH task, expose credentials, auto-approve external writes, or forward private inputs to another provider without explicit permission.
 ---
 
 # DSH Vibeify
@@ -17,6 +17,8 @@ Keep these invariants:
 - Never send current images or private project content to another provider unless the user explicitly requests that transfer.
 - Full Access may suppress local command prompts, but protected connected-app actions still require a one-time user decision.
 - A running status, cleared approval, or visible trajectory is not completion. Require a completed agent response or verified artifact.
+- Keep Chat request-driven: one user request runs one turn and stops after its durable answer. Vibe may read completed local histories without reopening or resuming their threads. It must not use opening, scrolling, settings changes, or update completion to start model work.
+- Keep Vibe as one browser-local magazine across all threads. A new completed Chat answer may be projected without another model call. Additional editorial generation requires an explicit pull-to-update or **Update** click, starts at most one bounded turn, exposes **Stop update**, and never chains another run.
 - Do not restart DSH while a task is active. Inspect the session and ask before interrupting unfinished work.
 - A Codex agent running inside DSH must never kill or restart its own host directly. After the user explicitly authorises activation and the current task is complete, run `scripts/activate-vibeify.sh --confirmed-idle`. It validates and installs an immutable package snapshot, canary-boots it away from the live port, and hands the restart to a detached supervisor. Return immediately after the handoff is queued. On the next interaction, read `node scripts/dsh-restart.mjs status`; do not claim success merely because the old process disconnected.
 - Never print, copy, or commit API keys, OAuth tokens, account identifiers, private prompts, or app payloads.

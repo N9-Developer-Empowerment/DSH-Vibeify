@@ -38,18 +38,20 @@ The modular boundary is deliberate:
 - `routing-policy.js` owns model catalogue, cost, route eligibility, and governance instructions.
 - `index.js` owns protocol integration, process isolation, and execution.
 - `progressive-output.js` maps Codex progress and final-answer deltas onto DSH reasoning and text blocks without buffering the completed result or duplicating it.
-- `client-src/experience/stream-recipe.js` owns the automatic refill, semantic chunk, media, questionnaire, worker-lane and safety contract. `recipes.js` retains legacy source recipes for tests/migration but is no longer shipped through the browser catalogue.
+- `client-src/experience/stream-recipe.js` owns the single user-requested magazine-update, semantic chunk, media, questionnaire, worker-lane and safety contract. It explicitly ends after one batch. `recipes.js` retains legacy source recipes for tests/migration but is no longer shipped through the browser catalogue.
 - `client-src/experience/catalog.js` maps those recipes onto the visual channels with explicit source and AI provenance.
 - `client-src/experience/editorial.js` builds the date-keyed editor's edition. The same date is deterministic; different editions vary hero, selection notes and rail order while avoiding adjacent duplicate categories when possible. It is a local presentation function and makes no model call.
-- `client-src/experience/feed.js` builds the 24-chunk synchronous editorial well, parses questionnaire cards, presents append-only arrivals newest-first, assigns every tile a stable local photograph, and owns the high/low-water refill policy.
+- `client-src/experience/feed.js` builds the 24-chunk synchronous editorial well, parses questionnaire cards, presents append-only arrivals newest-first, and assigns every tile a stable local photograph. It contains no model scheduler.
 - `client-src/experience/state.js` owns the Vibe/Chat state plus saved and last-read chunk ids. Every browser visit lands on Vibe even if Chat was previously open.
-- `client-src/experience/content-store.js` owns the append-only 30-day cache for at most 160 allow-listed editor chunks and 32 visible questionnaire labels. It never accepts prompts, sessions, accounts, attachments or automatic Chat projections.
+- `client-src/experience/content-store.js` owns the append-only 30-day cache for at most 160 allow-listed presentation chunks and 32 visible questionnaire labels. Chat cards contain only a hashed local id, source class, title, bounded Markdown and publication time; prompts and DSH session/message ids never enter storage.
 - `client-src/experience/editorial-settings.js` owns the browser-local default, built-in editorial directions, bounded custom brief, sanitisation and settings event. Colour remains separate and presentation-only.
 - `chat-vibe-contract.js` tells the Codex lead when an explicit public-content browse request may use the closed Vibe transport and when technical, private, draft or authorization-bearing work must remain in Chat.
 - `client-src/experience/stream-metrics.js` owns the content-free local duration ledger; it performs no network request.
 - `client-src/experience/output.js` infers a presentation tone from already-rendered answer text and returns metadata only; it cannot rewrite content.
-- `client-src/experience/vibe-result.js` collects closed `<vibe-chunk>` envelopes, renders safe Markdown, detects refill completion, removes legacy Chat decoration, and adds the Vibe return tab inside Chat. It also projects every completed rendered assistant answer as a non-persistent in-memory card while rejecting explicit user-role rows and never reading raw prompts. It does not create a separate result panel or replace earlier feed content.
-- `client-src/experience/recipe-runner.js` opens a fresh DSH session, verifies that session selection changed, inserts an automatic refill contract, and submits it when the idle composer is ready. If it cannot prove a fresh idle session, it fails closed rather than touching the current conversation.
+- `client-src/experience/vibe-result.js` parses complete closed `<vibe-chunk>` envelopes, renders safe Markdown, removes legacy Chat decoration, and adds the Vibe return tab inside Chat. It never uses visible DOM mutations to infer that a Chat turn completed.
+- `client-src/experience/thread-magazine.js` pages through local DSH session history without resuming or publishing an Agent. It scans only idle non-blank sessions, accepts only durable `turn/end: completed` output, ignores user messages and interrupted/aborted work, sanitises final assistant answers, and projects every thread into one browser-local magazine.
+- `client-src/experience/refresh-control.js` is a pure pull-to-refresh state machine. A pull begins only at the top and requests at most one update after crossing the threshold and being released.
+- `client-src/experience/recipe-runner.js` reuses one dedicated magazine-update session, submits exactly one queued update after an explicit gesture, never opens that session, refuses overlapping work, exposes exact-session Stop, and enforces a 20-minute timeout.
 - `client-src/experience/shell.jsx` owns the full-screen presentation and exposes one integration function: `registerExperienceShell(ctx)`.
 - `client-src/legacy-client.template.js` keeps the already-characterised approval, progress, capability, and palette controls isolated from the new shell.
 - `scripts/build-client.mjs` composes those modules into the two CommonJS-style artifacts required by the provider-neutral and governed DSH packages.
@@ -58,12 +60,13 @@ The modular boundary is deliberate:
 
 ```text
 Vibe continuous edition
-  ├─ newest completed Chat answer -> in-memory top card
-  ├─ automatic refill wave -> add closed verified chunks at top
+  ├─ completed answers from all local threads -> browser-local top cards
+  ├─ pull-to-update or Update -> exactly one bounded magazine turn
+  ├─ Stop -> cancel only that dedicated update turn
   ├─ explicit public-content request -> add closed verified chunks at top
   ├─ bundled well + saved stream -> older local depth
-  ├─ questionnaire answer -> soft input to a later wave
-  ├─ reading position -> low-water refill signal
+  ├─ questionnaire answer -> soft input to the next requested update
+  ├─ opening, scrolling and settings changes -> no model work
   └─ Chat
       └─ existing DSH AppFrame, sessions, settings and approvals
           ├─ Chat: normal conversation and steering
@@ -74,7 +77,9 @@ Vibe continuous edition
 
 The Experience Shell registers in DSH's additive `shell.overlay` slot. Vibe covers the application completely without replacing its session or agent state. Chat mode makes the shell non-interactive and reveals the normal DSH surface. A characterised Vibe tab appears only inside that conventional surface and returns to the feed. There is no guide player, result panel, floating handoff brief, or DSH chrome within Vibe.
 
-The feed starts from 24 deterministic local chunks plus up to 160 saved editor chunks and presents the append-only sequence in reverse arrival order. After the first frame, the browser attempts at least three sequential warm-up refill sessions and continues toward a 64-chunk high-water buffer; later refills occur when fewer than fourteen older chunks remain ahead, with a six-run per-visit ceiling. Each refill can use several bounded independent worker lanes behind the Codex lead. A user-explicit public-content browse request may use the same closed commentary transport directly from Chat. Only complete closed `<vibe-chunk>` envelopes enter persistent storage. Separately, every completed rendered assistant answer—including finished technical work—becomes an in-memory top card; its bounded title can also act as a soft topic signal for later refills. Prompts, reasoning, tool chatter, approvals, attachments, incomplete progress and raw worker output are ignored. Run namespacing keeps the editor store append-only, so deeper research becomes a new contextual page rather than a replacement. The runner uses a fresh session so a refill cannot steer unrelated work, and every purchase or other protected external write remains separately confirmed. See [Content streaming](CONTENT_STREAMING.md).
+The feed starts from 24 deterministic local chunks plus up to 160 saved presentation chunks and shows the append-only sequence in reverse arrival order. The session-list bridge discovers idle threads and reads their complete persisted histories through `session.history`; this is a cold-log read and does not resume or publish an Agent. Only the final assistant output of durably completed turns becomes a Chat card. Prompts, reasoning, tool chatter, approvals, attachments, interrupted/aborted work and session identifiers are ignored. A new Chat completion enters Vibe without a model call.
+
+Additional editorial generation begins only from pull-to-update or the accessible **Update** button. One gesture submits one bounded batch to one reusable, dedicated update session. Completion never chains another batch; opening Vibe, scrolling, reaching the tail, and changing settings never generate work. The visible **Stop update** control cancels only that session, while a timeout prevents an abandoned turn from running indefinitely. Each requested update may use bounded independent worker lanes behind the lead. Run namespacing keeps storage append-only, and every protected external write remains separately confirmed in Chat. See [Content streaming](CONTENT_STREAMING.md).
 
 The visible photographic layer uses locally bundled real photographs. Every catalogue entry must declare `kind: "photograph"`, alt text, photographer, source page, licence URL and a hand-tuned focal point; `assets/experience/PHOTO_CREDITS.json` mirrors those credits for package review. Every valid tile resolves to its topic photograph or to a stable id-hashed fallback. Later images decode lazily, so the richer grid makes no model or network call. The interface links the photographer and labels AI as graphic treatment only. Generated graphics may support the composition, but cannot masquerade as a photograph, source, product, show or creator.
 
@@ -86,8 +91,8 @@ The visible photographic layer uses locally bundled real photographs. Every cata
 - `~/.dsh/settings.yaml` owns the user-selected Codex capability level (or exact custom model/reasoning values) and DSH permissions.
 - `model-routing-policy.json` owns dated worker capabilities, price assumptions, and the quality-first invariant.
 - Codex's own authentication and connected-app configuration remain under Codex; Vibeify does not copy credentials.
-- Experience navigation, saved/last-read chunk ids, bounded editor content, visible questionnaire labels, colour choice and editorial direction stay in browser local storage.
-- VIBE colour selection affects the underlying Chat palette only. Editorial direction is passed to the Codex lead for future refills and never changes the model, permissions, routing, approvals or billing.
+- Experience navigation, saved/last-read chunk ids, bounded presentation content, visible questionnaire labels, colour choice and editorial direction stay in browser local storage.
+- VIBE colour selection affects the underlying Chat palette only. Editorial direction is passed to the lead on the next explicit magazine update and never changes the model, permissions, routing, approvals or billing.
 
 ## Why a bundle
 

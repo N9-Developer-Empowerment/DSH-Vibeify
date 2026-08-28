@@ -1,0 +1,46 @@
+{
+  "name": "dsh-vibeify-experience",
+  "version": "0.8.0",
+  "description": "The provider-neutral Vibeify editorial experience for DeepSeek Harness.",
+  "type": "module",
+  "exports": {
+    "./client": "./client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "client.js",
+    "cordis.patch.yml"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "theme",
+    "vibe"
+  ],
+  "author": "Errol Elliott",
+  "contributors": [
+    "Daniela Elliott"
+  ],
+  "homepage": "https://dsh-vibeify.ezzye.chatgpt.site",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

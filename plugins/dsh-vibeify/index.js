@@ -26,10 +26,12 @@ import {
 } from "./routing-policy.js";
 import { Config, installCodexRuntimeSettings } from "./codex-settings.js";
 import { buildDelegationPacket, delegationResultForCodex } from "./delegation-contract.js";
+import { reconcileCompletedAnswer, streamTurnResult } from "./progressive-output.js";
+import { buildChatVibeInstructions } from "./chat-vibe-contract.js";
 
 const PROVIDER = "codex-chatgpt";
 const MODEL = "chatgpt-account-default";
-const BRIDGE_VERSION = "0.7.0";
+const BRIDGE_VERSION = "0.8.0";
 const DSH_DELEGATION_TIMEOUT_MS = 5 * 60 * 1000;
 const MODEL_CATALOG_TOOL_NAME = "dsh_model_catalog";
 const DSH_DELEGATE_TOOL_NAME = "delegate_to_dsh_model";
@@ -274,9 +276,10 @@ class CodexWire {
     this.planType = undefined;
     this.turnSignal = undefined;
     this.turnImages = [];
-    this.progress = undefined;
+    this.turnEvents = undefined;
     this.itemPhases = new Map();
     this.progressedItems = new Set();
+    this.answerTextByItem = new Map();
     this.delegationsThisTurn = 0;
 
     this.transport.onRequest((method, params) => this.handleServerRequest(method, params));
@@ -392,28 +395,34 @@ class CodexWire {
     if (this.turnCompleted !== undefined) {
       throw new LlmError("codex-chatgpt: concurrent turns are not supported", "CONFLICT");
     }
-    const progress = new AsyncQueue();
+    const events = new AsyncQueue();
     const turnImages = [...images];
-    this.progress = progress;
+    this.turnEvents = events;
     this.turnImages = turnImages;
     this.itemPhases.clear();
     this.progressedItems.clear();
+    this.answerTextByItem.clear();
     this.delegationsThisTurn = 0;
     const runtime = this.getRuntimeSettings();
     const access = this.getAccessPolicy();
-    progress.push(`Codex is working… ${runtimeStatus({ ...runtime, access })}.\n`);
+    events.push({ type: "progress", text: `Codex is working… ${runtimeStatus({ ...runtime, access })}.\n` });
     const result = this.runTurn(input, signal).finally(() => {
-      progress.close();
-      if (this.progress === progress) this.progress = undefined;
+      events.close();
+      if (this.turnEvents === events) this.turnEvents = undefined;
       if (this.turnImages === turnImages) this.turnImages = [];
     });
     result.catch(() => {});
-    return { progress, result };
+    return { events, result };
   }
 
   emitProgress(text) {
     if (typeof text !== "string" || text.length === 0) return;
-    this.progress?.push(text);
+    this.turnEvents?.push({ type: "progress", text });
+  }
+
+  emitAnswer(text) {
+    if (typeof text !== "string" || text.length === 0) return;
+    this.turnEvents?.push({ type: "answer", text });
   }
 
   async runTurn(input, signal) {
@@ -427,6 +436,7 @@ class CodexWire {
     this.earlyNotifications = [];
     this.itemPhases.clear();
     this.progressedItems.clear();
+    this.answerTextByItem.clear();
     this.turnCompleted = Promise.withResolvers();
     this.turnSignal = signal;
     const runtime = this.getRuntimeSettings();
@@ -965,11 +975,17 @@ class CodexWire {
 
     if (method === "item/agentMessage/delta") {
       const itemId = asString(object.itemId, "agent message item id");
-      if (this.itemPhases.get(itemId) !== "commentary") return;
+      const phase = this.itemPhases.get(itemId);
       const delta = typeof object.delta === "string" ? object.delta : "";
-      if (!this.progressedItems.has(itemId)) this.emitProgress("\n");
-      this.progressedItems.add(itemId);
-      this.emitProgress(delta);
+      if (phase === "commentary") {
+        if (!this.progressedItems.has(itemId)) this.emitProgress("\n");
+        this.progressedItems.add(itemId);
+        this.emitProgress(delta);
+      } else if (phase === "final_answer" || phase === null) {
+        const streamed = this.answerTextByItem.get(itemId) ?? "";
+        this.answerTextByItem.set(itemId, streamed + delta);
+        this.emitAnswer(delta);
+      }
       return;
     }
 
@@ -984,8 +1000,14 @@ class CodexWire {
       const itemId = asString(item.id, "completed item id");
       if (item.type === "agentMessage") {
         const text = typeof item.text === "string" ? item.text : "";
-        if (item.phase === "final_answer") this.lastFinalAnswer = text;
-        else if (item.phase === null) this.lastUnphasedAnswer = text;
+        if (item.phase === "final_answer" || item.phase === null) {
+          if (item.phase === "final_answer") this.lastFinalAnswer = text;
+          else this.lastUnphasedAnswer = text;
+          const streamed = this.answerTextByItem.get(itemId) ?? "";
+          const tail = reconcileCompletedAnswer(streamed, text);
+          if (tail.length > 0) this.emitAnswer(tail);
+          this.answerTextByItem.delete(itemId);
+        }
         else if (item.phase === "commentary") {
           if (!this.progressedItems.has(itemId) && text.length > 0) this.emitProgress(`\n${text}`);
           this.emitProgress("\n");
@@ -1188,6 +1210,7 @@ class CodexChatGptAdapter extends LlmAdapter {
       [
         "You are Codex running inside DeepSeek Harness. Answer the user's request directly. Treat uploaded images as user-provided input. Give brief commentary updates before and during long work so the user can see useful progress. Do not use OpenAI API-key authentication. Public internet access is routed through Codex's protected network proxy. Installed Codex apps and plugin tools are available: use them directly when relevant. Read-only app work should proceed without approval. Protected external writes must use the connected-app confirmation, wait for the user's decision, and be reported as complete only after the tool confirms success. Prefer a draft or review step unless the user explicitly authorized the immediate external action. If a destination or permission is blocked, request approval; prefer a narrow temporary rule when the protocol offers one, and never bypass the sandbox or invent an approval. Never forward current images to another provider merely because they are present.",
         buildDeveloperRoutingInstructions(ROUTING_POLICY),
+        buildChatVibeInstructions(),
       ].join("\n\n"),
       async ({ toolName, reason, signal: approvalSignal }) => {
         if (agent === undefined) return "unavailable";
@@ -1291,23 +1314,11 @@ class CodexChatGptAdapter extends LlmAdapter {
     const wire = await connection.pending;
     try {
       const run = wire.startTurn(materialized.input, signal, currentImages);
-      let reasoning = "";
-      let answer;
-      yield { type: "block-start", index: 0, blockType: "reasoning" };
       try {
-        for await (const update of run.progress) {
-          reasoning += update;
-          yield { type: "reasoning-delta", index: 0, text: update };
-        }
-        answer = await run.result;
+        yield* streamTurnResult(run);
       } catch (error) {
-        yield { type: "block-end", index: 0, block: { type: "reasoning", text: reasoning } };
         throw error;
       }
-      yield { type: "block-end", index: 0, block: { type: "reasoning", text: reasoning } };
-      yield { type: "block-start", index: 1, blockType: "text" };
-      yield { type: "text-delta", index: 1, text: answer };
-      yield { type: "block-end", index: 1, block: { type: "text", text: answer } };
       yield { type: "usage", usage: { inputTokens: 0, outputTokens: 0 } };
       yield { type: "finish", reason: { kind: "stop" } };
     } catch (error) {

@@ -2,6 +2,8 @@
 set -u
 
 profile="${DSH_PROFILE:-web}"
+dsh_home="${DSH_HOME:-$HOME/.dsh}"
+profile_directory="$dsh_home/profiles/$profile"
 source_only=false
 if [[ "${1:-}" == "--source" ]]; then
   source_only=true
@@ -25,9 +27,20 @@ check() {
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(cd "$script_directory/.." && pwd)"
 plugin_directory="$repository_root/plugins/dsh-vibeify"
+experience_plugin_directory="$repository_root/plugins/dsh-vibeify-experience"
 
 check "plugin JavaScript syntax" node --check "$plugin_directory/index.js"
 check "browser JavaScript syntax" node --check "$plugin_directory/client.js"
+check "provider-neutral browser JavaScript syntax" node --check "$experience_plugin_directory/client.js"
+check "provider-neutral package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-vibeify-experience"||p.main||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$experience_plugin_directory/package.json"
+check "restart handoff syntax" node --check "$script_directory/dsh-restart.mjs"
+check "restart handoff tests" node --test "$script_directory/dsh-restart.test.mjs"
+check "package closure syntax" node --check "$script_directory/validate-package-archive.mjs"
+check "package closure tests" node --test "$script_directory/validate-package-archive.test.mjs"
+check "activation script syntax" bash -n "$script_directory/activate-vibeify.sh"
+check "DSH installer syntax" bash -n "$script_directory/install-dsh.sh"
+check "Vibeify installer syntax" bash -n "$script_directory/install-vibeify.sh"
+check "friendly macOS installer syntax" bash -n "$script_directory/Install DSH Vibeify.command"
 check "routing policy tests" node --test "$plugin_directory/routing-policy.test.js"
 check "DSH bundle manifest" grep -q '"bundle"' "$plugin_directory/package.json"
 check "Codex manifest JSON" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-vibeify"||p.skills!=="./skills/")process.exit(1)' "$plugin_directory/.codex-plugin/plugin.json"
@@ -42,20 +55,34 @@ fi
 
 if [[ "$source_only" != true ]]; then
   check "DSH command" command -v dsh
-  check "Codex command" command -v codex
-  login_status="$(codex login status 2>&1 || true)"
-  if [[ "$login_status" == *"Logged in using ChatGPT"* ]]; then
-    printf 'OK   ChatGPT authentication\n'
-  else
-    printf 'FAIL ChatGPT authentication\n'
-    failures=$((failures + 1))
-  fi
 
   if command -v dsh >/dev/null 2>&1; then
     config_dump="$(mktemp -t dsh-vibeify-doctor.XXXXXX)"
     if dsh --profile "$profile" --dump-config >"$config_dump" 2>/dev/null; then
-      check "Vibeify host layer in profile '$profile'" grep -q "name: dsh-vibeify" "$config_dump"
-      check "Codex is the default provider" grep -q "provider: codex-chatgpt" "$config_dump"
+      if node -e 'const p=require(process.argv[1]);if(!p.dependencies?.["dsh-vibeify-experience"]||!p.dsh?.profile?.bundles?.includes("dsh-vibeify-experience"))process.exit(1)' "$profile_directory/package.json"; then
+        printf 'OK   Vibeify provider-neutral experience in profile %s\n' "$profile"
+        if grep -q "provider: codex-chatgpt" "$config_dump"; then
+          printf 'FAIL DeepSeek mode unexpectedly uses the Codex provider\n'
+          failures=$((failures + 1))
+        else
+          printf 'OK   Native DSH provider remains in control\n'
+        fi
+        printf 'INFO Connect DeepSeek under Settings → Models before asking the agent to work.\n'
+      elif grep -q "name: dsh-vibeify" "$config_dump"; then
+        printf 'OK   Vibeify Codex host layer in profile %s\n' "$profile"
+        check "Codex is the default provider" grep -q "provider: codex-chatgpt" "$config_dump"
+        check "Codex command" command -v codex
+        login_status="$(codex login status 2>&1 || true)"
+        if [[ "$login_status" == *"Logged in using ChatGPT"* ]]; then
+          printf 'OK   ChatGPT authentication\n'
+        else
+          printf 'FAIL ChatGPT authentication\n'
+          failures=$((failures + 1))
+        fi
+      else
+        printf 'FAIL No Vibeify package is composed in profile %s\n' "$profile"
+        failures=$((failures + 1))
+      fi
     else
       printf 'FAIL composed DSH profile\n'
       failures=$((failures + 1))

@@ -1,139 +1,135 @@
 # Installation
 
-These instructions install a persistent DSH CLI, authenticate Codex with a ChatGPT account, install the Vibeify bundle into the `web` profile, and optionally expose the repository's helper skill to Codex.
+DSH Vibeify supports DeepSeek only, ChatGPT only, or both. Neither account is individually required, and you can install before connecting either one. At least one working provider is required before asking the agent to perform AI work.
 
-## Requirements
+## Friendly macOS installation
 
-- macOS 14+ on Apple silicon or another platform supported by DeepSeek Harness
-- Node.js 22 or newer and npm
-- Git
-- A ChatGPT account with Codex access
-- Optional: a DeepSeek API key for separately billed DeepSeek worker calls
+1. Visit [dsh-vibeify.ezzye.chatgpt.site](https://dsh-vibeify.ezzye.chatgpt.site).
+2. Download and unzip **DSH-Vibeify-Installer-macOS.zip**.
+3. Double-click **Install DSH Vibeify.command**. If macOS blocks an unsigned community script, right-click it, choose **Open**, and review the prompt.
+4. Choose DeepSeek, ChatGPT, both, or connect later.
 
-The tested combination is:
+The helper checks Node.js, downloads the public GitHub repository, installs or updates the latest official `@deepseek-ai/dsh` release, installs an immutable Vibeify snapshot, runs non-billing checks, and opens the local Web UI. It never requests an API key or account password.
 
-- `@deepseek-ai/dsh` `0.1.1-rc.2`
-- `@openai/codex` `0.147.0` inside the bridge
-- DSH Vibeify `0.7.0`
+If Node.js 22 or newer is missing, the helper opens the official Node.js download page and stops. Install Node, then run it again.
 
-## 1. Obtain this repository
+If DSH is already running, the helper stages the update and asks you to confirm that current work has finished before a canary-checked detached restart. It never interrupts an active task silently.
 
-When a remote is available:
+## Choose a provider mode
 
-```bash
-git clone <repository-url> /Users/you/IdeaProjects/DSH-Vibeify
-cd /Users/you/IdeaProjects/DSH-Vibeify
-```
+| Mode | Installed package | Lead | Account setup |
+| --- | --- | --- | --- |
+| DeepSeek only | `dsh-vibeify-experience` | Native DSH/DeepSeek agent | Add a DeepSeek key under **Settings → Models** |
+| ChatGPT only | `dsh-vibeify` | ChatGPT-authenticated Codex | Complete the official `codex login` browser flow |
+| Both | `dsh-vibeify` | Codex lead with eligible DeepSeek workers | Complete both of the above |
 
-For the current local checkout:
+The provider-neutral package installs only the Vibe browser experience, so it does not replace DSH's native DeepSeek provider or show Codex-only capability controls. The governed package adds the Codex provider, capability settings, progress controls, and bounded DeepSeek delegation.
 
-```bash
-cd /Users/errolelliott/IdeaProjects/DSH-Vibeify
-```
+DeepSeek API billing and ChatGPT plan limits are separate. Installation itself makes no paid model call.
 
-## 2. Install DeepSeek Harness
+## Developer installation
 
-```bash
-./scripts/install-dsh.sh
-```
+Requirements:
 
-The script installs the pinned developer-preview release globally. If another DSH version is already installed, it stops and asks for an explicit upgrade/downgrade:
+- macOS 14+ on Apple silicon, or another platform supported by DeepSeek Harness;
+- Node.js 22 or newer and npm;
+- Git;
+- one provider account when you are ready to ask the agent to work.
 
-```bash
-./scripts/install-dsh.sh --replace
-```
+The currently tested combination is:
 
-DeepSeek's upstream quick start also supports `npx @deepseek-ai/dsh web`, but a persistent CLI is more convenient for installing an out-of-tree bundle into a named profile.
+- `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
+- `@openai/codex` `0.147.0` inside the governed bridge;
+- DSH Vibeify `0.8.0`.
 
-## 3. Sign Codex into ChatGPT
+Clone and install:
 
 ```bash
-codex login
-codex login status
-```
-
-Complete the browser login with the ChatGPT account whose Codex subscription you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
-
-The bundle carries its own pinned Codex executable, but it reuses the account authentication stored by Codex.
-
-## 4. Install Vibeify into DSH
-
-```bash
-./scripts/install-vibeify.sh
-```
-
-The installer:
-
-1. adds `plugins/dsh-vibeify` to the DSH `web` profile using DSH's official plugin mechanism;
-2. migrates the exact legacy `dsh-llm-codex-chatgpt-local` dependency and handwritten loader row when present, preserving a timestamped backup;
-3. verifies the composed configuration without booting the Web UI; and
-4. never restarts DSH automatically.
-
-Use a different profile with:
-
-```bash
-DSH_PROFILE=my-profile ./scripts/install-vibeify.sh
-```
-
-For a manual local install:
-
-```bash
-dsh plugin --profile web add --workspace-root file:/absolute/path/to/DSH-Vibeify/plugins/dsh-vibeify
-dsh --profile web --dump-config
-```
-
-For a future GitHub-hosted repository, clone it and check out a reviewed commit before running the installer:
-
-```bash
-git clone https://github.com/<owner>/DSH-Vibeify.git
+git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
 cd DSH-Vibeify
-git checkout <reviewed-commit>
-./scripts/install-vibeify.sh
-```
-
-## 5. Enable DeepSeek-first execution
-
-Start DSH, open **Settings → Models**, enter the DeepSeek credential there, and save it. Do not place the key in this repository, shell history, screenshots, or support logs.
-
-DeepSeek credentials are separate from ChatGPT/Codex. When a key is configured, Vibeify asks DeepSeek to perform most eligible bounded execution work. Codex remains the lead and independently validates the returned artifacts or evidence. Without a DeepSeek key, the same Codex lead still works but cannot offload those packets.
-
-## 6. Start and verify
-
-```bash
+./scripts/install-dsh.sh --latest
+./scripts/install-vibeify.sh --provider deepseek
 ./scripts/doctor.sh
 dsh web
 ```
 
-The Web UI normally opens at [http://127.0.0.1:3080](http://127.0.0.1:3080). If the address is already in use, check whether an existing DSH process owns it and reuse that process rather than launching another instance.
+Use `--provider chatgpt` after completing `codex login`. Use `--provider auto` to select ChatGPT mode when a ChatGPT-authenticated Codex login exists and DeepSeek mode otherwise.
 
-In a new session, ask:
+The scripts honour `DSH_PROFILE` for a profile other than `web`:
 
-```text
-Report your Codex model, reasoning effort, access mode, and available DSH worker routes. Do not make a paid worker call.
+```bash
+DSH_PROFILE=my-profile ./scripts/install-vibeify.sh --provider deepseek
 ```
 
-Expected lead status: `Frontier (recommended) · GPT-5.6 Sol · Extra High · Full Access`.
+## Connect DeepSeek
 
-## 7. Choose the Codex capability level
+Create or open an account at [platform.deepseek.com](https://platform.deepseek.com/). Start DSH, open **Settings → Models**, and enter the DeepSeek credential there. Do not put the key in the repository, command history, screenshots, or support logs.
 
-Open **Settings → Codex** in DSH:
+In DeepSeek-only mode the native DSH agent is the lead. In combined mode DeepSeek receives bounded execution packets and Codex validates the resulting artifacts or evidence before integration.
 
-- **Frontier (recommended):** GPT-5.6 Sol · Extra High. This is the default and preserves the strongest lead for planning and verification.
-- **Maximum:** GPT-5.6 Sol · Max for the hardest quality-first work.
-- **Balanced:** GPT-5.6 Terra · High for a lighter lead.
-- **Efficient:** GPT-5.6 Luna · High for routine, highly checkable work.
+## Connect ChatGPT
 
-The capability setting changes the Codex model and reasoning effort together. It never makes DeepSeek the lead. Lower levels are explicit trade-offs; test them on representative tasks before relying on them for high-value work. Changes apply to subsequent Codex turns.
-
-To verify both routing and the active lead without making a paid worker call, ask:
-
-```text
-Report your Codex capability level, model, reasoning effort, access mode, and available DSH worker routes. Explain the DeepSeek-first acceptance contract. Do not call a paid worker.
+```bash
+npm install --global @openai/codex@latest
+codex login
+codex login status
+./scripts/install-vibeify.sh --provider chatgpt
 ```
 
-## Optional: install the Codex helper plugin
+Complete the browser login with the ChatGPT account whose Codex access you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
 
-This does not install the DSH runtime bundle. It gives Codex the repository's installation and diagnostic skill:
+In DSH, open **Settings → Codex** to choose Frontier, Maximum, Balanced, or Efficient. This page exists only in ChatGPT/combined mode. Frontier—GPT-5.6 Sol with Extra High reasoning—is the default quality-preserving lead.
+
+## Verify without a paid call
+
+```bash
+./scripts/doctor.sh
+```
+
+The doctor validates both browser artifacts, immutable packaging support, restart supervision, the selected profile mode, provider ownership, and local UI reachability. It does not send a model request or perform an external write.
+
+For governed mode, a new DSH conversation can also be asked:
+
+```text
+Report your Codex capability level, model, reasoning effort, access mode, and available DSH worker routes. Do not make a paid worker call.
+```
+
+## Update safely
+
+Non-technical users can download and run the current friendly installer again. Developers can run:
+
+```bash
+git pull --ff-only
+./scripts/install-dsh.sh --latest
+./scripts/install-vibeify.sh --provider auto
+./scripts/doctor.sh
+```
+
+`install-vibeify.sh` packages the checkout into a content-addressed snapshot before adding it to the DSH profile. This prevents an editable checkout from changing files underneath a running process.
+
+Finish active work before activation. After explicit authorization:
+
+```bash
+./scripts/activate-vibeify.sh --confirmed-idle --provider auto
+node scripts/dsh-restart.mjs status
+```
+
+The activation script tests the source, installs the immutable snapshot, canary-boots it away from the live port, and gives the replacement to a detached supervisor. A host agent can disconnect during handoff without killing the new DSH process.
+
+## Remove Vibeify
+
+Remove whichever mode is installed:
+
+```bash
+dsh plugin --profile web remove --workspace-root dsh-vibeify
+dsh plugin --profile web remove --workspace-root dsh-vibeify-experience
+```
+
+Removing Vibeify does not delete DSH sessions, Codex authentication, DeepSeek credentials, or browser-stored Vibe preferences.
+
+## Optional Codex helper plugin
+
+This repository also contains a Codex helper skill for installation and diagnosis. It is not the DSH runtime package:
 
 ```bash
 codex plugin marketplace add /absolute/path/to/DSH-Vibeify
@@ -141,21 +137,3 @@ codex plugin add dsh-vibeify@dsh-vibeify
 ```
 
 Start a new Codex task after installation so the skill is discovered cleanly.
-
-## Updates
-
-```bash
-git pull --ff-only
-./scripts/install-vibeify.sh
-./scripts/doctor.sh
-```
-
-Finish active work before restarting DSH. Because DSH is a developer preview, review version changes and rerun the full doctor and plugin tests after every upstream upgrade.
-
-## Removal
-
-```bash
-dsh plugin --profile web remove --workspace-root dsh-vibeify
-```
-
-Removing the bundle does not delete DSH sessions, Codex authentication, DeepSeek credentials, or browser-stored VIBE preferences.

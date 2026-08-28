@@ -4,7 +4,7 @@
 
 ![DSH Vibeify — one lead agent connected to specialist workers](docs/assets/dsh-vibeify-social-preview.png)
 
-[Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [Read the installation guide](docs/INSTALL.md)
+[Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [See how it works](docs/HOW_IT_WORKS.md) · [Read the installation guide](docs/INSTALL.md)
 
 DSH Vibeify does **not** create or host a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence.
 
@@ -44,6 +44,8 @@ The visible surface is website-like, but the machinery underneath is an agent ha
 “Streaming” here means a continuous stream of **complete, formatted content items**, not merely text appearing token by token. The edition is available immediately from local bundled and saved material. A deliberate pull or Update click spends a ready visual short and questionnaire immediately, then publishes each closed generated page as its lane passes lead verification; it does not wait for the slowest lane or the final answer. A completed Chat answer joins the top without another AI call. Opening, scrolling, changing settings, or finishing a batch never starts another one.
 
 This is the different paradigm: **Chat is an available control surface, not the whole product.** Each Chat thread remains request-driven and becomes idle after it answers. Vibe is the shared presentation layer across those threads, with an explicit update gesture when the reader wants more.
+
+For a plain-English walkthrough of the two surfaces, instant local reserve, parallel agent lanes, complete-page streaming, stop conditions, provider modes, and privacy boundary, read [How DSH Vibeify works](docs/HOW_IT_WORKS.md).
 
 Choose the provider setup that suits you:
 
@@ -86,7 +88,7 @@ dsh web
 
 The installer does not restart a DSH process that is already running. Finish active work first. If DSH is already open on port 3080, reuse that page instead of starting a second copy.
 
-For screenshots, alternative profiles, DeepSeek credentials, updating, migration, and removal, read the [full installation guide](docs/INSTALL.md).
+For screenshots, alternative profiles, DeepSeek credentials, updating, migration, and removal, read the [full installation guide](docs/INSTALL.md). For the product lifecycle before or after installation, see [How it works](docs/HOW_IT_WORKS.md).
 
 ## What you get
 

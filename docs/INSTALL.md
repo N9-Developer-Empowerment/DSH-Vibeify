@@ -2,6 +2,8 @@
 
 DSH Vibeify supports DeepSeek only, ChatGPT only, or both. Neither account is individually required, and you can install before connecting either one. At least one working provider is required before asking the agent to perform AI work.
 
+New to the idea? Read [How DSH Vibeify works](HOW_IT_WORKS.md) for the two-surface model, what starts an agent, how pages stream, and what remains local.
+
 ## Friendly macOS installation
 
 1. Visit [dsh-vibeify.ezzye.chatgpt.site](https://dsh-vibeify.ezzye.chatgpt.site).

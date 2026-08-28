@@ -1,5 +1,7 @@
 # Architecture
 
+For the reader-facing lifecycle before the module-level detail, see [How DSH Vibeify works](HOW_IT_WORKS.md).
+
 DSH Vibeify has four deliberately separate faces.
 
 | Face | Runs where | Responsibility |

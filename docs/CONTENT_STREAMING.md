@@ -2,6 +2,8 @@
 
 This document is the product and engineering contract for Vibe. Vibe is one local, newest-first magazine shared by all DSH Chat threads. It is not a second chat client and it is not an autonomous background agent.
 
+For the shorter, non-technical explanation and diagrams, start with [How DSH Vibeify works](HOW_IT_WORKS.md).
+
 ## Product decision
 
 Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. The completed answer remains visible in Chat and can also become a formatted Vibe card.

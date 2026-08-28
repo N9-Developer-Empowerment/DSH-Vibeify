@@ -1,12 +1,46 @@
 # DSH Vibeify
 
-**Your AI work, with a Vibe. DeepSeek, ChatGPT, or both.**
+**A generative-AI harness that feels like a living website. DeepSeek, ChatGPT, or both.**
 
 ![DSH Vibeify — one lead agent connected to specialist workers](docs/assets/dsh-vibeify-social-preview.png)
 
-[Visit the DSH Vibeify website](https://dsh-vibeify.ezzye.chatgpt.site) · [Read the installation guide](docs/INSTALL.md)
+[Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [Read the installation guide](docs/INSTALL.md)
 
-DSH Vibeify turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) into a creator-first streaming experience. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer, and technical evidence.
+DSH Vibeify does **not** create or host a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence.
+
+## The idea: generative AI beyond turn-by-turn chat
+
+Most AI products begin with an empty box. The person writes a prompt, waits for one answer, and repeats. DSH Vibeify begins with something useful to explore and keeps generating complete, verified content into the same continuous edition.
+
+```mermaid
+flowchart LR
+    OPEN["Open local DSH"] --> VIBE["Vibe already contains a visual edition"]
+    VIBE --> EXPLORE["Read · watch · save · respond"]
+    EXPLORE --> SIGNAL["A request, editorial direction or low-water signal"]
+    SIGNAL --> HARNESS["DSH harness\nsessions · tools · models · permissions"]
+    HARNESS --> LEAD["Active lead agent\nplans and defines acceptance"]
+    LEAD --> WORK["Lead and optional specialist workers\nresearch · build · analyse"]
+    WORK --> CHECK["Lead verifies sources, evidence and artifacts"]
+    CHECK --> PUBLISH["Complete content pages arrive at the top"]
+    PUBLISH --> VIBE
+    EXPLORE -. "open when you want control or detail" .-> CHAT["Chat\nask · queue · steer · approve · inspect"]
+    CHAT --> HARNESS
+```
+
+The visible surface is website-like, but the machinery underneath is an agent harness:
+
+| Layer | What it does |
+| --- | --- |
+| **DSH** | Runs sessions, agents, model routes, tools, permissions and approvals on the user's machine. |
+| **Vibeify** | Adds the continuous editorial stream, visual presentation, local content buffer and safe route between generated work and the stream. |
+| **Vibe** | Presents complete content as one newest-first, continuously replenished edition. It is not a separate public site. |
+| **Chat** | Lets the user ask directly, queue or steer work, approve protected actions and inspect progress or technical evidence. |
+| **Lead agent** | Plans, sets the acceptance bar, validates work and owns the final result. This is Codex in governed ChatGPT/combined mode, or the native DSH agent in DeepSeek-only mode. |
+| **Workers** | Optionally perform bounded research, coding, analysis or media work; their output is not published merely because they say it is finished. |
+
+“Streaming” here means a continuous stream of **complete content items**, not merely text appearing token by token. The edition is available immediately from local bundled and saved material; background refill adds new pages at the top without replacing the older ones. A person can lean back and browse, or move into Chat whenever they want to direct the agents.
+
+This is the different paradigm: **Chat is an available control surface, not the whole product.** The generative system can keep a rich information environment alive while DSH continues to provide the orchestration, safety and evidence boundaries expected from an agent harness.
 
 Choose the provider setup that suits you:
 

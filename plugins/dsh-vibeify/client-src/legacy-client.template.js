@@ -727,7 +727,9 @@ window.__ModuleLoader__.load({
   position: absolute;
   right: 0;
   bottom: 42px;
-			  width: min(390px, calc(100vw - 28px));
+			  width: min(440px, calc(100vw - 28px));
+			  max-height: min(720px, calc(100vh - 84px));
+			  overflow:auto;
   box-sizing: border-box;
 			  padding: 14px;
   border: 1px solid var(--dsw-alias-border-l1);
@@ -809,8 +811,7 @@ window.__ModuleLoader__.load({
 			  padding: 9px 10px;
 			  font: inherit;
 			}
-			#${VIBE_ROOT_ID} textarea { min-height: 82px; resize: vertical; line-height: 1.4; }
-			#${VIBE_ROOT_ID} textarea[hidden] { display: none; }
+			#${VIBE_ROOT_ID} textarea { min-height: 96px; resize: vertical; line-height: 1.4; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-direction-copy {
 			  min-height: 34px;
 			  margin: 0;
@@ -871,7 +872,8 @@ window.__ModuleLoader__.load({
 			        <option value="custom">Custom direction</option>
 			      </select>
 			      <p class="dsh-vibeify-direction-copy"></p>
-			      <textarea maxlength="360" aria-label="Custom editorial direction" placeholder="For example: thoughtful architecture, local radio, dry humour, and more interviews with original creators" hidden></textarea>
+			      <label for="dsh-vibeify-editor-note">Add your own editor note <span aria-hidden="true">(optional)</span></label>
+			      <textarea id="dsh-vibeify-editor-note" maxlength="360" aria-label="Add your own editor note" placeholder="For example: more independent voices, shorter articles, dry humour, and links to original creators"></textarea>
 			      <button class="dsh-vibeify-apply" type="button">Apply editorial direction</button>
 			    </div>
 			    <p class="dsh-vibeify-status" aria-live="polite">Stored in this browser. Do not enter secrets.</p>
@@ -889,8 +891,7 @@ window.__ModuleLoader__.load({
 						button.setAttribute("aria-checked", String(button.dataset.vibe === selected));
 					}
 					direction.value = editorialProfile.preset;
-					customDirection.hidden = direction.value !== "custom";
-					if (editorialProfile.preset === "custom") customDirection.value = editorialProfile.customDirection;
+					customDirection.value = editorialProfile.customDirection;
 					directionCopy.textContent = EDITORIAL_PRESETS[direction.value].description;
 					trigger.title = `Vibe settings · ${VIBE_PRESETS[selected].label} · ${editorialProfile.label}`;
 				};
@@ -907,7 +908,7 @@ window.__ModuleLoader__.load({
 					}
 					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply")) {
 						const requested = direction.value;
-						editorialProfile = applyEditorialDirection(requested, requested === "custom" ? customDirection.value : "");
+						editorialProfile = applyEditorialDirection(requested, customDirection.value);
 						status.textContent = `Applied: ${editorialProfile.label}. New Vibe content will use this direction.`;
 						renderSelection();
 						return;
@@ -917,9 +918,7 @@ window.__ModuleLoader__.load({
 					}
 				};
 				const onDirectionChange = () => {
-					customDirection.hidden = direction.value !== "custom";
 					directionCopy.textContent = EDITORIAL_PRESETS[direction.value].description;
-					if (!customDirection.hidden) customDirection.focus();
 				};
 				const onDocumentClick = (event) => {
 					if (!picker.contains(event.target)) setOpen(false);

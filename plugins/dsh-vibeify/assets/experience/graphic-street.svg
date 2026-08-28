@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Moving city graphic</title><desc id="desc">Abstract city blocks, crossings and moving silhouettes in vivid evening colour.</desc>
+  <defs><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#5c45a6"/><stop offset="1" stop-color="#f06a78"/></linearGradient></defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/><g fill="#151125"><path d="M0 230h250v770H0zM280 80h310v920H280zM630 320h220v680H630zM900 120h340v880H900zM1280 270h320v730h-320z"/></g>
+  <g fill="#ffd17c" opacity=".8"><path d="M80 330h75v90H80zM390 190h85v105h-85zM1010 230h95v110h-95zM1370 390h80v90h-80z"/></g>
+  <path d="M-100 940L620 620l1080 130v250H-100z" fill="#0a0912"/><g stroke="#fff" stroke-width="22" opacity=".72"><path d="M520 860l120-55M760 800l120-43M1010 770l120-30M1260 750l120-20"/></g>
+  <g fill="#66e2dc"><circle cx="360" cy="700" r="42"/><path d="M332 748h56l45 160H287z"/></g><g fill="#ff7b9d"><circle cx="1160" cy="590" r="38"/><path d="M1135 634h50l38 135h-126z"/></g>
+</svg>

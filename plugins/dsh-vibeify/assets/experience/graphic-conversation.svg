@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Conversation graphic</title><desc id="desc">Overlapping speech forms connected by fine lines on a warm dark background.</desc>
+  <defs><linearGradient id="bg"><stop stop-color="#231432"/><stop offset="1" stop-color="#702c58"/></linearGradient><linearGradient id="a" x2="1" y2="1"><stop stop-color="#ffbd87"/><stop offset="1" stop-color="#ff6f9f"/></linearGradient></defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/><path d="M180 190h650a110 110 0 0 1 110 110v250a110 110 0 0 1-110 110H500L320 820l35-160H180A110 110 0 0 1 70 550V300a110 110 0 0 1 110-110z" fill="url(#a)"/>
+  <path d="M900 320h490a100 100 0 0 1 100 100v250a100 100 0 0 1-100 100h-115l30 135-150-135H900a100 100 0 0 1-100-100V420a100 100 0 0 1 100-100z" fill="#8c84ff" opacity=".86"/>
+  <g fill="none" stroke="#fff" stroke-linecap="round"><path d="M260 365h480M260 455h350" stroke-width="22" opacity=".78"/><path d="M950 500h360M950 590h230" stroke-width="18" opacity=".7"/></g>
+</svg>

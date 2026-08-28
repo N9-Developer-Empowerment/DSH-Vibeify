@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Colour studio graphic</title><desc id="desc">Paint-like swatches, reflected light and fine brush marks on a midnight surface.</desc>
+  <defs><radialGradient id="bg"><stop stop-color="#66305c"/><stop offset="1" stop-color="#120c1d"/></radialGradient><filter id="blur"><feGaussianBlur stdDeviation="12"/></filter></defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/><g opacity=".9" filter="url(#blur)"><path d="M80 650Q430 170 710 520T1110 280" fill="none" stroke="#ff6f95" stroke-width="130"/><path d="M390 900Q720 360 1040 670t500-240" fill="none" stroke="#f5b457" stroke-width="105"/></g>
+  <g fill="none" stroke-linecap="round"><path d="M160 230h550" stroke="#fff" stroke-width="20" opacity=".75"/><path d="M230 300h420" stroke="#aeeeff" stroke-width="9"/><path d="M1120 160l180 640" stroke="#fff0d5" stroke-width="28"/><path d="M1190 180l160 570" stroke="#ff77ac" stroke-width="12"/></g>
+  <g fill="#fff"><circle cx="260" cy="770" r="22"/><circle cx="1400" cy="250" r="15"/><circle cx="790" cy="170" r="9"/></g>
+</svg>

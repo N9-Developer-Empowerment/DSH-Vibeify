@@ -7,9 +7,12 @@ import {
   createBundledStream,
   createInstantUpdateChunks,
   newestFirst,
+  markdownWithoutLeadVisual,
+  panelLayoutForChunk,
   questionnaireIntroduction,
   questionnaireOptions,
-  visualEpisodeForChunk,
+  remoteVisualForMarkdown,
+  visualMediaForChunk,
 } from "./feed.js";
 import {
   CONTENT_STORE_KEY,
@@ -146,15 +149,20 @@ function Questionnaire({ chunk, answer, onAnswer }) {
 }
 
 function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
-  const episode = visualEpisodeForChunk(CATALOG, chunk);
-  const visual = episode === null || episode === undefined ? null : ARTWORK[episode.artwork];
+  const media = visualMediaForChunk(CATALOG, chunk);
+  const episode = media?.episode;
+  const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
   const isChatResult = chunk.source === "chat-directed";
   const isHero = index === 0 && !isChatResult;
+  const layout = panelLayoutForChunk(chunk, index);
   return (
     <article
       className={`vfx-chunk${isHero ? " is-hero" : ""}`}
       data-kind={chunk.kind}
       data-source={chunk.source}
+      data-layout={layout}
+      data-visual-kind={media?.kind}
+      data-visual-mode={media?.mode}
       data-chunk-id={chunk.id}
       style={{ "--chunk-accent": episode?.accent ?? "#ff759f" }}
     >
@@ -162,14 +170,19 @@ function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
         <figure className="vfx-chunk-visual">
           <img
             src={visual}
-            alt={episode.photo.alt}
-            style={{ objectPosition: episode.photo.focalPoint }}
+            alt={media.alt}
+            style={{ objectPosition: media.focalPoint }}
             loading={index < 2 ? "eager" : "lazy"}
             decoding="async"
             fetchpriority={index === 0 ? "high" : "auto"}
+            referrerPolicy="no-referrer"
+            onError={media.fallbackArtwork === undefined ? undefined : (event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = ARTWORK[media.fallbackArtwork];
+            }}
           />
           <span className="vfx-visual-shade" />
-          <figcaption>Photograph · <a href={episode.photo.sourceUrl} target="_blank" rel="noreferrer">{episode.photo.photographer}</a></figcaption>
+          <figcaption><a href={media.href} target="_blank" rel="noreferrer">{media.label}</a></figcaption>
         </figure>
       ) : null}
       <div className="vfx-chunk-copy">
@@ -183,9 +196,10 @@ function StreamChunk({ chunk, index, saved, answer, onSave, onAnswer }) {
         </div>
         {chunk.kind === "questionnaire"
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
-          : <Markdown value={chunk.markdown} />}
+          : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} />}
         {chunk.source === "fresh-stream" ? <span className="vfx-next-page"><Icon name="arrow" /> from an explicit magazine update</span> : null}
         {isChatResult ? <span className="vfx-next-page"><Icon name="arrow" /> completed in Chat · shared locally across threads</span> : null}
+        <a className="vfx-source-link" href={media.href} target="_blank" rel="noreferrer">{media.linkLabel}<Icon name="arrow" /></a>
       </div>
     </article>
   );
@@ -238,12 +252,17 @@ function ExperienceShell() {
       .filter(({ source }) => source === "chat-directed")
       .slice(-12)
       .map(({ title }) => title);
+    const recentMediaUrls = chunksRef.current
+      .map(({ markdown }) => remoteVisualForMarkdown(markdown)?.imageUrl)
+      .filter(Boolean)
+      .slice(-24);
     const prompt = buildContinuousStreamPrompt({
       runId,
       batchSize: GENERATED_STREAM_BATCH_SIZE,
       answerLabels,
       recentTitles: [...recentTitles, ...instantChunks.map(({ title }) => title)],
       chatTopics,
+      recentMediaUrls,
       editorialProfile: editorialProfileRef.current,
     });
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: GENERATED_STREAM_BATCH_SIZE, answerLabels });
@@ -523,17 +542,26 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-edition-intro h1 { max-width:940px; margin:9px 0 13px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(36px,5vw,70px); font-weight:500; line-height:.94; letter-spacing:-.055em; text-wrap:balance; }
 .vfx-edition-intro p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.35vw,18px); line-height:1.5; }
 .vfx-edition-intro .vfx-update-note { margin-top:14px; color:#ffb3cb; font-size:12px; font-weight:700; }
-.vfx-chunks { width:min(1180px,calc(100% - 40px)); margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:clamp(20px,3vw,42px); }
+.vfx-chunks { width:min(1240px,calc(100% - 40px)); margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
 .vfx-chunk { grid-column:span 6; min-width:0; align-self:start; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
-.vfx-chunk:nth-child(5n+2),.vfx-chunk:nth-child(5n+4) { grid-column:span 5; }
-.vfx-chunk:nth-child(5n+3),.vfx-chunk:nth-child(5n+5) { grid-column:span 7; }
+.vfx-chunk[data-layout="compact"] { grid-column:span 4; }
+.vfx-chunk[data-layout="feature"] { grid-column:span 8; }
+.vfx-chunk[data-layout="wide"] { grid-column:1/-1; }
 .vfx-chunk.is-hero { grid-column:1/-1; display:grid; grid-template-columns:minmax(0,1.25fr) minmax(360px,.75fr); background:#100b10; }
-.vfx-chunk[data-kind="questionnaire"] { grid-column:2/span 10; background:radial-gradient(circle at 90% 0,color-mix(in srgb,var(--chunk-accent) 22%,transparent),transparent 42%),linear-gradient(145deg,#241522,#151018); }
+.vfx-chunk[data-kind="questionnaire"] { display:grid; grid-template-columns:minmax(260px,.42fr) minmax(0,1fr); background:radial-gradient(circle at 90% 0,color-mix(in srgb,var(--chunk-accent) 22%,transparent),transparent 42%),linear-gradient(145deg,#241522,#151018); }
 .vfx-chunk[data-source="chat-directed"] { grid-column:1/-1; border-color:rgba(255,133,170,.34); background:radial-gradient(circle at 100% 0,rgba(159,140,255,.16),transparent 38%),linear-gradient(145deg,#271522,#130e15); }
 .vfx-chunk[data-kind="music"],.vfx-chunk[data-kind="video"] { background:linear-gradient(145deg,color-mix(in srgb,var(--chunk-accent) 12%,#201720),#100c11); }
 .vfx-chunk-visual { position:relative; min-height:210px; margin:0; overflow:hidden; background:#171117; }
 .vfx-chunk-visual img { width:100%; height:210px; display:block; object-fit:cover; }
+.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img { min-height:180px; height:180px; }
+.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img { min-height:250px; height:250px; }
+.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { height:100%; min-height:330px; }
 .vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:100%; }
+.vfx-chunk[data-visual-mode="poster"] .vfx-chunk-visual img { transform:scale(1.06); filter:saturate(1.14) contrast(1.08); }
+.vfx-chunk[data-visual-mode="duotone"] .vfx-chunk-visual img { filter:grayscale(.68) sepia(.22) hue-rotate(275deg) saturate(1.5) contrast(1.08); }
+.vfx-chunk[data-visual-mode="close-crop"] .vfx-chunk-visual img { transform:scale(1.18); }
+.vfx-chunk[data-visual-kind="ai-graphic"] .vfx-visual-shade { background:linear-gradient(145deg,transparent 35%,rgba(5,3,6,.42)); }
+.vfx-chunk[data-visual-kind="fresh-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
 .vfx-visual-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(5,3,6,.72),transparent 60%); }
 .vfx-chunk-visual figcaption { position:absolute; right:16px; bottom:14px; color:#d7cad3; font-size:10px; }.vfx-chunk-visual a { color:#fff; }
 .vfx-chunk-copy { padding:clamp(24px,3vw,42px); }
@@ -549,9 +577,11 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 .vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
+.vfx-source-link { width:max-content; max-width:100%; margin-top:20px; display:flex; align-items:center; gap:7px; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
-@media (max-width:820px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:280px; height:280px; }.vfx-question-options { grid-template-columns:1fr; } }
-@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:230px; height:230px; }.vfx-footer { flex-direction:column; } }
+@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
+@media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
+@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-footer { flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 `;
 

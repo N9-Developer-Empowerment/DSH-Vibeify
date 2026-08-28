@@ -25,6 +25,9 @@ test("experience catalogue has resolvable rails and explicit creative provenance
     assert.ok(episode.photo.alt.length > 0);
     assert.match(episode.aiDisclosure, /AI graphic treatment/i);
     assert.doesNotMatch(episode.aiDisclosure, /AI[- ]generated (photo|image)/i);
+    assert.equal(episode.graphic.kind, "ai-graphic");
+    assert.match(episode.graphic.artwork, /Graphic$/);
+    assert.match(episode.graphic.provenanceUrl, /^https:\/\/github\.com\/N9-Developer-Empowerment\/DSH-Vibeify/);
     assert.ok(episode.editorialNotes.length >= 2);
   }
 
@@ -46,4 +49,5 @@ test("invalid experience content fails before reaching the browser", () => {
   const valid = createExperienceCatalog().episodes[0];
   assert.throws(() => validateExperienceEpisode({ ...valid, creatorStatus: "uncredited" }), /creatorStatus/);
   assert.throws(() => validateExperienceEpisode({ ...valid, photo: { ...valid.photo, kind: "synthetic" } }), /real photograph/);
+  assert.throws(() => validateExperienceEpisode({ ...valid, graphic: { ...valid.graphic, kind: "photograph" } }), /AI-assisted graphic/);
 });

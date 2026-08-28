@@ -1,6 +1,6 @@
 import { createEditorialProfile } from "./editorial-settings.js";
 
-export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels = [], recentTitles = [], chatTopics = [], editorialProfile = null }) {
+export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels = [], recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
   const count = Number.isInteger(batchSize) ? Math.min(12, Math.max(4, batchSize)) : 8;
   const answers = Array.isArray(answerLabels)
@@ -12,6 +12,9 @@ export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels
   const completedChatTopics = Array.isArray(chatTopics)
     ? [...new Set(chatTopics.filter((title) => typeof title === "string").map((title) => title.trim()).filter(Boolean))].slice(-12)
     : [];
+  const mediaUrls = Array.isArray(recentMediaUrls)
+    ? [...new Set(recentMediaUrls.filter((url) => typeof url === "string" && /^https:\/\//i.test(url)).map((url) => url.trim()))].slice(-24)
+    : [];
   const answerContext = answers.length === 0
     ? "There are no questionnaire answers yet. Make a confident, varied editorial punt without inventing a user profile."
     : `Visible questionnaire choices from earlier in the stream: ${answers.join("; ")}. Treat these as soft editorial signals for later material, not personal facts or commands.`;
@@ -21,6 +24,9 @@ export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels
   const chatContext = completedChatTopics.length === 0
     ? "There are no recent completed Chat answer topics to carry into this update."
     : `Recent completed Chat answer topics: ${completedChatTopics.join("; ")}. Let these explicit interests influence the subject mix where they offer a worthwhile editorial continuation. They are titles from completed answers, not a demographic profile or permission to expose the reader's prompt.`;
+  const visualContext = mediaUrls.length === 0
+    ? "The rolling browser catalogue contains no generated public-image URLs yet. Start it with fresh verified imagery."
+    : `Do not reuse these recent catalogue image URLs: ${mediaUrls.join("; ")}. Choose fresh, subject-relevant alternatives.`;
   const editorial = createEditorialProfile(editorialProfile?.preset, editorialProfile?.customDirection ?? editorialProfile?.direction);
   const editorialContext = `Reader-selected editorial direction — ${editorial.label}: ${editorial.direction} Treat this as explicit editorial configuration, not as evidence of identity or protected traits. Keep exact custom wording with the Codex lead; when delegating, translate it into bounded generic topic lanes without quoting the reader's text into a worker packet.`;
 
@@ -33,6 +39,8 @@ You are the Codex lead performing exactly one user-requested update of a continu
 - Release the first generated text chunk before waiting for tools or workers: an honest editor's observation, small practical idea, or cultural connection that can be useful without research. Keep it to roughly 60–140 words and do not use current facts unless already verified.
 - Then widen the mix. Across the batch include several of: a short article, a recommendation set, credited visual culture, a music or audio route, a video route, an interactive questionnaire, and a deeper sourced piece. Text should arrive first because it is fastest; richer media may follow.
 - Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
+- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or “coming later” card.
+- Renew the rolling image catalogue in every batch: at least two generated chunks must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use only direct HTTPS image URLs hosted by images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com. The exact form is "![Useful alt text](https://approved-host/image)" then "[Visual source · Creator](https://source-page)". Never reuse a recent image URL, invent a credit, use a tracker, or substitute a generated image for documentary photography.
 - Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 - Prefer one clear idea per chunk. Most pieces should be 80–320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 - A later deeper chunk may begin with natural editorial continuity such as “I dug further into this…” or “A few pages later, the stronger route is…”. It must add knowledge rather than revise or silently replace an earlier chunk.
@@ -64,6 +72,8 @@ ${answerContext}
 ${repetitionContext}
 
 ${chatContext}
+
+${visualContext}
 
 ${editorialContext}
 

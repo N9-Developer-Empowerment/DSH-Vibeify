@@ -1,4 +1,5 @@
 const TAB_ID = "dsh-vibeify-vibe-tab";
+const TAB_STYLE_ID = "dsh-vibeify-vibe-tab-style";
 const MARKDOWN_SELECTOR = 'div[class*="_markdown_"]';
 const CHUNK_PATTERN = /<vibe-chunk\s+id="([a-z0-9][a-z0-9_-]{0,63})"\s+kind="(article|editorial|recommendation|image|music|video|questionnaire)"\s+title="([^"]{1,180})"\s*>([\s\S]*?)<\/vibe-chunk>/gi;
 const LEGACY_SECTION_PATTERN = /<vibe-section\s+id=["']([a-z0-9][a-z0-9_-]*)["']\s*>([\s\S]*?)<\/vibe-section>/gi;
@@ -281,11 +282,38 @@ function removeLegacyChatPresentation() {
   }
 }
 
+function installVibeTabStyle() {
+  if (document.head === undefined || typeof document.createElement !== "function") return () => {};
+  const style = document.createElement("style");
+  style.id = TAB_STYLE_ID;
+  style.textContent = `
+#${TAB_ID} {
+  min-height:34px!important;
+  margin-inline:7px!important;
+  padding-inline:14px!important;
+  gap:7px!important;
+  color:var(--dsw-alias-label-primary)!important;
+  border:1px solid color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 45%,transparent)!important;
+  border-radius:999px!important;
+  background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 10%,transparent)!important;
+  font-weight:780!important;
+}
+#${TAB_ID}::before { content:"✦"; color:var(--dsw-alias-state-business-primary,#c0182a); font-size:11px; }
+#${TAB_ID}::after { content:"MAGAZINE"; color:var(--dsw-alias-label-tertiary); font-size:8px; font-weight:800; letter-spacing:.12em; }
+#${TAB_ID}:hover { background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 17%,transparent)!important; }
+@media (max-width:640px) { #${TAB_ID}::after { display:none; } }
+`;
+  document.getElementById(TAB_STYLE_ID)?.remove();
+  document.head.appendChild(style);
+  return () => style.remove();
+}
+
 /** Keeps the Vibe return tab attached; completed content is projected from durable local histories. */
 export function installVibeStreamBridge(ctx) {
   ctx.effect(() => {
     let frame = null;
     let disposed = false;
+    const removeTabStyle = installVibeTabStyle();
 
     const ensureVibeTab = () => {
       const tabList = nativeTabList();
@@ -297,6 +325,7 @@ export function installVibeStreamBridge(ctx) {
       vibeTab.id = TAB_ID;
       vibeTab.type = "button";
       vibeTab.textContent = "Vibe";
+      vibeTab.setAttribute("aria-label", "Open the Vibe magazine");
       vibeTab.setAttribute("role", "tab");
       vibeTab.setAttribute("aria-selected", "false");
       vibeTab.tabIndex = -1;
@@ -328,6 +357,7 @@ export function installVibeStreamBridge(ctx) {
       observer.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
       document.getElementById(TAB_ID)?.remove();
+      removeTabStyle();
     };
   }, "dsh-vibeify: Vibe return tab bridge");
 }

@@ -166,3 +166,116 @@ export function visualEpisodeForChunk(catalog, chunk) {
   }
   return catalog.episodes[(hash >>> 0) % catalog.episodes.length];
 }
+
+const VISUAL_MODES = Object.freeze(["cinema", "poster", "duotone", "close-crop"]);
+const REMOTE_IMAGE_HOSTS = Object.freeze(new Set([
+  "images.unsplash.com",
+  "images.pexels.com",
+  "upload.wikimedia.org",
+  "cdn.pixabay.com",
+]));
+const REMOTE_IMAGE_QUERY_KEYS = Object.freeze(new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
+const LEAD_IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/i;
+const SOURCE_LINK_PATTERN = /\[([^\]]{1,120})\]\((https:\/\/[^\s)]+)\)/i;
+
+function allowedImageUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || url.username !== "" || url.password !== "") return null;
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) {
+      if (!REMOTE_IMAGE_QUERY_KEYS.has(key.toLowerCase())) url.searchParams.delete(key);
+    }
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+/** A generated page can contribute one verified public image to the rolling catalogue. */
+export function remoteVisualForMarkdown(markdown) {
+  if (typeof markdown !== "string") return null;
+  const image = markdown.match(LEAD_IMAGE_PATTERN);
+  if (image === null) return null;
+  const imageUrl = allowedImageUrl(image[2]);
+  if (imageUrl === null) return null;
+  const following = markdown.slice((image.index ?? 0) + image[0].length);
+  const source = following.match(SOURCE_LINK_PATTERN);
+  if (source === null) return null;
+  let sourceUrl;
+  try {
+    const parsed = new URL(source[2]);
+    if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "") return null;
+    parsed.hash = "";
+    sourceUrl = parsed.href;
+  } catch {
+    return null;
+  }
+  return Object.freeze({
+    imageUrl,
+    sourceUrl,
+    alt: image[1].replace(/\s+/g, " ").trim(),
+    credit: source[1].replace(/\s+/g, " ").trim(),
+  });
+}
+
+export function markdownWithoutLeadVisual(markdown) {
+  if (typeof markdown !== "string") return "";
+  return markdown.replace(LEAD_IMAGE_PATTERN, "").replace(/^\s+/, "");
+}
+
+/** Resolve a varied, credited visual while keeping media provenance explicit. */
+export function visualMediaForChunk(catalog, chunk) {
+  const episode = visualEpisodeForChunk(catalog, chunk);
+  if (episode === null) return null;
+  const mediaHash = hashText(`${chunk.id}:visual-media`);
+  const remote = remoteVisualForMarkdown(chunk.markdown);
+  if (remote !== null) {
+    return Object.freeze({
+      kind: "fresh-image",
+      externalUrl: remote.imageUrl,
+      fallbackArtwork: episode.artwork,
+      alt: remote.alt,
+      focalPoint: "center",
+      href: remote.sourceUrl,
+      label: remote.credit,
+      linkLabel: "Open image source",
+      mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
+      episode,
+    });
+  }
+  const useGraphic = episode.graphic !== undefined && mediaHash % 2 === 0;
+  if (useGraphic) {
+    return Object.freeze({
+      kind: episode.graphic.kind,
+      artwork: episode.graphic.artwork,
+      alt: episode.graphic.alt,
+      focalPoint: episode.graphic.focalPoint,
+      href: episode.graphic.provenanceUrl,
+      label: "AI-assisted graphic · VIBE",
+      linkLabel: "About this VIBE graphic",
+      mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
+      episode,
+    });
+  }
+  return Object.freeze({
+    kind: episode.photo.kind,
+    artwork: episode.artwork,
+    alt: episode.photo.alt,
+    focalPoint: episode.photo.focalPoint,
+    href: episode.photo.sourceUrl,
+    label: `Photograph · ${episode.photo.photographer}`,
+    linkLabel: "Open visual source",
+    mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
+    episode,
+  });
+}
+
+/** Stable editorial spans let CSS pack the page without fragile nth-child rules. */
+export function panelLayoutForChunk(chunk, index) {
+  if (index === 0 && chunk?.source !== "chat-directed") return "hero";
+  if (chunk?.source === "chat-directed" || chunk?.kind === "questionnaire") return "wide";
+  if (typeof chunk?.markdown === "string" && chunk.markdown.length > 900) return "wide";
+  if (chunk?.kind === "image") return "compact";
+  return index % 2 === 1 ? "feature" : "compact";
+}

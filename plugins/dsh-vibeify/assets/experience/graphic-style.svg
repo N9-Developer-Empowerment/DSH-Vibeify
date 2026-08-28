@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Layered style graphic</title><desc id="desc">Folded fabric-like geometric shapes in coral, blue and cream.</desc>
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#092b34"/><stop offset="1" stop-color="#12121f"/></linearGradient><linearGradient id="fold"><stop stop-color="#ff8c73"/><stop offset="1" stop-color="#a93664"/></linearGradient></defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/><path d="M-100 180L690 40l380 780-800 120z" fill="url(#fold)"/><path d="M660 80l850 150-260 730-650-340z" fill="#62d8d2" opacity=".88"/><path d="M240 40l980 840-280 150L50 300z" fill="#fff4dc" opacity=".78"/>
+  <g fill="none" stroke="#fff" opacity=".42"><path d="M100 230l1040 650M210 130l1040 650M430 70l980 620" stroke-width="5"/><path d="M660 80L270 940M1010 140L600 930M1350 210L980 960" stroke-width="3"/></g>
+</svg>

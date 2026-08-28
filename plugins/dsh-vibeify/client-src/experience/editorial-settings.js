@@ -42,15 +42,18 @@ function cleanCustomDirection(value) {
 
 export function createEditorialProfile(preset = "open", customDirection = "") {
   const selected = Object.hasOwn(EDITORIAL_PRESETS, preset) ? preset : "open";
-  const custom = selected === "custom" ? cleanCustomDirection(customDirection) : "";
+  const custom = cleanCustomDirection(customDirection);
   const effectivePreset = selected === "custom" && custom.length === 0 ? "open" : selected;
   const definition = EDITORIAL_PRESETS[effectivePreset];
+  const direction = effectivePreset === "custom"
+    ? custom
+    : `${definition.direction}${custom.length === 0 ? "" : ` Additional editor note: ${custom}`}`;
   return Object.freeze({
     version: EDITORIAL_SETTINGS_VERSION,
     preset: effectivePreset,
     label: definition.label,
-    direction: effectivePreset === "custom" ? custom : definition.direction,
-    customDirection: effectivePreset === "custom" ? custom : "",
+    direction,
+    customDirection: custom,
   });
 }
 

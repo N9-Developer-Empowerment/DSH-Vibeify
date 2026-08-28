@@ -62,6 +62,11 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /VIBE settings/);
   assert.match(client, /Editorial direction/);
   assert.match(client, /Football, AI &amp; cars/);
+  assert.match(client, /Add your own editor note/);
+  assert.match(client, /AI-assisted graphic/);
+  assert.match(client, /Open visual source/);
+  assert.match(client, /dsh-vibeify-vibe-tab-style/);
+  assert.match(client, /grid-auto-flow:dense/);
   assert.match(client, /dsh-vibeify\.editorial\.v1/);
   assert.doesNotMatch(client, /Open Studio/);
   assert.doesNotMatch(client, /Create this guide/);

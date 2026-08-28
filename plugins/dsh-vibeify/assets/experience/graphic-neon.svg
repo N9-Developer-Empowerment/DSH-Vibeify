@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-labelledby="title desc">
+  <title id="title">Neon night graphic</title><desc id="desc">Abstract luminous arcs and stars over a deep violet city grid.</desc>
+  <defs><radialGradient id="g"><stop stop-color="#ff5d8f"/><stop offset=".48" stop-color="#3f216d"/><stop offset="1" stop-color="#080713"/></radialGradient><filter id="b"><feGaussianBlur stdDeviation="22"/></filter></defs>
+  <rect width="1600" height="1000" fill="url(#g)"/><circle cx="1230" cy="250" r="170" fill="#72e7ff" opacity=".18" filter="url(#b)"/>
+  <g fill="none" stroke-linecap="round"><path d="M-80 820Q360 150 820 690T1700 250" stroke="#ffb2d5" stroke-width="34" opacity=".78"/><path d="M-40 900Q410 310 830 770T1660 390" stroke="#5df2ff" stroke-width="12" opacity=".75"/></g>
+  <g fill="#fff" opacity=".82"><circle cx="210" cy="190" r="7"/><circle cx="390" cy="310" r="4"/><circle cx="1090" cy="150" r="6"/><circle cx="1370" cy="420" r="5"/></g>
+  <path d="M0 840H1600V1000H0z" fill="#07060c" opacity=".65"/><g stroke="#bfa6ff" opacity=".22"><path d="M0 900H1600M0 950H1600"/><path d="M160 840V1000M420 840V1000M760 840V1000M1120 840V1000M1430 840V1000"/></g>
+</svg>

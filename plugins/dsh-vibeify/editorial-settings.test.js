@@ -36,6 +36,16 @@ test("explicit preset direction is stored locally as bounded configuration", () 
   });
 });
 
+test("a free-text editor note augments any selected preset and survives reload", () => {
+  const storage = memoryStorage();
+  const profile = saveEditorialProfile(storage, "machines", "More local voices, fewer product launches.");
+  assert.equal(profile.preset, "machines");
+  assert.equal(profile.customDirection, "More local voices, fewer product launches.");
+  assert.match(profile.direction, /football culture/i);
+  assert.match(profile.direction, /more local voices, fewer product launches/i);
+  assert.deepEqual(loadEditorialProfile(storage), profile);
+});
+
 test("custom direction removes controls, collapses whitespace and remains bounded", () => {
   const profile = createEditorialProfile("custom", `  Quiet\narchitecture\u0000 and local radio ${"x".repeat(500)}  `);
   assert.equal(profile.preset, "custom");

@@ -8,7 +8,7 @@ Vibe is the default home and reading surface. Normal DSH controls appear only af
 
 Vibe never generates merely because it was opened, scrolled, reached the tail, or changed direction. Pull down from the top or press **Update** for one editorial batch. A locally prepared visual short and questionnaire arrive immediately; complete generated pages then stream in independently as the lead verifies them. On a Mac trackpad, place the magazine at the top, pull down with two fingers until **Release to update** appears, then release. A gesture that begins lower in the magazine remains ordinary scrolling and cannot start work. **Stop update** cancels that dedicated magazine turn. Completing one batch cannot start another.
 
-The Experience Shell pairs real, credited photography with AI-assisted graphic treatment. Every valid tile receives its own topic photograph or a deterministic local fallback, and below-the-fold images decode lazily. VIBEs may change colour, type, layout, crop treatment and motion, but must not relabel generated imagery as photography or obscure photographer/source credit.
+The Experience Shell mixes real, credited photography with clearly labelled AI-assisted vector graphics. Every valid tile receives a deterministic bundled visual immediately, varies its crop and treatment, exposes a visual-source or provenance link, and decodes below-the-fold media lazily. Those twelve local assets are an offline reserve rather than a closed catalogue: every explicit Update asks for newly verified public imagery, avoids the most recently used URLs, and keeps the new source metadata with the bounded magazine card. VIBEs may change colour, type, responsive layout, crop treatment and motion, but must not relabel generated imagery as photography or obscure photographer/source credit.
 
 ## Built-in palettes
 
@@ -22,9 +22,17 @@ Select **Chat**, choose **VIBE settings** near the bottom-right of the conventio
 
 ## Editorial direction
 
-The same settings panel controls the editor's future subject mix and voice. The default is **Open mix**: broad, curious and deliberately non-demographic. Built-in alternatives are **Style & social life** and **Football, AI & cars**; **Custom direction** accepts a short reader-authored brief.
+The same settings panel controls the editor's future subject mix and voice. The default is **Open mix**: broad, curious and deliberately non-demographic. Built-in alternatives are **Style & social life** and **Football, AI & cars**. An always-visible **Add your own editor note** field can refine any selection; **Custom direction** uses that note as the whole brief.
 
 Editorial direction is explicit configuration, never an inferred profile. It is stored locally, shown in the Vibe masthead, and included only in the next user-requested magazine update. Changing it does not start work. Exact custom wording remains with the Codex lead; worker packets receive bounded generic topics rather than the reader's text. The direction does not rewrite or remove existing cards and does not change the handling of ordinary Chat answers.
+
+## Visual provenance
+
+The local bundle contains six credited Unsplash photographs and six AI-assisted SVG compositions authored for Vibeify. A card labels the former **Photograph** and links the named photographer's source page; it labels the latter **AI-assisted graphic** and links here. These assets are packaged with the plugin, so changing cards, resizing the window, or opening the magazine makes no image-generation request and does not wait for a remote image host.
+
+An explicit Update renews the rolling catalogue. At least two generated cards must start with a newly verified public image and its human-readable creator or source link. The browser accepts direct HTTPS media only from the small reviewed image-host list, sends no referrer, rejects arbitrary hosts, remembers the 24 most recently used remote URLs so the next update can avoid them, and substitutes the card's local fallback if loading fails. The generated image URL and source link live only inside the same 30-day, 160-card browser cache as the rest of the magazine. Opening or reading Vibe never performs this renewal by itself.
+
+The grid uses explicit `compact`, `feature`, `wide`, and `hero` layouts rather than positional selectors. It packs densely on a large screen, becomes two columns on a medium screen, and becomes one readable column on phones. A visual-source or graphic-provenance link remains visible on every panel. Generated recommendation, image, music and video panels must additionally include a relevant verified link; text-led panels may instead carry the complete useful copy.
 
 ## What never changes
 

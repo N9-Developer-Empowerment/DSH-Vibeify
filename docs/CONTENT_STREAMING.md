@@ -39,8 +39,8 @@ The layers are implementation details; the reader sees one uninterrupted magazin
 
 | Layer | Purpose | Model work |
 | --- | --- | --- |
-| Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited local photography | None |
-| Saved magazine | Return-visit continuity: up to 160 bounded items and 32 short questionnaire choices for 30 days | None |
+| Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited photography, labelled AI-assisted graphics and responsive panel spans | None |
+| Saved magazine | Return-visit continuity: up to 160 bounded items, rolling visual URLs with provenance, and 32 short questionnaire choices for 30 days | None |
 | Completed Chat answers | Conversation continuity across every local DSH thread | None beyond the Chat turn the user already requested |
 | Instant update reserve | One visual short and one questionnaire released synchronously on every explicit update | None |
 | Generated magazine update | Six further editorial pages from independently verified quick, culture/media and deep lanes | One bounded turn, only after Pull to update or Update |

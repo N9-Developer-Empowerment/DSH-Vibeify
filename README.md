@@ -66,7 +66,7 @@ The first screen is Vibe itself: a full-screen editorial feed is already populat
 Think of DSH as a control room for AI agents. DSH Vibeify changes that control room in three important ways:
 
 1. **The product starts with content, not a task form.** Read, scroll, save, watch, listen, or answer an optional question; open Chat only when you want to make or solve something.
-2. **Every tile is visual.** A stable locally bundled photograph is available without an AI-art or network wait, and later images decode lazily.
+2. **Every tile is visual.** A stable locally bundled photograph or clearly labelled AI-assisted graphic is available without a model or network wait, and later images decode lazily.
 3. **Provider choice is real.** DeepSeek, ChatGPT, and combined Codex-led governance are separate install modes rather than one account being hidden as a requirement.
 
 It does not switch provider mode without telling you, send your images elsewhere, approve emails or other external actions for you, or promise equivalent quality where no Codex verification step is present.
@@ -93,13 +93,14 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 ## What you get
 
 - **A continuous editorial website.** Vibe covers the DSH work surface completely and opens directly into one long, responsive edition. There is no catalogue-to-player-to-result transition.
-- **A deep local well.** Twenty-four deterministic editorial chunks—text, credited photography, and questionnaire cards—are available synchronously on a cold visit. Every tile receives a stable local photograph, later images decode lazily, and up to 160 completed magazine items persist for return visits.
+- **A deep local well.** Twenty-four deterministic editorial chunks—text, credited photography, AI-assisted graphics, and questionnaire cards—are available synchronously on a cold visit. Every tile receives one of twelve bundled visuals with varied crop and treatment, later images decode lazily, and up to 160 completed magazine items persist for return visits.
 - **Instant, bounded updates.** Pull down from the top of Vibe—including a two-finger pull on a Mac trackpad—or choose **Update** for a batch of eight complete semantic items. A locally prepared visual short and questionnaire appear immediately; six generated pages then stream independently from quick, culture/media and deep lanes as they are checked. **Stop update** cancels only that dedicated magazine turn, and a 20-minute ceiling stops a stuck update. No mount, ordinary scroll, settings change, or completion event can chain another run.
 - **Newest-first, append-only depth.** Fresh chunks join the top of the same edition while storage remains append-only. They never replace earlier material; deeper research becomes a visible editorial follow-up above the earlier page.
 - **Questionnaires are content.** One-tap cards create useful engagement time and softly shape the next explicitly requested update without blocking reading or pretending to change a request already in flight.
 - **One magazine across every real Chat thread.** Vibe reads local DSH history without reopening or resuming a thread and accepts only turns durably marked completed. Internal subagent sessions and the dedicated update session are not mistaken for reader conversations. The final assistant answer is sanitised into a browser-local card. Raw prompts, worker reports, candidate lists, attachments, reasoning, tool activity, approvals, session identifiers, aborted work and incomplete progress are never copied.
 - **No empty wait or hidden work.** Bundled and saved content render in the first local frame. A content-free ledger measures first frame, restore, explicit updates, chunk arrival, and engagement. Simply reading the magazine consumes no model quota.
-- **Real photography, labelled AI graphics.** Six locally bundled photographs retain visible photographer/source credit and an Unsplash licence record in `assets/experience/PHOTO_CREDITS.json`. AI is used for graphic treatment—colour, typography, layout and motion—not to impersonate documentary or editorial photography.
+- **Real photography, labelled AI graphics.** Six locally bundled photographs retain visible photographer/source credit and an Unsplash licence record in `assets/experience/PHOTO_CREDITS.json`; six local AI-assisted SVG compositions are labelled as graphics and link to their provenance. They are the instant offline fallback, not a permanently fixed catalogue. Every explicit update asks for at least two newly verified public images, rejects arbitrary image hosts, avoids the 24 most recently used image URLs, suppresses referrer data, and falls back locally if a remote image fails. Saved cards—including their visual provenance—age out with the bounded 30-day/160-item magazine cache.
+- **Useful exits from every panel.** Each card exposes its visual source or graphic-provenance link. Generated recommendation, image, music and video panels must also carry a relevant verified content link; a text-led panel can instead contain the complete useful article copy.
 - **Provider-neutral Vibe.** `dsh-vibeify-experience` supplies Vibe without installing a Codex provider, so native DSH/DeepSeek remains in control.
 - **Optional governed mode.** `dsh-vibeify` uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process. In this mode Codex remains the lead.
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
@@ -110,7 +111,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
 - **Connected Codex apps.** Installed tools can be surfaced through their normal Codex approval boundaries; desktop-only capabilities still require the appropriate host connection.
 - **Image support.** Images can be uploaded to Codex; sending them to another provider always requires explicit intent.
-- **Colour and editorial settings.** In Chat, **VIBE settings** combines System, Ocean, Broadcast, Forest and Synthwave colour themes with an editorial direction: Open mix, Style & social life, Football, AI & cars, or a short custom brief. Colour remains presentation-only; editorial direction shapes the next user-requested Vibe update without changing models, permissions, routing or billing.
+- **Colour and editorial settings.** In Chat, **VIBE settings** combines System, Ocean, Broadcast, Forest and Synthwave colour themes with an editorial direction: Open mix, Style & social life, Football, AI & cars, or custom-only. An always-visible free-text editor note can refine any selection. Colour remains presentation-only; editorial direction shapes the next user-requested Vibe update without changing models, permissions, routing or billing.
 
 ## What “lower cost without lower quality” means in combined mode
 
@@ -133,7 +134,7 @@ DeepSeek API calls are billed separately by DeepSeek. Pricing and model availabi
 
 The **Vibe home** owns one lean-back magazine, saved chunks, questionnaire cards, completed-Chat projections from every local thread, explicit update controls, user-directed public-content pages, and reading position. It is the landing page on every visit; a previous Chat visit is not restored as home. **Chat** reveals the normal DSH conversation, **Trajectory** retains technical work, and **Vibe** returns to the top of the newest-first edition. Completed answers and explicitly published chunks are retained in a bounded 30-day browser-local cache; prompts, session ids and working activity are not. The uppercase **VIBE settings** control remains separate: colour affects Chat presentation, while editorial direction affects only the next requested magazine update. Neither changes models, permissions, routing, protected-action confirmation, or billing policy. In DeepSeek-only mode, Codex-specific capability and progress controls are omitted. See [Vibe generated-content streaming](docs/CONTENT_STREAMING.md) for the lifecycle, local-history projection, cache, timing, chunking, and worker method.
 
-Select **Chat**, then **VIBE settings** at the bottom-right of the conventional DSH UI to choose a colour palette and editorial direction. Both settings are stored only in that browser; the direction is passed to the lead only when you next pull to update or choose **Update**. Select the **Vibe** session tab to return directly to the newest material.
+Select **Chat**, then **VIBE settings** at the bottom-right of the conventional DSH UI to choose a colour palette, a broad editorial direction, and an optional free-text editor note. These settings are stored only in that browser; the direction is passed to the lead only when you next pull to update or choose **Update**. Select the visually highlighted **Vibe · Magazine** session tab to return directly to the newest material.
 
 Daniela Elliott leads the project’s experience design, look and feel, and visual VIBEs. The current palettes are a starting point for a more expressive, user-shaped agent workspace. See [VIBEs](docs/VIBES.md) to add or refine a palette.
 
@@ -166,7 +167,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.11.0`
+- DSH Vibeify `0.12.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

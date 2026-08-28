@@ -6,8 +6,12 @@ import { createEditorialEdition } from "./client-src/experience/editorial.js";
 import {
   createBundledStream,
   createInstantUpdateChunks,
+  markdownWithoutLeadVisual,
   newestFirst,
+  panelLayoutForChunk,
   questionnaireOptions,
+  remoteVisualForMarkdown,
+  visualMediaForChunk,
   visualEpisodeForChunk,
 } from "./client-src/experience/feed.js";
 
@@ -65,4 +69,63 @@ test("every valid stream tile receives a stable locally bundled photograph", () 
   }
   const topicChunk = stream.find(({ topicId }) => topicId !== null);
   assert.equal(visualEpisodeForChunk(catalog, topicChunk).id, topicChunk.topicId);
+});
+
+test("the visual resolver mixes credited photography with labelled AI-assisted graphics", () => {
+  const stream = createBundledStream(catalog, "2026-08-28", 72);
+  const media = stream.map((chunk) => visualMediaForChunk(catalog, chunk));
+  assert.ok(media.every(({ artwork, alt, href, label }) => artwork.length > 0 && alt.length > 0 && href.startsWith("https://") && label.length > 0));
+  assert.ok(media.some(({ kind }) => kind === "photograph"));
+  assert.ok(media.some(({ kind }) => kind === "ai-graphic"));
+  assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= 10);
+});
+
+test("an approved generated image joins the rolling catalogue with visible provenance", () => {
+  const imageUrl = "https://images.unsplash.com/photo-fresh-catalogue?auto=format&fit=crop&w=1600";
+  const markdown = `![A bright studio with layered paper](https://images.unsplash.com/photo-fresh-catalogue?auto=format&fit=crop&w=1600)\n\n[Visual source · Alex Example](https://unsplash.com/photos/fresh-catalogue)\n\nA complete piece of reader-facing copy.`;
+  const chunk = Object.freeze({
+    id: "refill-fresh-catalogue-image",
+    kind: "image",
+    source: "fresh-stream",
+    title: "Fresh visual catalogue",
+    markdown,
+    topicId: null,
+  });
+
+  const remote = remoteVisualForMarkdown(markdown);
+  const media = visualMediaForChunk(catalog, chunk);
+  assert.equal(remote.imageUrl, imageUrl);
+  assert.equal(remote.sourceUrl, "https://unsplash.com/photos/fresh-catalogue");
+  assert.equal(media.kind, "fresh-image");
+  assert.equal(media.externalUrl, imageUrl);
+  assert.equal(media.href, remote.sourceUrl);
+  assert.equal(media.label, "Visual source · Alex Example");
+  assert.ok(media.fallbackArtwork.length > 0);
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /^!\[/);
+  assert.match(markdownWithoutLeadVisual(markdown), /Visual source · Alex Example/);
+});
+
+test("unapproved remote images cannot enter the catalogue and receive a local fallback", () => {
+  const markdown = "![Tracking image](https://tracker.example/pixel.jpg)\n\n[Source](https://example.com)\n\nUseful copy.";
+  const chunk = Object.freeze({ id: "refill-rejected-image", kind: "image", source: "fresh-stream", title: "Rejected image", markdown, topicId: null });
+  const media = visualMediaForChunk(catalog, chunk);
+  assert.equal(remoteVisualForMarkdown(markdown), null);
+  assert.notEqual(media.kind, "fresh-image");
+  assert.ok(["photograph", "ai-graphic"].includes(media.kind));
+});
+
+test("rolling catalogue images require provenance and discard tracking parameters", () => {
+  const tracked = "![Fresh subject](https://images.pexels.com/photos/123/example.jpeg?w=1600&utm_source=tracker#pixel)\n\n[Visual source · Pat Example](https://www.pexels.com/photo/example-123/#credit)\n\nUseful copy.";
+  const accepted = remoteVisualForMarkdown(tracked);
+  assert.equal(accepted.imageUrl, "https://images.pexels.com/photos/123/example.jpeg?w=1600");
+  assert.equal(accepted.sourceUrl, "https://www.pexels.com/photo/example-123/");
+  assert.equal(remoteVisualForMarkdown("![No credit](https://images.pexels.com/photos/123/example.jpeg)\n\nUseful copy."), null);
+});
+
+test("panel layout uses stable editorial spans instead of positional grid selectors", () => {
+  assert.equal(panelLayoutForChunk({ kind: "image", source: "bundle", markdown: "Short" }, 0), "hero");
+  assert.equal(panelLayoutForChunk({ kind: "questionnaire", source: "bundle", markdown: "Pick one" }, 4), "wide");
+  assert.equal(panelLayoutForChunk({ kind: "article", source: "chat-directed", markdown: "Complete answer" }, 3), "wide");
+  assert.equal(panelLayoutForChunk({ kind: "image", source: "bundle", markdown: "Short" }, 2), "compact");
+  assert.equal(panelLayoutForChunk({ kind: "article", source: "bundle", markdown: "A useful short article" }, 3), "feature");
 });

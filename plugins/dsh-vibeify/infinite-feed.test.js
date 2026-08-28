@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { createExperienceCatalog } from "./client-src/experience/catalog.js";
 import { createEditorialEdition } from "./client-src/experience/editorial.js";
 import {
+  contentLinkForMarkdown,
   createBundledStream,
   createInstantUpdateChunks,
   markdownWithoutLeadVisual,
@@ -102,7 +103,20 @@ test("an approved generated image joins the rolling catalogue with visible prove
   assert.equal(media.label, "Visual source · Alex Example");
   assert.ok(media.fallbackArtwork.length > 0);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /^!\[/);
-  assert.match(markdownWithoutLeadVisual(markdown), /Visual source · Alex Example/);
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Visual source · Alex Example/);
+});
+
+test("article destinations exclude image files and visual-credit links", () => {
+  const markdown = [
+    "![A bright studio](https://images.unsplash.com/photo-story?auto=format&w=1600)",
+    "[Visual source · Alex Example](https://unsplash.com/photos/story)",
+    "The exhibition is explained by [the museum's full feature](https://museum.example/exhibitions/story?utm_source=vibe).",
+  ].join("\n\n");
+  assert.deepEqual(contentLinkForMarkdown(markdown), {
+    href: "https://museum.example/exhibitions/story",
+    label: "the museum's full feature",
+  });
+  assert.equal(contentLinkForMarkdown("A complete article without a link."), null);
 });
 
 test("unapproved remote images cannot enter the catalogue and receive a local fallback", () => {

@@ -103,6 +103,10 @@ Complete Markdown for one semantic item.
 
 Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The collector accepts only complete closed envelopes whose id belongs to the active run. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe. Internal subagent sessions are excluded from the all-thread Chat collector, and the dedicated update session can never fall back to a raw Chat card.
 
+Every generated non-questionnaire envelope carries a useful HTTPS content destination inside its Markdown. Visual media has a separate provenance contract: the lead image is followed by its creator/source page, both are lifted into the figure and caption, and the duplicate visual credit is removed from the displayed article body. `feed.js` independently chooses the first safe reader-facing link for the card's **Read source** action, stripping common tracking parameters and rejecting image files, approved image hosts and known photo-credit pages. The original content link stays where the editor placed it in the prose.
+
+For each foreground or background batch, the editorial contract requires a working pool of at least 18 potential images from three or more credible source families. The lead ranks exact subject/entity match, informative value, credit clarity, composition, freshness and recent-use diversity before publishing only the selected image. The browser sends the 80 most recently accepted remote image URLs into the next contract to reduce repetition; candidates and rejected URLs are not presented as content.
+
 Each update namespaces ids so a later update appends rather than replaces. Storage order remains append-only; presentation reverses arrival order so the newest item appears first. If later checking changes the picture, publish a clearly contextualised follow-up instead of silently rewriting the old item.
 
 ## Questionnaire method

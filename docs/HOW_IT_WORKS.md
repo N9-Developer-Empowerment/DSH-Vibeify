@@ -133,6 +133,8 @@ The immediate visual page and questionnaire use no provider call and target a su
 
 The browser never publishes half a paragraph or a stream of raw tokens. It waits only for one **complete semantic chunk**—a finished article, recommendation, image page, music or video route, editorial, or questionnaire—then releases that item without waiting for the whole batch.
 
+For visual pages, the editor considers at least 18 potential images from three or more credible source families, then selects for exact subject or named-entity relevance, informative value, clear credit, usable composition, freshness and non-repetition. The displayed image keeps its own creator/source link in the caption. Separately, every generated non-questionnaire page includes a reader-facing content link in the prose; the compact **Read source** action points to that story, work, creator, paper, video, music or useful service—not to the image file or its credit page.
+
 ## What runs, and what does not
 
 | Reader action or event | Model work? | Visible result | Stop condition |

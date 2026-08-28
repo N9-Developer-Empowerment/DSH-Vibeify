@@ -177,6 +177,10 @@ const REMOTE_IMAGE_HOSTS = Object.freeze(new Set([
 const REMOTE_IMAGE_QUERY_KEYS = Object.freeze(new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
 const LEAD_IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/i;
 const SOURCE_LINK_PATTERN = /\[([^\]]{1,120})\]\((https:\/\/[^\s)]+)\)/i;
+const MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
+const VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
+const IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
+const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 
 function allowedImageUrl(value) {
   try {
@@ -219,9 +223,66 @@ export function remoteVisualForMarkdown(markdown) {
   });
 }
 
+function contentUrl(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+    if (REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || IMAGE_FILE_PATH.test(url.pathname)) return null;
+    url.hash = "";
+    for (const key of [...url.searchParams.keys()]) {
+      if (TRACKING_QUERY_KEY.test(key)) url.searchParams.delete(key);
+    }
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function isVisualCreditPage(url) {
+  const host = url.hostname.toLowerCase();
+  return ((host === "unsplash.com" || host === "www.unsplash.com") && url.pathname.startsWith("/photos/"))
+    || ((host === "pexels.com" || host === "www.pexels.com") && url.pathname.startsWith("/photo/"))
+    || ((host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/"));
+}
+
+/**
+ * Find the first reader-facing destination in the copy. Image bytes and visual
+ * credit pages remain available from the figure caption, but never masquerade
+ * as the article's source or next step.
+ */
+export function contentLinkForMarkdown(markdown) {
+  if (typeof markdown !== "string") return null;
+  const visual = remoteVisualForMarkdown(markdown);
+  for (const match of markdown.matchAll(MARKDOWN_LINK_PATTERN)) {
+    const href = contentUrl(match[2]);
+    if (href === null || href === visual?.sourceUrl) continue;
+    const parsed = new URL(href);
+    const label = match[1].replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+    if (label.length === 0 || VISUAL_CREDIT_LABEL.test(label) || isVisualCreditPage(parsed)) continue;
+    return Object.freeze({ href, label: label.slice(0, 120) });
+  }
+  return null;
+}
+
 export function markdownWithoutLeadVisual(markdown) {
   if (typeof markdown !== "string") return "";
-  return markdown.replace(LEAD_IMAGE_PATTERN, "").replace(/^\s+/, "");
+  const visual = remoteVisualForMarkdown(markdown);
+  let removedCredit = false;
+  return markdown
+    .replace(LEAD_IMAGE_PATTERN, "")
+    .replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
+      if (removedCredit || visual === null) return match;
+      try {
+        const url = new URL(value);
+        url.hash = "";
+        if (url.href !== visual.sourceUrl) return match;
+        removedCredit = true;
+        return "";
+      } catch {
+        return match;
+      }
+    })
+    .replace(/^\s+/, "");
 }
 
 /** Resolve a varied, credited visual while keeping media provenance explicit. */
@@ -239,7 +300,6 @@ export function visualMediaForChunk(catalog, chunk) {
       focalPoint: "center",
       href: remote.sourceUrl,
       label: remote.credit,
-      linkLabel: "Open image source",
       mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
       episode,
     });
@@ -253,7 +313,6 @@ export function visualMediaForChunk(catalog, chunk) {
       focalPoint: episode.graphic.focalPoint,
       href: episode.graphic.provenanceUrl,
       label: "AI-assisted graphic · VIBE",
-      linkLabel: "About this VIBE graphic",
       mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
       episode,
     });
@@ -265,7 +324,6 @@ export function visualMediaForChunk(catalog, chunk) {
     focalPoint: episode.photo.focalPoint,
     href: episode.photo.sourceUrl,
     label: `Photograph · ${episode.photo.photographer}`,
-    linkLabel: "Open visual source",
     mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
     episode,
   });

@@ -296,9 +296,9 @@ window.__ModuleLoader__.load({
 							href: report.updater.url,
 							target: "_blank",
 							rel: "noreferrer",
-						}, "Download safe updater"),
+						}, report.updater.label || "Open updater guide"),
 					),
-					React.createElement("p", { className: "dsh-vibeify-updates-note" }, "The Mac updater checks again, installs immutable packages, and asks before restart. Finish active tasks first; the detached restart helper replaces DSH and verifies that it opens successfully."),
+					React.createElement("p", { className: "dsh-vibeify-updates-note" }, report?.updater?.note || "Finish active tasks before activating an update."),
 				);
 			};
 		}

@@ -13,7 +13,7 @@ const PANELS = Object.freeze([
 
 You ask normally in Chat. Useful finished material arrives here with hierarchy, pictures, links and room to breathe. The result is still yours to judge, save and share; it is simply dressed before coming downstairs.
 
-**Try it:** open Chat and ask for something you would genuinely enjoy reading—perhaps a weekend guide, a visual explainer or a short series on a person you admire. Then return to VIBE and watch your own edition take over.
+**Try it:** open Chat and say “Make a Vibe about something I would genuinely enjoy reading—perhaps a weekend guide, a visual explainer or a short series on a person I admire.” Then return to VIBE and watch your own edition take over.
 
 [See what Vibeify is designed to do](${VIBEIFY_SITE}).`,
   }),
@@ -26,7 +26,7 @@ You ask normally in Chat. Useful finished material arrives here with hierarchy, 
 
 VIBE is where the finished answer becomes readable. One request runs one turn and stops; the magazine does not secretly restart old conversations. If you want a different direction, ask again in Chat.
 
-**Try it:** ask for “five joyful things happening in science, explained without jargon, with sources and pictures.”
+**Try it:** ask, “Make a Vibe about five joyful things happening in science, explained without jargon, with sources and pictures.”
 
 [Read the plain-English Vibeify overview](${VIBEIFY_SITE}).`,
   }),
@@ -39,7 +39,7 @@ VIBE is where the finished answer becomes readable. One request runs one turn an
 
 Nothing half-written is published. The unit of streaming is a finished visual chunk—a whole paragraph, card, questionnaire or article section—not a sentence twitching across the screen one token at a time.
 
-**Try it:** ask Chat for “a quick visual answer first, followed by a deeper sourced article.”
+**Try it:** ask, “Make a Vibe about a subject I care about. Give me a quick visual article first, followed by deeper sourced pieces.”
 
 [See how the streaming magazine is put together](${VIBEIFY_REPOSITORY}/blob/main/docs/CONTENT_STREAMING.md).`,
   }),
@@ -91,7 +91,7 @@ Your explicit answers, saves, opens, plays and skips can shape later choices. Th
 
 Music and video use click-to-load previews, which keeps the opening page quick and avoids autoplay ambushes. Article links lead to useful web content; image credits remain image credits.
 
-**Try it:** ask Chat for a visual history with “relevant photographs at each turning point, plus one video or music link where it genuinely helps.”
+**Try it:** ask, “Make a visual-history Vibe with relevant photographs at each turning point, plus one video or music link where it genuinely helps.”
 
 [See the visual and provenance rules](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#visual-provenance).`,
   }),
@@ -117,7 +117,7 @@ Neither button publishes, messages anyone or alters the original Chat. They are 
 
 The preview is private until you deliberately choose **Publish public link**. The resulting page can be opened by people who have neither DSH nor a ChatGPT or DeepSeek account.
 
-**Try it:** make a short celebratory article in Chat, preview it in VIBE, check every word and image, then publish only if it is ready to leave home.
+**Try it:** ask Chat to “make a short celebratory Vibe article,” preview it in VIBE, check every word and image, then publish only if it is ready to leave home.
 
 [Read the two-step sharing guide](${VIBEIFY_REPOSITORY}/blob/main/docs/SHARING.md).`,
   }),

@@ -46,7 +46,7 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /DeepSeek Harness is the stage manager/);
   assert.match(client, /VIBE is a plugin/);
   assert.match(client, /Open source means the exit is visible/);
-  assert.match(client, /Make something in Chat/);
+  assert.match(client, /Ask Chat to make a Vibe/);
   assert.match(client, /Ask for your first new VIBE/);
   assert.match(client, /all completed chats/);
   assert.match(client, /VIBE magazine update/);
@@ -105,7 +105,8 @@ test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /Capability level/);
   assert.match(client, /Updates/);
   assert.match(client, /Check again/);
-  assert.match(client, /Download safe updater/);
+  assert.match(client, /report\.updater\.label/);
+  assert.match(client, /Finish active tasks before activating an update/);
   assert.match(client, /\/vibeify-updates/);
   assert.match(client, /Queue/);
   assert.match(client, /Steer/);

@@ -4,13 +4,15 @@
 
 ![DSH Vibeify — one lead agent connected to specialist workers](docs/assets/dsh-vibeify-social-preview.png)
 
-[Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [See how it works](docs/HOW_IT_WORKS.md) · [Read the installation guide](docs/INSTALL.md)
+[Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [See how it works](docs/HOW_IT_WORKS.md) · [Read the installation guide](docs/INSTALL.md) · [Get installation help](docs/FAQ.md)
 
 DSH Vibeify's magazine is **not** a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence. An optional, deliberately separate share service can publish one reviewed article at a time without exposing the local magazine or requiring the recipient to have DSH, ChatGPT, or DeepSeek.
 
 ## The idea: generative AI beyond turn-by-turn chat
 
 Most AI products begin with an empty box. The person writes a prompt, waits for one answer, and repeats. DSH Vibeify begins with something useful to explore and turns Chat work from any thread into one continuous edition. On every launch, an evergreen welcome issue explains—in light, visual articles—what the reader chose, how Vibe and Chat fit together, how to update, personalise, save and share, why DSH and open source matter, and how to make the first personal Vibe. It is magazine content, not a setup wizard, and it makes no model call. For an explicit public-content request, each complete verified card can arrive while the rest of the answer is still being made; ordinary final answers join after completion. It generates extra magazine material only when the reader asks for an update.
+
+> **The one sentence to remember:** open Chat and say **“Make a Vibe about…”** when you want a deliberately edited Vibe article or series. That explicit wording tells the active DSH lead to use Vibeify's visual, linked, complete-chunk publishing contract. An ordinary Chat answer may still join Vibe after it finishes, but it is not guaranteed to receive the richer article structure or to stream card by card while the turn is running.
 
 ```mermaid
 flowchart LR
@@ -61,7 +63,7 @@ Choose the provider setup that suits you:
 
 Neither account is individually compulsory, and installation can finish before either is connected. At least one working provider is required before asking the agent to perform AI work. DeepSeek billing and ChatGPT plan limits remain separate.
 
-The first screen is Vibe itself: a full-screen editorial feed opens with the current welcome issue, followed by a bundled content well and the reader's older saved magazine. No guide, tile, recipe, or prompt must be selected. The welcome issue repeatedly points to one useful next move: open **Chat**, ask for material you actually want, watch the completed visual pages enter Vibe, then preview and share a good one. A new answer made during the current visit arrives above the welcome issue. Older saved pages remain further down rather than being deleted or mistaken for today's front page. **Chat** remains the detailed source view with the conventional DSH conversation and technical controls.
+The first screen is Vibe itself: a full-screen editorial feed opens with the current welcome issue, followed by a bundled content well and the reader's older saved magazine. No guide, tile, recipe, or prompt must be selected. The welcome issue repeatedly points to one useful next move: open **Chat**, say **“Make a Vibe about…”**, watch the completed visual pages enter Vibe, then preview and share a good one. A new answer made during the current visit arrives above the welcome issue. Older saved pages remain further down rather than being deleted or mistaken for today's front page. **Chat** remains the detailed source view with the conventional DSH conversation and technical controls.
 
 > DSH is a fast-moving developer preview. Vibeify pins the versions it has tested and includes a health check, but you should still expect upstream changes.
 
@@ -79,9 +81,11 @@ It does not switch provider mode without telling you, send your images elsewhere
 
 ### I want to try it
 
-For the friendly macOS route, [download the installer](https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip), unzip it, and open **Install DSH Vibeify.command**. It installs or updates DSH and Vibeify, lets you choose DeepSeek, ChatGPT, both, or later, runs checks, and opens DSH. It never asks for an API key.
+For the verified Apple-silicon macOS route, [download the installer](https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip), unzip it, and open **Install DSH Vibeify.command**. It installs or updates DSH and Vibeify, lets you choose DeepSeek, ChatGPT, both, or later, runs checks, and opens DSH. It never asks for an API key.
 
-For the developer route you need Node.js 22 or newer and Git:
+The repository also contains friendly **Windows** and **Linux** preview installers. They use the same public-source, immutable-package, provider-choice, non-billing-check, and do-not-interrupt-active-work contract. They will remain visibly labelled preview until the complete path has passed on real Windows and representative Linux machines; a Mac-only test is not treated as cross-platform evidence. See [Installation](docs/INSTALL.md) for the current downloads and [Installation and help FAQ](docs/FAQ.md) for check-only mode and private, free-chat troubleshooting.
+
+For the developer route you need Node.js 22.19+ in the 22.x line, or Node.js 24+, and Git:
 
 ```bash
 git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
@@ -116,7 +120,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
 - **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
 - **A Codex capability setting.** Open **Settings → Codex** to choose Efficient, Balanced, Frontier, or Maximum. Frontier—GPT-5.6 Sol with Extra High reasoning—is the quality-preserving default.
-- **A safe update centre.** Open **Settings → Updates** to check the installed DSH, Vibeify, and bundled Codex agent separately. A newer Codex release is not labelled installable until Vibeify has qualified it. **Download safe updater** opens the friendly Mac updater, which installs immutable packages and asks before a detached, verified restart.
+- **A safe update centre.** Open **Settings → Updates** to check the installed DSH, Vibeify, and bundled Codex agent separately. A newer Codex release is not labelled installable until Vibeify has qualified it. The updater route is platform-aware: macOS opens the verified friendly updater, while Windows and Linux open their clearly labelled preview/help route until real-machine qualification is complete.
 - **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and explicit magazine updates or public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose. Vibeify opens the current Think disclosure while work is live, then closes that same disclosure once when the final answer settles; the reader can reopen it without the interface fighting back.
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
 - **Connected Codex apps.** Installed tools can be surfaced through their normal Codex approval boundaries; desktop-only capabilities still require the appropriate host connection.
@@ -172,14 +176,14 @@ DSH-Vibeify/
 ├── plugins/dsh-vibeify-experience/    # provider-neutral DSH client package
 ├── services/vibe-share/               # optional account-free public article host
 ├── shared/vibe-share-contract.js      # allow-list boundary shared by DSH and host
-└── scripts/                            # installer, migration and doctor
+└── scripts/                            # macOS, Windows and Linux installers, migration, doctor and safe support report
 ```
 
 The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.15.0`
+- DSH Vibeify `0.15.2`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

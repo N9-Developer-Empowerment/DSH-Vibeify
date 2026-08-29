@@ -7,7 +7,7 @@ DSH Vibeify is a local agent harness presented as a living magazine. It is not a
 Think of it as a small editorial studio:
 
 - **Vibe is the magazine.** It opens with a fresh evergreen welcome issue, then a local content well and the reader's older saved edition. The welcome articles explain the product and lead directly to making a personal Vibe in Chat.
-- **Chat is the commissioning desk.** A request starts one agent turn. Its completed answer remains in Chat. For an explicit public-content request, each complete verified card may also appear in Vibe before the whole answer is finished.
+- **Chat is the commissioning desk.** A request starts one agent turn. Say **“Make a Vibe about…”** when you specifically want an edited visual article or series. Its completed answer remains in Chat. For that explicit Vibe request, each complete verified card may also appear in Vibe before the whole answer is finished.
 - **A public radar watches the world, not the reader.** GitHub publishes a content-only catalogue of current public signals every 30 minutes. It contains no local history or preferences.
 - **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
 - **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page and questionnaire remain the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
@@ -70,6 +70,20 @@ Each browser then owns three private layers:
 
 The local editor uses selected audience lenses, a bounded free-text note, explicit saves/opens/plays/skips and questionnaire answers. That learning stays on the device and can be reset. A useful-serendipity control deliberately admits some material outside the selected lenses. The editor's brief is to entertain, educate and inform with freedom, creativity and humour—not to maximise anger.
 
+## How to ask for a Vibe
+
+The clearest instruction is direct:
+
+```text
+Make a Vibe about [subject]. Include relevant images, useful web links and a short visual article first, then add deeper sourced pieces as they are ready.
+```
+
+DSH Vibeify supplies the active lead with a Vibe publishing contract. Saying **make a Vibe**, **create a Vibe**, **write a Vibe article**, or **turn this into a Vibe** removes the need for the lead to infer whether the result belongs in the magazine. It should then publish each complete, verified visual card through the Vibe route while continuing any slower work.
+
+This wording is recommended rather than required for every card. An ordinary completed Chat answer can still be projected into Vibe after the turn ends. The difference is that an ordinary answer is not guaranteed to be deliberately edited as a visual article, supplied with article-level imagery and links, or streamed as several complete cards while the turn is running.
+
+Requests such as “find,” “show,” “browse,” “discover,” or “recommend” public reader-facing material may also trigger the richer Vibe route when that presentation is clearly useful. **“Make a Vibe about…” remains the reliable phrase when the reader wants to be sure.**
+
 ## What happens after a Chat request
 
 ```mermaid
@@ -84,7 +98,7 @@ sequenceDiagram
     C->>D: Start one turn
     D->>L: Provide tools, policy and context
     L-->>C: Useful progress while working
-    opt Explicit public-content request
+    opt Explicit Vibe or public-content request
         L-->>V: Publish first short verified card
         L-->>V: Publish each later closed card independently
     end

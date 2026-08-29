@@ -5,6 +5,7 @@ import {
   compareVersions,
   createUpdateChecker,
   registerUpdateRpc,
+  updaterForPlatform,
 } from "./update-check.js";
 
 test("semantic versions compare release and prerelease identifiers correctly", () => {
@@ -12,6 +13,20 @@ test("semantic versions compare release and prerelease identifiers correctly", (
   assert.equal(compareVersions("0.1.1-rc.2", "0.1.1"), -1);
   assert.equal(compareVersions("0.150.1", "0.150.0"), 1);
   assert.equal(compareVersions("1.0.0-alpha.10", "1.0.0-alpha.2"), 1);
+});
+
+test("updater links disclose platform verification rather than offering a Mac file everywhere", () => {
+  const mac = updaterForPlatform("darwin");
+  assert.equal(mac.status, "verified");
+  assert.match(mac.url, /macOS\.zip$/);
+  assert.match(mac.label, /verified macOS/);
+
+  for (const platform of ["win32", "linux"]) {
+    const updater = updaterForPlatform(platform);
+    assert.equal(updater.status, "preview");
+    assert.match(updater.url, /docs\/FAQ\.md$/);
+    assert.match(updater.label, /preview/);
+  }
 });
 
 test("checker distinguishes installable updates from an unqualified Codex release", async () => {

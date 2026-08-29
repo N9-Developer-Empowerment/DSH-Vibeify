@@ -11,6 +11,8 @@ test("completed Chat answers share one local magazine while explicit updates rem
   assert.match(contract, /Neither route starts an additional AI\/model call/i);
   assert.match(contract, /newest-first/i);
   assert.match(contract, /must never copy the user's raw prompt/i);
+  assert.match(contract, /make, create, write, or turn something into a Vibe or Vibe article/i);
+  assert.match(contract, /clearest unambiguous instruction/i);
   assert.match(contract, /show, find, discover, browse, or recommend/i);
   assert.match(contract, /commentary/i);
   assert.match(contract, /<vibe-chunk/i);

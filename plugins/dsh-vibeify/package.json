@@ -1,6 +1,6 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.13.5",
+  "version": "0.14.0",
   "description": "The Codex-governed Vibe experience for DeepSeek Harness, with optional bounded DeepSeek execution.",
   "type": "module",
   "main": "index.js",

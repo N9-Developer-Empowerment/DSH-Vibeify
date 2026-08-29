@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "dsh-vibeify-share",
+  "compatibility_date": "2026-08-29",
+  "pages_build_output_dir": "./public",
+  "d1_databases": [
+    {
+      "binding": "VIBE_SHARE_DB",
+      "database_name": "dsh-vibeify-share",
+      "database_id": "SET_DURING_FIRST_DEPLOYMENT"
+    }
+  ],
+  "vars": {
+    "VIBE_SHARE_RETENTION_DAYS": "365"
+  }
+}

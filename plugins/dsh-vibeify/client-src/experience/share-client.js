@@ -9,18 +9,25 @@ import {
 export const SHARE_READY_TIMEOUT_MS = 15_000;
 
 export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink }, now = Date.now()) {
+  const publicPhoto = media?.episode?.photo;
+  const visual = media?.externalUrl !== undefined ? {
+    imageUrl: media.externalUrl,
+    sourceUrl: media.href,
+    alt: media.alt,
+    credit: media.label,
+  } : typeof publicPhoto?.publicImageUrl === "string" ? {
+    imageUrl: publicPhoto.publicImageUrl,
+    sourceUrl: publicPhoto.sourceUrl ?? media.href,
+    alt: publicPhoto.alt ?? media.alt,
+    credit: typeof publicPhoto.photographer === "string" ? `Photograph · ${publicPhoto.photographer}` : media.label,
+  } : null;
   return cleanShareSnapshot({
     version: SHARE_SNAPSHOT_VERSION,
     title: chunk?.title,
     kind: chunk?.kind,
     markdown,
     publishedAt: Number(chunk?.publishedAt) || now,
-    visual: media?.externalUrl === undefined ? null : {
-      imageUrl: media.externalUrl,
-      sourceUrl: media.href,
-      alt: media.alt,
-      credit: media.label,
-    },
+    visual,
     inlineVisuals,
     contentLink,
   }, now);

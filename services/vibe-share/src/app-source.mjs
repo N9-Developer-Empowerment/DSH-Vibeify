@@ -7,6 +7,24 @@ const publish = document.getElementById("publish");
 const status = document.getElementById("status");
 let snapshot = null;
 
+async function copyPublicLink(value) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    const fallback = document.createElement("textarea");
+    fallback.value = value;
+    fallback.readOnly = true;
+    fallback.style.position = "fixed";
+    fallback.style.opacity = "0";
+    document.body.append(fallback);
+    fallback.select();
+    const copied = document.execCommand("copy");
+    fallback.remove();
+    return copied;
+  }
+}
+
 function renderVisual(visual, className = "lead") {
   if (visual === null) return "";
   const figure = document.createElement("figure");
@@ -94,7 +112,9 @@ function renderSnapshot(value) {
   preview.replaceChildren();
   const article = document.createElement("article");
   article.className = "article";
-  const lead = renderVisual(value.visual);
+  const leadVisual = value.visual ?? value.inlineVisuals?.[0] ?? null;
+  const galleryVisuals = value.visual === null ? value.inlineVisuals?.slice(1) ?? [] : value.inlineVisuals ?? [];
+  const lead = renderVisual(leadVisual);
   if (lead !== "") article.append(lead);
   const copy = document.createElement("div");
   copy.className = "copy";
@@ -107,10 +127,10 @@ function renderSnapshot(value) {
   body.className = "body";
   body.append(renderMarkdown(value.markdown));
   copy.append(kind, title, body);
-  if (Array.isArray(value.inlineVisuals) && value.inlineVisuals.length > 0) {
+  if (galleryVisuals.length > 0) {
     const gallery = document.createElement("div");
     gallery.className = "gallery";
-    value.inlineVisuals.forEach((visual) => gallery.append(renderVisual(visual, "inline")));
+    galleryVisuals.forEach((visual) => gallery.append(renderVisual(visual, "inline")));
     copy.append(gallery);
   }
   if (value.contentLink !== null) {
@@ -161,7 +181,8 @@ publish.addEventListener("click", async () => {
     const deleteTokens = JSON.parse(localStorage.getItem("vibe-share.delete-tokens.v1") ?? "{}");
     deleteTokens[result.slug] = result.deleteToken;
     localStorage.setItem("vibe-share.delete-tokens.v1", JSON.stringify(deleteTokens));
-    status.replaceChildren("Published: ");
+    const copied = await copyPublicLink(result.url);
+    status.replaceChildren(copied ? "Published. Copied to clipboard: " : "Published. Copy this link: ");
     const link = document.createElement("a");
     link.href = result.url;
     link.textContent = result.url;
@@ -169,10 +190,18 @@ publish.addEventListener("click", async () => {
     link.rel = "noopener noreferrer";
     status.append(link);
     publish.textContent = "Published";
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.textContent = "Copy link";
+    publish.after(copy);
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "Remove public page";
-    publish.after(remove);
+    copy.after(remove);
+    copy.addEventListener("click", async () => {
+      const copiedAgain = await copyPublicLink(result.url);
+      status.replaceChildren(copiedAgain ? "Copied to clipboard: " : "Copy this link: ", link.cloneNode(true));
+    });
     remove.addEventListener("click", async () => {
       if (!window.confirm("Remove this public article? The link will stop working.")) return;
       remove.disabled = true;
@@ -186,6 +215,7 @@ publish.addEventListener("click", async () => {
       delete deleteTokens[result.slug];
       localStorage.setItem("vibe-share.delete-tokens.v1", JSON.stringify(deleteTokens));
       status.textContent = "Public page removed. Your local Vibe article is unchanged.";
+      copy.remove();
       remove.remove();
     });
   } catch (error) {

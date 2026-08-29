@@ -484,7 +484,7 @@ window.__ModuleLoader__.load({
 			  "cdn.pixabay.com"
 			]));
 			var REMOTE_IMAGE_QUERY_KEYS = Object.freeze(/* @__PURE__ */ new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
-			var LEAD_IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/i;
+			var IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
 			var SOURCE_LINK_PATTERN = /\[([^\]]{1,120})\]\((https:\/\/[^\s)]+)\)/i;
 			var MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
 			var VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
@@ -503,30 +503,42 @@ window.__ModuleLoader__.load({
 			    return null;
 			  }
 			}
-			function remoteVisualForMarkdown(markdown) {
-			  if (typeof markdown !== "string") return null;
-			  const image = markdown.match(LEAD_IMAGE_PATTERN);
-			  if (image === null) return null;
-			  const imageUrl = allowedImageUrl(image[2]);
-			  if (imageUrl === null) return null;
-			  const following = markdown.slice((image.index ?? 0) + image[0].length);
-			  const source = following.match(SOURCE_LINK_PATTERN);
-			  if (source === null) return null;
-			  let sourceUrl;
+			function visualSource(value) {
 			  try {
-			    const parsed = new URL(source[2]);
+			    const parsed = new URL(value);
 			    if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "") return null;
 			    parsed.hash = "";
-			    sourceUrl = parsed.href;
+			    return parsed.href;
 			  } catch {
 			    return null;
 			  }
-			  return Object.freeze({
-			    imageUrl,
-			    sourceUrl,
-			    alt: image[1].replace(/\s+/g, " ").trim(),
-			    credit: source[1].replace(/\s+/g, " ").trim()
-			  });
+			}
+			function remoteVisualsForMarkdown(markdown) {
+			  if (typeof markdown !== "string") return null;
+			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+			  const visuals = [];
+			  const seen = /* @__PURE__ */ new Set();
+			  for (let index = 0; index < images.length; index += 1) {
+			    const image = images[index];
+			    const imageUrl = allowedImageUrl(image[2]);
+			    if (imageUrl === null || seen.has(imageUrl)) continue;
+			    const start = (image.index ?? 0) + image[0].length;
+			    const end = images[index + 1]?.index ?? markdown.length;
+			    const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
+			    const sourceUrl = source === null ? null : visualSource(source[2]);
+			    if (source === null || sourceUrl === null) continue;
+			    seen.add(imageUrl);
+			    visuals.push(Object.freeze({
+			      imageUrl,
+			      sourceUrl,
+			      alt: image[1].replace(/\s+/g, " ").trim(),
+			      credit: source[1].replace(/\s+/g, " ").trim()
+			    }));
+			  }
+			  return Object.freeze(visuals);
+			}
+			function remoteVisualForMarkdown(markdown) {
+			  return remoteVisualsForMarkdown(markdown)?.[0] ?? null;
 			}
 			function contentUrl(value) {
 			  try {
@@ -561,20 +573,12 @@ window.__ModuleLoader__.load({
 			}
 			function markdownWithoutLeadVisual(markdown) {
 			  if (typeof markdown !== "string") return "";
-			  const visual = remoteVisualForMarkdown(markdown);
-			  let removedCredit = false;
-			  return markdown.replace(LEAD_IMAGE_PATTERN, "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
-			    if (removedCredit || visual === null) return match;
-			    try {
-			      const url = new URL(value);
-			      url.hash = "";
-			      if (url.href !== visual.sourceUrl) return match;
-			      removedCredit = true;
-			      return "";
-			    } catch {
-			      return match;
-			    }
-			  }).replace(/^\s+/, "");
+			  const visuals = remoteVisualsForMarkdown(markdown) ?? [];
+			  const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
+			  return markdown.replace(IMAGE_PATTERN, (match, _alt, value) => allowedImageUrl(value) === null ? match : "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
+			    const sourceUrl = visualSource(value);
+			    return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;
+			  }).replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
 			}
 			function visualMediaForChunk(catalog, chunk) {
 			  const episode = visualEpisodeForChunk(catalog, chunk);
@@ -594,7 +598,7 @@ window.__ModuleLoader__.load({
 			      episode
 			    });
 			  }
-			  const useGraphic = episode.graphic !== void 0 && mediaHash % 2 === 0;
+			  const useGraphic = chunk?.source === "bundle" && chunk?.kind === "image" && episode.graphic !== void 0 && mediaHash % 5 === 0;
 			  if (useGraphic) {
 			    return Object.freeze({
 			      kind: episode.graphic.kind,
@@ -628,7 +632,7 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/content-store.js
 			var CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
-			var CONTENT_STORE_VERSION = 4;
+			var CONTENT_STORE_VERSION = 5;
 			var CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
 			var MAX_STREAM_CHUNKS = 160;
 			var MAX_STREAM_ANSWERS = 32;
@@ -657,7 +661,7 @@ window.__ModuleLoader__.load({
 			function internalAgentMaterial(title, markdown) {
 			  const heading = String(title ?? "").trim();
 			  const body = String(markdown ?? "");
-			  return /^worker report\b/i.test(heading) || /^work(?:er)? role\s*:/im.test(body) || /no final copy written\s*\(per task\)/i.test(body) || /codex can re-verify/i.test(body) || /^(?:#\s*)?vibe (?:continuous edition refill|magazine update)\b/i.test(heading) || /^update `?refill-[a-z0-9_-]+`? completed\b/im.test(body);
+			  return /^worker report\b/i.test(heading) || /^work(?:er)? role\s*:/im.test(body) || /no final copy written\s*\(per task\)/i.test(body) || /codex can re-verify/i.test(body) || /^(?:#\s*)?vibe (?:continuous edition refill|magazine update)\b/i.test(heading) || /^update `?refill-[a-z0-9_-]+`? completed\b/im.test(body) || /(?:<|&lt;|\\<)\/?vibe-(?:chunk|section)\b/i.test(body);
 			}
 			function cleanChunk(candidate, now) {
 			  if (candidate === null || typeof candidate !== "object") return null;
@@ -670,7 +674,7 @@ window.__ModuleLoader__.load({
 			  const tribes = Object.freeze([...new Set((Array.isArray(candidate.tribes) ? candidate.tribes : []).filter((value) => typeof value === "string" && TRIBE.test(value)))].slice(0, 8));
 			  const publishedAt = Number(candidate.publishedAt);
 			  if (id === null || kind === null || source === null || title === null || markdown === null) return null;
-			  if (source === "chat-directed" && internalAgentMaterial(title, markdown)) return null;
+			  if (internalAgentMaterial(title, markdown)) return null;
 			  if (!Number.isFinite(publishedAt) || publishedAt <= 0 || publishedAt > now + 5 * 60 * 1e3) return null;
 			  if (now - publishedAt > CONTENT_TTL_MS) return null;
 			  return Object.freeze({ id, kind, source, title, markdown, topicId, tribes, publishedAt });
@@ -691,7 +695,7 @@ window.__ModuleLoader__.load({
 			  if (storage3 === null || storage3 === void 0 || typeof storage3.getItem !== "function") return emptyStore();
 			  try {
 			    const parsed = JSON.parse(storage3.getItem(CONTENT_STORE_KEY) ?? "null");
-			    if (parsed === null || typeof parsed !== "object" || ![2, 3, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
+			    if (parsed === null || typeof parsed !== "object" || ![2, 3, 4, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
 			    const chunks = [];
 			    const seen = /* @__PURE__ */ new Set();
 			    for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {
@@ -893,12 +897,12 @@ window.__ModuleLoader__.load({
 
 			## Editorial contract
 
-			- Release the first generated text chunk before waiting for tools or workers: an honest editor's observation, small practical idea, or cultural connection that can be useful without research. Keep it to roughly 60\u2013140 words and do not use current facts unless already verified.
+			- The locally prepared visual short and questionnaire already provide the under-a-second opening. Make the first generated page fully publishable rather than racing a photograph or source check; keep that first generated page to roughly 60\u2013140 words.
 			- Then widen the mix. Across the batch include several of: a short article, a recommendation set, credited visual culture, a music or audio route, a video route, an interactive questionnaire, and a deeper sourced piece. Text should arrive first because it is fastest; richer media may follow.
 			- Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
 			- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
 			- Every non-questionnaire chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
-			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. At least two generated chunks must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use only direct HTTPS image URLs hosted by images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com. The exact form is "![Useful alt text](https://approved-host/image)" then "[Visual source \xB7 Creator](https://source-page)". Never reuse a recent image URL, invent a credit, use a tracker, or substitute a generated image for documentary photography. Do not publish the candidate list: publish only the best relevant selection.
+			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use only direct HTTPS image URLs hosted by images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com. The exact form is "![Useful alt text](https://approved-host/image)" then "[Photograph \xB7 Creator](https://source-page)". An AI-assisted graphic is allowed only when the story itself is conceptual or visual and the graphic is explicitly labelled; use no more than one in the batch and never substitute one for available documentary photography. Never reuse a recent image URL, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
 			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 			- A later deeper chunk may begin with natural editorial continuity such as \u201CI dug further into this\u2026\u201D or \u201CA few pages later, the stronger route is\u2026\u201D. It must add knowledge rather than revise or silently replace an earlier chunk.
@@ -921,7 +925,7 @@ window.__ModuleLoader__.load({
 
 			## Execution method
 
-			Codex remains lead and final acceptance authority. After releasing the first generated chunk, start at least three useful bounded lanes concurrently when the live host policy permits it: (1) a quick recommendation or practical lane, (2) a visual-culture, music, or video lane, and (3) a deeper sourced lane. Add a fourth independent lane when it materially improves variety or time-to-next-page. Give every lane a self-contained task and require evidence; do not make one lane wait for another. Publish each lane's finished reader-facing chunk as soon as Codex verifies it, while slower lanes continue. Never wait for every worker before releasing the first completed lane, and never spawn workers merely to simulate activity. Codex checks every worker artifact or cited source before publication and repairs any unverifiable part itself.
+			Codex remains lead and final acceptance authority. Start at least three useful bounded lanes concurrently when the live host policy permits it: (1) a quick recommendation or practical lane, (2) a visual-culture, music, or video lane, and (3) a deeper sourced lane. Add a fourth independent lane when it materially improves variety or time-to-next-page. Give every lane a self-contained task and require evidence; do not make one lane wait for another. Publish each lane's finished reader-facing chunk as soon as Codex verifies its copy, content link and relevant visual, while slower lanes continue. Never wait for every worker before releasing the first completed lane, and never spawn workers merely to simulate activity. Codex checks every worker artifact or cited source before publication and repairs any unverifiable part itself.
 
 			Questionnaire choices remain with the Codex lead. Use them to select or prioritise a bounded lane, but do not copy private answer labels or other reader input into a worker packet merely to save quota.
 
@@ -1062,6 +1066,7 @@ window.__ModuleLoader__.load({
 			var CHUNK_PATTERN = /<vibe-chunk\s+id="([a-z0-9][a-z0-9_-]{0,63})"\s+kind="(article|editorial|recommendation|image|music|video|questionnaire)"\s+title="([^"]{1,180})"\s*>([\s\S]*?)<\/vibe-chunk>/gi;
 			var LEGACY_SECTION_PATTERN = /<vibe-section\s+id=["']([a-z0-9][a-z0-9_-]*)["']\s*>([\s\S]*?)<\/vibe-section>/gi;
 			var VIBE_HOME_EVENT = "dsh-vibeify:vibe-home";
+			var VIBE_CHAT_EVENT = "dsh-vibeify:vibe-chat";
 			var VIBE_CHAT_RESULT_EVENT = "dsh-vibeify:chat-result";
 			var VIBE_STREAM_CHUNKS_EVENT = "dsh-vibeify:stream-chunks";
 			function extractPublishedChunks(value) {
@@ -1084,6 +1089,17 @@ window.__ModuleLoader__.load({
 			    chunks.push({ id: match[1], kind: "article", title, markdown });
 			  }
 			  return chunks;
+			}
+			function comparableTitle(value) {
+			  return String(value ?? "").replace(/\[([^\]]+)\]\([^\s)]+\)/g, "$1").replace(/[*_`>#]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim().toLocaleLowerCase();
+			}
+			function stripDuplicatedLeadTitle(markdown, title) {
+			  if (typeof markdown !== "string") return "";
+			  const lead = markdown.match(/^\s*(?:(?:#{1,3})\s+([^\n]+)|\*\*([^*\n]+)\*\*)\s*(?:\n+|$)/);
+			  if (lead === null) return markdown;
+			  const candidate = lead[1] ?? lead[2] ?? "";
+			  if (comparableTitle(candidate) !== comparableTitle(title)) return markdown;
+			  return markdown.slice(lead[0].length).trimStart();
 			}
 			function isNativeResultTabList(tabList) {
 			  if (tabList === null || typeof tabList?.querySelectorAll !== "function") return false;
@@ -1118,6 +1134,28 @@ window.__ModuleLoader__.load({
 			  }
 			  if (cursor < value.length) container.append(document.createTextNode(value.slice(cursor)));
 			}
+			function tableCells(line) {
+			  const value = String(line ?? "").trim();
+			  if (!value.includes("|") || !value.startsWith("|") || !value.endsWith("|")) return null;
+			  const cells = value.slice(1, -1).split("|").map((cell) => cell.trim());
+			  return cells.length >= 2 && cells.every((cell) => cell.length > 0) ? cells : null;
+			}
+			function markdownTableAt(lines, startIndex) {
+			  if (!Array.isArray(lines) || !Number.isInteger(startIndex)) return null;
+			  const headers = tableCells(lines[startIndex]);
+			  const alignment = tableCells(lines[startIndex + 1]);
+			  if (headers === null || alignment === null || headers.length !== alignment.length) return null;
+			  if (!alignment.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+			  const rows = [];
+			  let nextIndex = startIndex + 2;
+			  while (nextIndex < lines.length) {
+			    const cells = tableCells(lines[nextIndex]);
+			    if (cells === null || cells.length !== headers.length) break;
+			    rows.push(cells);
+			    nextIndex += 1;
+			  }
+			  return { headers, rows, nextIndex };
+			}
 			function markdownFragment(markdown) {
 			  const fragment = document.createDocumentFragment();
 			  const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -1127,6 +1165,33 @@ window.__ModuleLoader__.load({
 			    const line = lines[index];
 			    if (line.trim().length === 0) {
 			      index += 1;
+			      continue;
+			    }
+			    const table = markdownTableAt(lines, index);
+			    if (table !== null) {
+			      const element2 = document.createElement("table");
+			      const head = document.createElement("thead");
+			      const headRow = document.createElement("tr");
+			      for (const value of table.headers) {
+			        const cell = document.createElement("th");
+			        appendInline(cell, value);
+			        headRow.append(cell);
+			      }
+			      head.append(headRow);
+			      element2.append(head);
+			      const body = document.createElement("tbody");
+			      for (const row of table.rows) {
+			        const bodyRow = document.createElement("tr");
+			        for (const value of row) {
+			          const cell = document.createElement("td");
+			          appendInline(cell, value);
+			          bodyRow.append(cell);
+			        }
+			        body.append(bodyRow);
+			      }
+			      element2.append(body);
+			      fragment.append(element2);
+			      index = table.nextIndex;
 			      continue;
 			    }
 			    const heading = line.match(/^(#{1,3})\s+(.+)$/);
@@ -1199,23 +1264,31 @@ window.__ModuleLoader__.load({
 			  style.id = TAB_STYLE_ID;
 			  style.textContent = `
 			#${TAB_ID} {
-			  min-height:34px!important;
-			  margin-inline:7px!important;
-			  padding-inline:14px!important;
+			  position:relative!important;
+			  min-height:40px!important;
+			  margin:0 6px!important;
+			  padding:0 13px!important;
 			  display:inline-flex!important;
 			  align-items:center!important;
 			  justify-content:center!important;
-			  gap:7px!important;
+			  gap:8px!important;
 			  white-space:nowrap!important;
 			  line-height:1!important;
 			  color:var(--dsw-alias-label-primary)!important;
-			  border:1px solid color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 45%,transparent)!important;
-			  border-radius:999px!important;
-			  background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 10%,transparent)!important;
-			  font-weight:780!important;
+			  border:0!important;
+			  border-radius:8px 8px 0 0!important;
+			  background:transparent!important;
+			  font-size:14px!important;
+			  font-weight:720!important;
+			  letter-spacing:.045em!important;
+			  opacity:1!important;
 			}
-			#${TAB_ID}::before { content:"\u2726"; color:var(--dsw-alias-state-business-primary,#c0182a); font-size:11px; }
-			#${TAB_ID}:hover { background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 17%,transparent)!important; }
+			#${TAB_ID}::before { content:""; width:6px; height:6px; flex:none; border-radius:1px; background:var(--dsw-alias-state-business-primary,#c0182a); transform:rotate(45deg); }
+			#${TAB_ID}::after { content:""; position:absolute; left:12px; right:12px; bottom:-1px; height:2px; border-radius:2px 2px 0 0; background:var(--dsw-alias-state-business-primary,#c0182a); transform:scaleX(0); transform-origin:center; transition:transform .16s ease; }
+			#${TAB_ID}:hover { color:var(--dsw-alias-label-primary)!important; background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 7%,transparent)!important; }
+			#${TAB_ID}[data-vibe-active="true"] { color:var(--dsw-alias-label-primary)!important; background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 8%,transparent))!important; }
+			#${TAB_ID}[data-vibe-active="true"]::after { transform:scaleX(1); }
+			@media (max-width:560px) { #${TAB_ID} { margin:0 2px!important; padding:0 9px!important; font-size:13px!important; } }
 			`;
 			  document.getElementById(TAB_STYLE_ID)?.remove();
 			  document.head.appendChild(style);
@@ -1225,24 +1298,34 @@ window.__ModuleLoader__.load({
 			  ctx.effect(() => {
 			    let frame = null;
 			    let disposed = false;
+			    let vibeActive = false;
 			    const removeTabStyle = installVibeTabStyle();
 			    const ensureVibeTab = () => {
 			      const tabList = nativeTabList();
 			      if (!(tabList instanceof HTMLElement)) return;
-			      if (tabList.querySelector(`#${TAB_ID}`) instanceof HTMLButtonElement) return;
+			      const existing = tabList.querySelector(`#${TAB_ID}`);
+			      if (existing instanceof HTMLButtonElement) {
+			        existing.dataset.vibeActive = String(vibeActive);
+			        existing.setAttribute("aria-selected", String(vibeActive));
+			        return;
+			      }
 			      const trajectory = [...tabList.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim() === "Trajectory");
 			      if (!(trajectory instanceof HTMLButtonElement)) return;
 			      const vibeTab = trajectory.cloneNode(false);
 			      vibeTab.id = TAB_ID;
 			      vibeTab.type = "button";
-			      vibeTab.textContent = "Vibe";
+			      vibeTab.textContent = "VIBE";
 			      vibeTab.setAttribute("aria-label", "Open the Vibe magazine");
 			      vibeTab.setAttribute("role", "tab");
 			      vibeTab.setAttribute("aria-selected", "false");
 			      vibeTab.tabIndex = -1;
 			      vibeTab.addEventListener("click", () => {
+			        vibeActive = true;
+			        vibeTab.dataset.vibeActive = "true";
+			        vibeTab.setAttribute("aria-selected", "true");
 			        window.dispatchEvent(new CustomEvent(VIBE_HOME_EVENT));
 			      });
+			      vibeTab.dataset.vibeActive = String(vibeActive);
 			      trajectory.insertAdjacentElement("afterend", vibeTab);
 			    };
 			    const refresh = () => {
@@ -1256,12 +1339,22 @@ window.__ModuleLoader__.load({
 			      frame = requestAnimationFrame(refresh);
 			    };
 			    const observer = new MutationObserver(schedule);
+			    const onChat = () => {
+			      vibeActive = false;
+			      const tab = document.getElementById(TAB_ID);
+			      if (tab instanceof HTMLButtonElement) {
+			        tab.dataset.vibeActive = "false";
+			        tab.setAttribute("aria-selected", "false");
+			      }
+			    };
+			    window.addEventListener(VIBE_CHAT_EVENT, onChat);
 			    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
 			    removeLegacyChatPresentation();
 			    schedule();
 			    return () => {
 			      disposed = true;
 			      observer.disconnect();
+			      window.removeEventListener(VIBE_CHAT_EVENT, onChat);
 			      if (frame !== null) cancelAnimationFrame(frame);
 			      document.getElementById(TAB_ID)?.remove();
 			      removeTabStyle();
@@ -1699,6 +1792,36 @@ window.__ModuleLoader__.load({
 			  return Object.freeze({ ...current, distance, armed: distance >= PULL_REFRESH_THRESHOLD, requested: false });
 			}
 
+			// client-src/experience/background-session.js
+			var BACKGROUND_SESSION_KEY = "dsh-vibeify.background-session.v1";
+			var BACKGROUND_SESSION_TITLE = "VIBE background editor";
+			function validSessionId(value) {
+			  return typeof value === "string" && /^[a-z0-9][a-z0-9-]{7,95}$/i.test(value) ? value : null;
+			}
+			function readBackgroundSessionId(storage3) {
+			  if (storage3 === null || storage3 === void 0 || typeof storage3.getItem !== "function") return null;
+			  try {
+			    return validSessionId(storage3.getItem(BACKGROUND_SESSION_KEY));
+			  } catch {
+			    return null;
+			  }
+			}
+			function writeBackgroundSessionId(storage3, sessionId) {
+			  const id = validSessionId(sessionId);
+			  if (id === null || storage3 === null || storage3 === void 0 || typeof storage3.setItem !== "function") return false;
+			  try {
+			    storage3.setItem(BACKGROUND_SESSION_KEY, id);
+			    return true;
+			  } catch {
+			    return false;
+			  }
+			}
+			function isBackgroundSession(summary, storage3) {
+			  if (summary === null || typeof summary !== "object") return false;
+			  const title = typeof summary.title === "string" ? summary.title.trim() : "";
+			  return summary.id === readBackgroundSessionId(storage3) || title === BACKGROUND_SESSION_TITLE;
+			}
+
 			// client-src/experience/thread-magazine.js
 			var MAX_HISTORY_MESSAGES = 50;
 			var MAX_CONCURRENT_HISTORY_READS = 4;
@@ -1745,15 +1868,18 @@ window.__ModuleLoader__.load({
 			  if (event === null || event === void 0) return null;
 			  const blocks = messageBlocks(event, /* @__PURE__ */ new Set(["text"]));
 			  const hasToolCall = Array.isArray(event?.data?.message?.content) && event.data.message.content.some((block) => block?.type === "tool-call");
-			  const markdown = blocks.join("\n\n").trim().slice(0, MAX_MARKDOWN2);
-			  if (hasToolCall || markdown.length === 0) return null;
+			  const originalMarkdown = blocks.join("\n\n").trim().slice(0, MAX_MARKDOWN2);
+			  if (hasToolCall || originalMarkdown.length === 0) return null;
+			  const title = titleFromMarkdown(originalMarkdown);
+			  const markdown = stripDuplicatedLeadTitle(originalMarkdown, title);
+			  if (markdown.length === 0) return null;
 			  const messageId = event.data?.message?.id ?? `${event.data?.turn}:${event.data?.step}:${event.seq}`;
 			  const recommendation = /\[[^\]]+\]\(https?:\/\//i.test(markdown) || /^[-*]\s+/m.test(markdown);
 			  return Object.freeze({
 			    id: `chat-result-${digest(`${sessionId}:${messageId}`)}`,
 			    kind: recommendation ? "recommendation" : "article",
 			    source: "chat-directed",
-			    title: titleFromMarkdown(markdown),
+			    title,
 			    markdown,
 			    topicId: null,
 			    publishedAt
@@ -1830,7 +1956,7 @@ window.__ModuleLoader__.load({
 			    let pump = () => {
 			    };
 			    const scan = async (summary) => {
-			      if (disposed || inFlight.has(summary.id) || !sessionNeedsMagazineScan(summary, scanned)) return;
+			      if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
 			      inFlight.add(summary.id);
 			      try {
 			        const entries = await readCompleteSessionHistory(connection.api, summary.id);
@@ -1871,7 +1997,7 @@ window.__ModuleLoader__.load({
 			      const snapshot = sessions.list.getSnapshot();
 			      for (const id of snapshot.ids ?? []) {
 			        const summary = snapshot.byId?.[id];
-			        if (sessionNeedsMagazineScan(summary, scanned)) pending.set(id, summary);
+			        if (!isBackgroundSession(summary, safeStorage()) && sessionNeedsMagazineScan(summary, scanned)) pending.set(id, summary);
 			      }
 			      pump();
 			    };
@@ -2121,7 +2247,6 @@ window.__ModuleLoader__.load({
 			var BACKGROUND_ACTIVITY_WINDOW_MS2 = 24 * 60 * 60 * 1e3;
 			var BACKGROUND_READY_TARGET = 12;
 			var BACKGROUND_EDITOR_STATUS_EVENT = "dsh-vibeify:background-editor-status";
-			var BACKGROUND_SESSION_KEY = "dsh-vibeify.background-session.v1";
 			function safeText(value, limit) {
 			  if (typeof value !== "string") return null;
 			  const text = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
@@ -2191,11 +2316,11 @@ window.__ModuleLoader__.load({
 			Reader's editor note: ${profile.customDirection || "No extra note."}
 			Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}; questionnaire answers=${learning.questionnaireAnswers.join(" | ") || "none"}.
 
-			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Images must be topically relevant and varied; prefer credible source photography, museum/open-culture media, or clearly labelled AI graphics when useful. Never invent a photo credit. Video/music must be click-to-load links, not autoplay.
+			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit; a page longer than 500 words needs two or three relevant photographs at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. An explicitly labelled AI-assisted graphic is acceptable only for an inherently conceptual or visual story and never as generic filler. Never invent a photo credit. Video/music must be click-to-load links, not autoplay.
 
 			Output only closed envelopes, one after another, exactly:
 			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-			Markdown body with sources and, for visual pages, a first-line image in the form ![specific alt text](https://...) followed by a separate credit/source link.
+			Markdown body beginning with ![specific, subject-matched alt text](https://approved-image-host/...) followed by a separate photograph credit/source link, then useful copy and content links.
 			</vibe-chunk>
 
 			Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -2208,19 +2333,6 @@ window.__ModuleLoader__.load({
 			    return window.localStorage;
 			  } catch {
 			    return null;
-			  }
-			}
-			function readSessionId(store) {
-			  try {
-			    return safeText(store?.getItem(BACKGROUND_SESSION_KEY), 96);
-			  } catch {
-			    return null;
-			  }
-			}
-			function writeSessionId(store, value) {
-			  try {
-			    store?.setItem(BACKGROUND_SESSION_KEY, value);
-			  } catch {
 			  }
 			}
 			function currentSessionDefaults2(sessions) {
@@ -2300,7 +2412,7 @@ window.__ModuleLoader__.load({
 			        return;
 			      }
 			      const runId = `reserve-${Date.now().toString(36)}`;
-			      let sessionId = readSessionId(store);
+			      let sessionId = readBackgroundSessionId(store);
 			      const snapshot = sessions.list.getSnapshot();
 			      if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
 			        announce({ state: "busy" });
@@ -2315,8 +2427,8 @@ window.__ModuleLoader__.load({
 			          return;
 			        }
 			        sessionId = created.result.value.sessionId;
-			        writeSessionId(store, sessionId);
-			        await connection.api.sessions.rename({ sessionId, title: "VIBE background editor" });
+			        writeBackgroundSessionId(store, sessionId);
+			        await connection.api.sessions.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
 			      }
 			      const baselineSeq = (await history(connection, sessionId))?.end?.seq ?? -1;
 			      if (!reserveBackgroundRun(store, profile.dailyBudgetUsd, runId)) {
@@ -2459,6 +2571,22 @@ window.__ModuleLoader__.load({
 			  const options = questionnaireOptions(chunk.markdown);
 			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react.default.createElement("p", null, questionnaireIntroduction(chunk.markdown)), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react.default.createElement(Icon, { name: "check" }) : null), label))));
 			}
+			function InlineVisuals({ visuals, title, onOpen }) {
+			  if (!Array.isArray(visuals) || visuals.length === 0) return null;
+			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-inline-visuals", "aria-label": `More photographs for ${title}` }, visuals.map((visual) => /* @__PURE__ */ import_react.default.createElement("figure", { key: visual.imageUrl }, /* @__PURE__ */ import_react.default.createElement(
+			    "img",
+			    {
+			      src: visual.imageUrl,
+			      alt: visual.alt,
+			      loading: "lazy",
+			      decoding: "async",
+			      referrerPolicy: "no-referrer",
+			      onError: (event) => {
+			        event.currentTarget.closest("figure")?.setAttribute("hidden", "");
+			      }
+			    }
+			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
+			}
 			function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave, onAnswer, onEngage, onSkip }) {
 			  const media = visualMediaForChunk(CATALOG, chunk);
 			  const contentLink = contentLinkForMarkdown(chunk.markdown);
@@ -2469,6 +2597,7 @@ window.__ModuleLoader__.load({
 			  const layout = panelLayoutForChunk(chunk, index);
 			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
 			  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
+			  const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
 			  return /* @__PURE__ */ import_react.default.createElement(
 			    "article",
 			    {
@@ -2497,7 +2626,7 @@ window.__ModuleLoader__.load({
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), onLink: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player" }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player" }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
 			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, contentLink !== null || !isChatResult ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me")) : null)
@@ -2811,7 +2940,10 @@ window.__ModuleLoader__.load({
 			        onHome: goHome,
 			        onUpdate: startRun,
 			        onStop: stopRun,
-			        onChat: () => dispatch({ type: "enter-chat" })
+			        onChat: () => {
+			          dispatch({ type: "enter-chat" });
+			          window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
+			        }
 			      }
 			    ),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
@@ -2890,6 +3022,8 @@ window.__ModuleLoader__.load({
 			.vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 			.vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
 			.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre,.vfx-markdown table { display:block; max-width:100%; overflow-x:auto; }.vfx-markdown pre { white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
+			.vfx-markdown table { width:100%; margin:22px 0; border-collapse:collapse; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+			.vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
 			.vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 			.vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 			.vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
@@ -2900,7 +3034,7 @@ window.__ModuleLoader__.load({
 			.vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
-			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-footer { flex-direction:column; } }
+			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 			@media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 			`;
 			function installStyles(ctx) {
@@ -3721,6 +3855,8 @@ window.__ModuleLoader__.load({
 			#${VIBE_ROOT_ID} .dsh-vibeify-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:5px 0; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-control { padding:8px 9px; border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); }
 			#${VIBE_ROOT_ID} .dsh-vibeify-control input[type="range"] { width:100%; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-money { margin-top:5px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:600; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-money input { width:100%; min-width:0; box-sizing:border-box; padding:6px 7px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:6px; background:var(--dsw-alias-bg-layer-1); font:inherit; font-variant-numeric:tabular-nums; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-reset { color:var(--dsw-alias-label-secondary); border:0; background:none; cursor:pointer; text-decoration:underline; font:inherit; font-size:11px; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-field label {
 			  color: var(--dsw-alias-label-primary);
@@ -3794,7 +3930,7 @@ window.__ModuleLoader__.load({
 			      <div class="dsh-vibeify-tribes" aria-label="Editorial tribes">${Object.values(EDITORIAL_TRIBES).map(({ id, label }) => `<button class="dsh-vibeify-tribe" type="button" data-tribe="${id}" aria-pressed="false">${label}</button>`).join("")}</div>
 			      <div class="dsh-vibeify-controls">
 			        <label class="dsh-vibeify-control">Useful surprises <output id="dsh-vibeify-serendipity-value">20%</output><input id="dsh-vibeify-serendipity" type="range" min="10" max="40" step="5" value="20"></label>
-			        <label class="dsh-vibeify-control">DeepSeek daily maximum<input id="dsh-vibeify-budget" type="number" min="0" max="2" step="0.25" value="2"></label>
+			        <label class="dsh-vibeify-control">DeepSeek daily maximum <span class="dsh-vibeify-money"><span aria-hidden="true">$</span><input id="dsh-vibeify-budget" type="number" min="0" max="2" step="0.25" value="2.00" inputmode="decimal" aria-label="DeepSeek daily maximum in US dollars"><span>USD / day</span></span></label>
 			        <label class="dsh-vibeify-control"><input id="dsh-vibeify-background" type="checkbox" checked> Fill the hidden reserve</label>
 			        <label class="dsh-vibeify-control"><input id="dsh-vibeify-content-notes" type="checkbox" checked> Gentle content notes</label>
 			      </div>
@@ -3824,7 +3960,7 @@ window.__ModuleLoader__.load({
 					customDirection.value = editorialProfile.customDirection;
 					serendipity.value = String(Math.round(editorialProfile.serendipity * 100));
 					serendipityValue.textContent = `${serendipity.value}%`;
-					budget.value = String(editorialProfile.dailyBudgetUsd);
+					budget.value = Number(editorialProfile.dailyBudgetUsd).toFixed(2);
 					background.checked = editorialProfile.backgroundEditor;
 					contentNotes.checked = editorialProfile.contentNotes;
 					trigger.title = `Vibe settings · ${VIBE_PRESETS[selected].label} · ${editorialProfile.label}`;

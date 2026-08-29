@@ -58,11 +58,13 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /<vibe-chunk/);
   assert.match(client, /chat-directed/);
   assert.match(client, /dsh-vibeify:chat-result/);
-  assert.match(client, /textContent = "Vibe"/);
+  assert.match(client, /textContent = "VIBE"/);
   assert.match(client, /VIBE settings/);
   assert.match(client, /Editorial direction/);
   assert.match(client, /Builders & nerds/);
   assert.match(client, /Fill the hidden reserve/);
+  assert.match(client, /USD \/ day/);
+  assert.match(client, /daily maximum in US dollars/);
   assert.match(client, /Reset what the editor has learned/);
   assert.match(client, /Add your own editor note/);
   assert.match(client, /AI-assisted graphic/);

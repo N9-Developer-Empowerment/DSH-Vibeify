@@ -7,6 +7,11 @@ import {
   reserveBackgroundRun,
 } from "./reserve-store.js";
 import { loadEditorialProfile } from "./editorial-settings.js";
+import {
+  BACKGROUND_SESSION_TITLE,
+  readBackgroundSessionId,
+  writeBackgroundSessionId,
+} from "./background-session.js";
 
 export const PUBLIC_RADAR_URL = "https://n9-developer-empowerment.github.io/DSH-Vibeify/latest.json";
 export const BACKGROUND_EDITOR_INTERVAL_MS = 30 * 60 * 1000;
@@ -14,7 +19,6 @@ export const BACKGROUND_EDITOR_TIMEOUT_MS = 15 * 60 * 1000;
 export const BACKGROUND_ACTIVITY_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const BACKGROUND_READY_TARGET = 12;
 export const BACKGROUND_EDITOR_STATUS_EVENT = "dsh-vibeify:background-editor-status";
-const BACKGROUND_SESSION_KEY = "dsh-vibeify.background-session.v1";
 const ALLOWED_KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
 
 function safeText(value, limit) {
@@ -91,11 +95,11 @@ Serendipity: ${Math.round((Number(profile.serendipity) || 0.2) * 100)}% of pages
 Reader's editor note: ${profile.customDirection || "No extra note."}
 Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}; questionnaire answers=${learning.questionnaireAnswers.join(" | ") || "none"}.
 
-Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Images must be topically relevant and varied; prefer credible source photography, museum/open-culture media, or clearly labelled AI graphics when useful. Never invent a photo credit. Video/music must be click-to-load links, not autoplay.
+Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit; a page longer than 500 words needs two or three relevant photographs at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. An explicitly labelled AI-assisted graphic is acceptable only for an inherently conceptual or visual story and never as generic filler. Never invent a photo credit. Video/music must be click-to-load links, not autoplay.
 
 Output only closed envelopes, one after another, exactly:
 <vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-Markdown body with sources and, for visual pages, a first-line image in the form ![specific alt text](https://...) followed by a separate credit/source link.
+Markdown body beginning with ![specific, subject-matched alt text](https://approved-image-host/...) followed by a separate photograph credit/source link, then useful copy and content links.
 </vibe-chunk>
 
 Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -106,14 +110,6 @@ ${sourceRows}`;
 
 function storage() {
   try { return window.localStorage; } catch { return null; }
-}
-
-function readSessionId(store) {
-  try { return safeText(store?.getItem(BACKGROUND_SESSION_KEY), 96); } catch { return null; }
-}
-
-function writeSessionId(store, value) {
-  try { store?.setItem(BACKGROUND_SESSION_KEY, value); } catch { /* optional cache */ }
 }
 
 function currentSessionDefaults(sessions) {
@@ -197,7 +193,7 @@ export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
         return;
       }
       const runId = `reserve-${Date.now().toString(36)}`;
-      let sessionId = readSessionId(store);
+      let sessionId = readBackgroundSessionId(store);
       const snapshot = sessions.list.getSnapshot();
       if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
         announce({ state: "busy" }); schedule(); return;
@@ -206,8 +202,8 @@ export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
         const created = await connection.api.sessions.create(currentSessionDefaults(sessions));
         if (!created?.result?.ok || stopped) { announce({ state: "error" }); schedule(); return; }
         sessionId = created.result.value.sessionId;
-        writeSessionId(store, sessionId);
-        await connection.api.sessions.rename({ sessionId, title: "VIBE background editor" });
+        writeBackgroundSessionId(store, sessionId);
+        await connection.api.sessions.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
       }
       const baselineSeq = (await history(connection, sessionId))?.end?.seq ?? -1;
       if (!reserveBackgroundRun(store, profile.dailyBudgetUsd, runId)) { announce({ state: "budget" }); schedule(); return; }

@@ -120,3 +120,23 @@ test("legacy worker reports and update summaries are removed from the reader cac
   }));
   assert.deepEqual(getCachedStream(storage, now + 1).chunks.map(({ id }) => id), ["real-chat"]);
 });
+
+test("legacy background-editor envelopes cannot survive as one raw Content note card", () => {
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  storage.values.set(CONTENT_STORE_KEY, JSON.stringify({
+    version: 4,
+    answers: [],
+    chunks: [
+      {
+        ...chunk("leaked-background"),
+        source: "chat-directed",
+        title: "Content note:",
+        markdown: '<vibe-chunk id="reserve-one" kind="article" title="First">First body.</vibe-chunk> <vibe-chunk id="reserve-two" kind="questionnaire" title="Second">- One\n- Two</vibe-chunk>',
+        publishedAt: now,
+      },
+      { ...chunk("real-article"), source: "chat-directed", title: "A finished article", markdown: "Useful reader-facing material.", publishedAt: now },
+    ],
+  }));
+  assert.deepEqual(getCachedStream(storage, now + 1).chunks.map(({ id }) => id), ["real-article"]);
+});

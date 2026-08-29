@@ -9,6 +9,8 @@ import {
   installVibeStreamBridge,
   isAssistantAnswer,
   isNativeResultTabList,
+  markdownTableAt,
+  stripDuplicatedLeadTitle,
   namespaceStreamChunks,
   VIBE_CHAT_RESULT_EVENT,
 } from "./client-src/experience/vibe-result.js";
@@ -107,6 +109,27 @@ test("a rendered answer can become a sanitized Vibe page without storing its pro
     topicId: null,
     publishedAt: 1_700_000_000_000,
   });
+});
+
+test("a card title is not repeated as the first heading in its body", () => {
+  assert.equal(stripDuplicatedLeadTitle("## A finished guide\n\nUseful copy.", "A finished guide"), "Useful copy.");
+  assert.equal(stripDuplicatedLeadTitle("**A finished guide**\n\nUseful copy.", "A finished guide"), "Useful copy.");
+  assert.equal(stripDuplicatedLeadTitle("## A different heading\n\nUseful copy.", "A finished guide"), "## A different heading\n\nUseful copy.");
+});
+
+test("pipe tables are recognised as structured rows rather than one raw paragraph", () => {
+  assert.deepEqual(markdownTableAt([
+    "| Week | Focus |",
+    "| --- | :--- |",
+    "| 1 | Voice |",
+    "| 2 | Language |",
+    "",
+  ], 0), {
+    headers: ["Week", "Focus"],
+    rows: [["1", "Voice"], ["2", "Language"]],
+    nextIndex: 4,
+  });
+  assert.equal(markdownTableAt(["Ordinary | prose"], 0), null);
 });
 
 test("explicit user-role rows are rejected even when they contain a Copy action", () => {

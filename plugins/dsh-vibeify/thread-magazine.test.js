@@ -8,6 +8,7 @@ import {
   sessionNeedsMagazineScan,
 } from "./client-src/experience/thread-magazine.js";
 import { VIBE_CHAT_RESULT_EVENT } from "./client-src/experience/vibe-result.js";
+import { BACKGROUND_SESSION_KEY } from "./client-src/experience/background-session.js";
 
 function message({ seq, time, turn = 1, step = 1, id, content, interrupted = false }) {
   return {
@@ -171,6 +172,59 @@ test("the bridge combines completed answers from all idle threads using history 
     assert.deepEqual(calls.map(({ sessionId }) => sessionId).sort(), ["thread-a", "thread-b"]);
     assert.deepEqual(published.map(({ title }) => title).sort(), ["Answer A", "Answer B"]);
     assert.deepEqual(Object.keys(connection.api.sessions), ["history"]);
+  } finally {
+    ctx.cleanup?.();
+    if (originalWindow === undefined) delete globalThis.window;
+    else Object.defineProperty(globalThis, "window", originalWindow);
+    if (originalCustomEvent === undefined) delete globalThis.CustomEvent;
+    else Object.defineProperty(globalThis, "CustomEvent", originalCustomEvent);
+  }
+});
+
+test("the hidden background editor is never scanned into the visible magazine", async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const originalCustomEvent = Object.getOwnPropertyDescriptor(globalThis, "CustomEvent");
+  class FakeCustomEvent extends Event {
+    constructor(type, options = {}) { super(type); this.detail = options.detail; }
+  }
+  const values = new Map([[BACKGROUND_SESSION_KEY, "background-session"]]);
+  const browserWindow = new EventTarget();
+  browserWindow.localStorage = {
+    getItem(key) { return values.get(key) ?? null; },
+    setItem(key, value) { values.set(key, String(value)); },
+  };
+  Object.defineProperty(globalThis, "window", { configurable: true, writable: true, value: browserWindow });
+  Object.defineProperty(globalThis, "CustomEvent", { configurable: true, writable: true, value: FakeCustomEvent });
+  const calls = [];
+  const published = [];
+  browserWindow.addEventListener(VIBE_CHAT_RESULT_EVENT, (event) => published.push(event.detail.chunk));
+  const summaries = {
+    ids: ["reader-session", "background-session", "background-by-title"],
+    byId: {
+      "reader-session": { id: "reader-session", title: "A reader question", running: false, blank: false, updatedAt: 10 },
+      "background-session": { id: "background-session", title: "VIBE background editor", running: false, blank: false, updatedAt: 20 },
+      "background-by-title": { id: "background-by-title", title: "VIBE background editor", running: false, blank: false, updatedAt: 30 },
+    },
+  };
+  const histories = {
+    "reader-session": [message({ seq: 1, time: 100, id: "reader", content: [{ type: "text", text: "## A finished reader answer\n\nUseful copy." }] }), turnEnd({ seq: 2, time: 101 })],
+    "background-session": [message({ seq: 3, time: 200, id: "reserve", content: [{ type: "text", text: '<vibe-chunk id="reserve-leak" kind="article" title="Hidden reserve">Never show this directly.</vibe-chunk>' }] }), turnEnd({ seq: 4, time: 201 })],
+    "background-by-title": [message({ seq: 5, time: 300, id: "reserve-title", content: [{ type: "text", text: "Content note:\n<vibe-chunk id=\"broken\">" }] }), turnEnd({ seq: 6, time: 301 })],
+  };
+  const sessions = { list: { getSnapshot: () => summaries, subscribe: () => () => {} } };
+  const connection = { api: { sessions: { async history(payload) {
+    calls.push(payload);
+    return { result: { ok: true, value: { events: histories[payload.sessionId], hasMore: false } } };
+  } } } };
+  const ctx = {
+    get(name) { return name === "connection" ? connection : sessions; },
+    effect(setup) { this.cleanup = setup(); },
+  };
+  try {
+    installThreadMagazineBridge(ctx);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(calls.map(({ sessionId }) => sessionId), ["reader-session"]);
+    assert.deepEqual(published.map(({ title }) => title), ["A finished reader answer"]);
   } finally {
     ctx.cleanup?.();
     if (originalWindow === undefined) delete globalThis.window;

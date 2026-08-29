@@ -175,7 +175,7 @@ const REMOTE_IMAGE_HOSTS = Object.freeze(new Set([
   "cdn.pixabay.com",
 ]));
 const REMOTE_IMAGE_QUERY_KEYS = Object.freeze(new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
-const LEAD_IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/i;
+const IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
 const SOURCE_LINK_PATTERN = /\[([^\]]{1,120})\]\((https:\/\/[^\s)]+)\)/i;
 const MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
 const VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
@@ -196,31 +196,45 @@ function allowedImageUrl(value) {
   }
 }
 
-/** A generated page can contribute one verified public image to the rolling catalogue. */
-export function remoteVisualForMarkdown(markdown) {
-  if (typeof markdown !== "string") return null;
-  const image = markdown.match(LEAD_IMAGE_PATTERN);
-  if (image === null) return null;
-  const imageUrl = allowedImageUrl(image[2]);
-  if (imageUrl === null) return null;
-  const following = markdown.slice((image.index ?? 0) + image[0].length);
-  const source = following.match(SOURCE_LINK_PATTERN);
-  if (source === null) return null;
-  let sourceUrl;
+function visualSource(value) {
   try {
-    const parsed = new URL(source[2]);
+    const parsed = new URL(value);
     if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "") return null;
     parsed.hash = "";
-    sourceUrl = parsed.href;
+    return parsed.href;
   } catch {
     return null;
   }
-  return Object.freeze({
-    imageUrl,
-    sourceUrl,
-    alt: image[1].replace(/\s+/g, " ").trim(),
-    credit: source[1].replace(/\s+/g, " ").trim(),
-  });
+}
+
+/** A generated page can contribute several verified public images to the rolling catalogue. */
+export function remoteVisualsForMarkdown(markdown) {
+  if (typeof markdown !== "string") return null;
+  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+  const visuals = [];
+  const seen = new Set();
+  for (let index = 0; index < images.length; index += 1) {
+    const image = images[index];
+    const imageUrl = allowedImageUrl(image[2]);
+    if (imageUrl === null || seen.has(imageUrl)) continue;
+    const start = (image.index ?? 0) + image[0].length;
+    const end = images[index + 1]?.index ?? markdown.length;
+    const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
+    const sourceUrl = source === null ? null : visualSource(source[2]);
+    if (source === null || sourceUrl === null) continue;
+    seen.add(imageUrl);
+    visuals.push(Object.freeze({
+      imageUrl,
+      sourceUrl,
+      alt: image[1].replace(/\s+/g, " ").trim(),
+      credit: source[1].replace(/\s+/g, " ").trim(),
+    }));
+  }
+  return Object.freeze(visuals);
+}
+
+export function remoteVisualForMarkdown(markdown) {
+  return remoteVisualsForMarkdown(markdown)?.[0] ?? null;
 }
 
 function contentUrl(value) {
@@ -266,22 +280,15 @@ export function contentLinkForMarkdown(markdown) {
 
 export function markdownWithoutLeadVisual(markdown) {
   if (typeof markdown !== "string") return "";
-  const visual = remoteVisualForMarkdown(markdown);
-  let removedCredit = false;
+  const visuals = remoteVisualsForMarkdown(markdown) ?? [];
+  const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
   return markdown
-    .replace(LEAD_IMAGE_PATTERN, "")
+    .replace(IMAGE_PATTERN, (match, _alt, value) => allowedImageUrl(value) === null ? match : "")
     .replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
-      if (removedCredit || visual === null) return match;
-      try {
-        const url = new URL(value);
-        url.hash = "";
-        if (url.href !== visual.sourceUrl) return match;
-        removedCredit = true;
-        return "";
-      } catch {
-        return match;
-      }
+      const sourceUrl = visualSource(value);
+      return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;
     })
+    .replace(/\n{3,}/g, "\n\n")
     .replace(/^\s+/, "");
 }
 
@@ -304,7 +311,7 @@ export function visualMediaForChunk(catalog, chunk) {
       episode,
     });
   }
-  const useGraphic = episode.graphic !== undefined && mediaHash % 2 === 0;
+  const useGraphic = chunk?.source === "bundle" && chunk?.kind === "image" && episode.graphic !== undefined && mediaHash % 5 === 0;
   if (useGraphic) {
     return Object.freeze({
       kind: episode.graphic.kind,

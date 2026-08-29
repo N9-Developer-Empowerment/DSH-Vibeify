@@ -39,7 +39,10 @@
     "theme",
     "vibe"
   ],
-  "author": "Errol Elliott",
+  "author": {
+    "name": "Errol Elliott",
+    "email": "info@codingforjustice.org.uk"
+  },
   "contributors": [
     "Daniela Elliott"
   ],

@@ -6,7 +6,11 @@ DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://git
 
 ![The real DSH Vibeify welcome edition, with visual articles already on screen](docs/assets/dsh-vibeify-magazine-social.png)
 
-[Download Vibeify 0.15.2](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.2) · [Watch the 72-second walkthrough](https://dsh-vibeify.ezzye.chatgpt.site/#demo) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md)
+[Download Vibeify 0.15.2](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.2) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
+
+[![Watch DSH Vibeify turn online-agent work into a living magazine](docs/assets/dsh-vibeify-magazine-social.png)](https://youtu.be/jda4uplWsiI)
+
+The real 2:24 demonstration opens Vibe with content, turns a Chat request into a visual card, uses an explicit Update, then previews one article privately before optional publication. [Watch it on YouTube.](https://youtu.be/jda4uplWsiI)
 
 DSH Vibeify's magazine is **not** a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence. An optional, deliberately separate share service can publish one reviewed article at a time without exposing the local magazine or requiring the recipient to have DSH, ChatGPT, or DeepSeek.
 
@@ -68,6 +72,10 @@ Neither account is individually compulsory, and installation can finish before e
 The first screen is Vibe itself: a full-screen editorial feed opens with the current welcome issue, followed by a bundled content well and the reader's older saved magazine. No guide, tile, recipe, or prompt must be selected. The welcome issue repeatedly points to one useful next move: open **Chat**, say **“Make a Vibe about…”**, watch the completed visual pages enter Vibe, then preview and share a good one. A new answer made during the current visit arrives above the welcome issue. Older saved pages remain further down rather than being deleted or mistaken for today's front page. **Chat** remains the detailed source view with the conventional DSH conversation and technical controls.
 
 > DSH is a fast-moving developer preview. Vibeify pins the versions it has tested and includes a health check, but you should still expect upstream changes.
+
+## Contact
+
+For Vibeify questions, installation help, or responsible reports that should not begin in a public issue, email [info@codingforjustice.org.uk](mailto:info@codingforjustice.org.uk). Do not send passwords, API keys, cookies, OAuth tokens, private prompts, session exports, or unreviewed logs.
 
 ## Start here
 

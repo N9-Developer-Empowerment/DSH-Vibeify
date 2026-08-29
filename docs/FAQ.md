@@ -111,4 +111,4 @@ Keep private:
 
 ## I am still stuck
 
-Use the safe prompt above in one of the three chat services, or open a GitHub discussion with only the redacted report and controlled error. DSH Vibeify is an independent community project, not an official DeepSeek, OpenAI, or Google product.
+Use the safe prompt above in one of the three chat services, open a GitHub discussion with only the redacted report and controlled error, or email [info@codingforjustice.org.uk](mailto:info@codingforjustice.org.uk). Do not attach complete logs or include passwords, API keys, cookies, OAuth tokens, private prompts, session exports, or other account data. DSH Vibeify is an independent community project, not an official DeepSeek, OpenAI, or Google product.

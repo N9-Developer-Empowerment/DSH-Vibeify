@@ -2,14 +2,30 @@
 set -euo pipefail
 
 REPOSITORY_ARCHIVE="https://github.com/N9-Developer-Empowerment/DSH-Vibeify/archive/refs/heads/main.zip"
+FAQ_URL="https://github.com/N9-Developer-Empowerment/DSH-Vibeify/blob/main/docs/FAQ.md"
 PROFILE="web"
-PORT="3080"
+PORT="${DSH_PORT:-3080}"
+check_only=false
+if [[ "${1:-}" == "--check" ]]; then
+  check_only=true
+elif [[ $# -gt 0 ]]; then
+  printf 'Usage: %s [--check]\n' "$0" >&2
+  exit 2
+fi
 
 say() { printf '\n%s\n' "$1"; }
+pause_before_close() {
+  if [[ -t 0 ]]; then read -r -p "Press Return to close... " _; fi
+}
+show_help() {
+  printf '\nHelp: %s\n' "$FAQ_URL"
+  printf 'Free chat help: DeepSeek https://chat.deepseek.com/ · ChatGPT https://chatgpt.com/ · Gemini https://gemini.google.com/\n'
+  printf 'Never paste an API key, password, cookie, token, private prompt, DSH profile, or full log into a support chat.\n'
+}
 fail() {
   printf '\nInstallation stopped: %s\n' "$1" >&2
-  printf 'This window will stay open so you can read the message.\n'
-  read -r -p "Press Return to close... " _
+  show_help
+  pause_before_close
   exit 1
 }
 
@@ -34,10 +50,35 @@ for command_name in curl unzip npm node; do
   fi
 done
 
-node_major="$(node -p 'process.versions.node.split(".")[0]')"
-if [[ "$node_major" -lt 22 ]]; then
+if ! node -e 'const [major,minor]=process.versions.node.split(".").map(Number);process.exit((major===22&&minor>=19)||major>=24?0:1)'; then
   open "https://nodejs.org/en/download"
-  fail "Node.js 22 or newer is needed; this Mac has $(node --version)."
+  fail "DSH needs Node.js 22.19 or later in the 22.x line, or Node.js 24 or later; this Mac has $(node --version)."
+fi
+
+temporary_directory="$(mktemp -d -t dsh-vibeify-download.XXXXXX)"
+trap 'rm -rf "$temporary_directory"' EXIT
+archive="$temporary_directory/dsh-vibeify.zip"
+
+if [[ -n "${DSH_VIBEIFY_SOURCE_DIRECTORY:-}" ]]; then
+  project_directory="$DSH_VIBEIFY_SOURCE_DIRECTORY"
+  [[ -d "$project_directory/plugins/dsh-vibeify" ]] || fail "The supplied Vibeify source directory is not a valid checkout."
+  say "Checking the supplied Vibeify source checkout..."
+else
+  say "Downloading the latest Vibeify source from the public GitHub project..."
+  curl --fail --location --retry 3 --connect-timeout 15 --output "$archive" "$REPOSITORY_ARCHIVE" || fail "The public Vibeify download could not be reached. Check the internet connection and try again."
+  unzip -q "$archive" -d "$temporary_directory" || fail "The downloaded ZIP could not be opened. Download it again rather than bypassing the check."
+  project_directory="$temporary_directory/DSH-Vibeify-main"
+  [[ -d "$project_directory" ]] || fail "The downloaded Vibeify archive had an unexpected layout."
+fi
+chmod +x "$project_directory/scripts/install-dsh.sh" "$project_directory/scripts/install-vibeify.sh" "$project_directory/scripts/doctor.sh"
+if [[ -f "$project_directory/scripts/installer-self-check.mjs" ]]; then
+  node "$project_directory/scripts/installer-self-check.mjs" "$project_directory" || fail "The download failed its source checks. Do not install it."
+else
+  "$project_directory/scripts/doctor.sh" --source || fail "The download failed its source checks. Do not install it."
+fi
+if [[ "$check_only" == true ]]; then
+  say "The macOS downloader check passed. Nothing was installed, no profile changed, and no model was called."
+  exit 0
 fi
 
 printf '\nChoose how you want the AI side to work:\n'
@@ -53,40 +94,29 @@ if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
   provider_mode="chatgpt"
   if ! command -v codex >/dev/null 2>&1; then
     say "Installing the official Codex command so ChatGPT can be connected..."
-    npm install --global @openai/codex@latest
+    npm install --global @openai/codex@latest || fail "Codex could not be installed. The FAQ explains safe npm permission fixes."
   fi
   if [[ "$(codex login status 2>&1 || true)" != *"Logged in using ChatGPT"* ]]; then
     say "Your browser will open for ChatGPT sign-in. Return here when it finishes."
-    codex login
+    codex login || fail "ChatGPT sign-in did not finish. You can rerun the installer and choose connect later."
   fi
 fi
 
-temporary_directory="$(mktemp -d -t dsh-vibeify-download.XXXXXX)"
-trap 'rm -rf "$temporary_directory"' EXIT
-archive="$temporary_directory/dsh-vibeify.zip"
-
-say "Downloading the latest Vibeify source from the public GitHub project..."
-curl --fail --location --retry 3 --connect-timeout 15 --output "$archive" "$REPOSITORY_ARCHIVE"
-unzip -q "$archive" -d "$temporary_directory"
-project_directory="$temporary_directory/DSH-Vibeify-main"
-[[ -d "$project_directory" ]] || fail "The downloaded Vibeify archive had an unexpected layout."
-chmod +x "$project_directory/scripts/install-dsh.sh" "$project_directory/scripts/install-vibeify.sh" "$project_directory/scripts/doctor.sh"
-
 say "Installing or updating DeepSeek Harness..."
-"$project_directory/scripts/install-dsh.sh" --latest
+"$project_directory/scripts/install-dsh.sh" --latest || fail "DeepSeek Harness could not be installed. The FAQ explains Node and npm permission problems."
 
 say "Installing or updating Vibeify..."
-"$project_directory/scripts/install-vibeify.sh" --provider "$provider_mode"
+"$project_directory/scripts/install-vibeify.sh" --provider "$provider_mode" || fail "Vibeify could not be added to the DSH profile."
 
 say "Checking the installation without making a paid model call..."
-"$project_directory/scripts/doctor.sh"
+"$project_directory/scripts/doctor.sh" || fail "The installation completed but did not pass its non-billing checks."
 
 if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   printf '\nDSH is already open. Finish any active task before continuing.\n'
   read -r -p "When DSH is idle, type YES to restart it safely: " restart_answer
   if [[ "$restart_answer" != "YES" ]]; then
     say "The update is installed but not activated. Re-run this helper when DSH is idle."
-    read -r -p "Press Return to close... " _
+    pause_before_close
     exit 0
   fi
   node "$project_directory/scripts/dsh-restart.mjs" queue --confirmed-idle --delay-ms 1000 --profile "$PROFILE" --port "$PORT" >/dev/null
@@ -118,4 +148,5 @@ elif [[ "$account_choice" == "4" ]]; then
   printf 'You can browse Vibe now. Connect DeepSeek or ChatGPT before asking the agent to work.\n'
 fi
 printf 'Updates are safe to run again: download the current helper and repeat these steps.\n'
-read -r -p "Press Return to close this installer... " _
+show_help
+pause_before_close

@@ -6,7 +6,8 @@ const execFileAsync = promisify(execFile);
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 12_000;
 const UPDATE_CHANNEL = "/vibeify-updates";
-const INSTALLER_URL = "https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip";
+const INSTALLER_GUIDE_URL = "https://github.com/N9-Developer-Empowerment/DSH-Vibeify/blob/main/docs/FAQ.md";
+const MAC_INSTALLER_URL = "https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip";
 const SOURCES = Object.freeze({
   dsh: "https://registry.npmjs.org/@deepseek-ai%2Fdsh/latest",
   codex: "https://registry.npmjs.org/@openai%2Fcodex/latest",
@@ -92,6 +93,43 @@ function codexComponent(current, latest, installable) {
   };
 }
 
+export function updaterForPlatform(platform = process.platform) {
+  if (platform === "darwin") {
+    return {
+      url: MAC_INSTALLER_URL,
+      label: "Download verified macOS updater",
+      note: "The Mac updater checks the public source again, installs immutable packages, and asks before a detached restart. Finish active tasks first.",
+      status: "verified",
+      restartRequiresIdleConfirmation: true,
+    };
+  }
+  if (platform === "win32") {
+    return {
+      url: INSTALLER_GUIDE_URL,
+      label: "Open Windows installer preview",
+      note: "The Windows downloader is still a preview. It checks the public source and stages an immutable update, but never stops an open DSH process.",
+      status: "preview",
+      restartRequiresIdleConfirmation: true,
+    };
+  }
+  if (platform === "linux") {
+    return {
+      url: INSTALLER_GUIDE_URL,
+      label: "Open Linux installer preview",
+      note: "The Linux downloader is still a preview. It checks the public source and stages an immutable update, but never stops an open DSH process.",
+      status: "preview",
+      restartRequiresIdleConfirmation: true,
+    };
+  }
+  return {
+    url: INSTALLER_GUIDE_URL,
+    label: "Open platform installation guide",
+    note: "No friendly installer has been qualified for this platform. The guide keeps unsupported systems clearly separated from verified downloads.",
+    status: "unsupported",
+    restartRequiresIdleConfirmation: true,
+  };
+}
+
 async function networkJson(url, signal) {
   const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
   const response = await fetch(url, {
@@ -170,11 +208,7 @@ export function createUpdateChecker({
         source: "live",
         updateAvailable: Object.values(components).some((item) => item.state === "update-available"),
         components,
-        updater: {
-          url: INSTALLER_URL,
-          label: "Download safe updater",
-          restartRequiresIdleConfirmation: true,
-        },
+        updater: updaterForPlatform(),
       };
       expiresAt = checkedAt.getTime() + cacheTtlMs;
       return cached;

@@ -255,7 +255,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickT
               </a>
             )}
             <div className="vfx-reader-actions">
-              {isWelcome ? <button type="button" className="vfx-chat-cta" onClick={onChat}><Icon name="chat" /> Make something in Chat</button> : null}
+              {isWelcome ? <button type="button" className="vfx-chat-cta" onClick={onChat}><Icon name="chat" /> Ask Chat to make a Vibe</button> : null}
               <button
                 type="button"
                 className="vfx-share"

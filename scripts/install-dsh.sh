@@ -30,9 +30,8 @@ if [[ "$use_latest" == true ]]; then
   fi
 fi
 
-node_major="$(node -p 'process.versions.node.split(".")[0]')"
-if [[ "$node_major" -lt 22 ]]; then
-  echo "Node.js 22 or newer is required; found $(node --version)." >&2
+if ! node -e 'const [major,minor]=process.versions.node.split(".").map(Number);process.exit((major===22&&minor>=19)||major>=24?0:1)'; then
+  echo "Node.js 22.19 or later in the 22.x line, or Node.js 24 or later, is required; found $(node --version)." >&2
   exit 1
 fi
 

@@ -1,0 +1,53 @@
+name: Test installers
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    name: ${{ matrix.os }} installer contract
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/installer-self-check.mjs
+      - run: node --test scripts/installer-contract.test.mjs
+      - name: Exercise isolated macOS installer flow
+        if: runner.os == 'macOS'
+        run: node --test scripts/installer-macos-flow.test.mjs
+      - name: Parse shell installers
+        if: runner.os != 'Windows'
+        run: |
+          bash -n 'scripts/Install DSH Vibeify.command'
+          bash -n scripts/install-dsh-vibeify-linux.sh
+          bash -n scripts/build-installer-assets.sh
+      - name: Parse Windows PowerShell installer
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $source = Get-Content -Raw 'scripts/Install DSH Vibeify.ps1'
+          [scriptblock]::Create($source) | Out-Null
+
+  build-downloads:
+    name: Build downloadable archives
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/build-installer-assets.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-vibeify-installers
+          path: dist/installers/
+          if-no-files-found: error

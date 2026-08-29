@@ -2766,7 +2766,7 @@ window.__ModuleLoader__.load({
 
 			You ask normally in Chat. Useful finished material arrives here with hierarchy, pictures, links and room to breathe. The result is still yours to judge, save and share; it is simply dressed before coming downstairs.
 
-			**Try it:** open Chat and ask for something you would genuinely enjoy reading\u2014perhaps a weekend guide, a visual explainer or a short series on a person you admire. Then return to VIBE and watch your own edition take over.
+			**Try it:** open Chat and say \u201CMake a Vibe about something I would genuinely enjoy reading\u2014perhaps a weekend guide, a visual explainer or a short series on a person I admire.\u201D Then return to VIBE and watch your own edition take over.
 
 			[See what Vibeify is designed to do](${VIBEIFY_SITE}).`
 			  }),
@@ -2779,7 +2779,7 @@ window.__ModuleLoader__.load({
 
 			VIBE is where the finished answer becomes readable. One request runs one turn and stops; the magazine does not secretly restart old conversations. If you want a different direction, ask again in Chat.
 
-			**Try it:** ask for \u201Cfive joyful things happening in science, explained without jargon, with sources and pictures.\u201D
+			**Try it:** ask, \u201CMake a Vibe about five joyful things happening in science, explained without jargon, with sources and pictures.\u201D
 
 			[Read the plain-English Vibeify overview](${VIBEIFY_SITE}).`
 			  }),
@@ -2792,7 +2792,7 @@ window.__ModuleLoader__.load({
 
 			Nothing half-written is published. The unit of streaming is a finished visual chunk\u2014a whole paragraph, card, questionnaire or article section\u2014not a sentence twitching across the screen one token at a time.
 
-			**Try it:** ask Chat for \u201Ca quick visual answer first, followed by a deeper sourced article.\u201D
+			**Try it:** ask, \u201CMake a Vibe about a subject I care about. Give me a quick visual article first, followed by deeper sourced pieces.\u201D
 
 			[See how the streaming magazine is put together](${VIBEIFY_REPOSITORY}/blob/main/docs/CONTENT_STREAMING.md).`
 			  }),
@@ -2844,7 +2844,7 @@ window.__ModuleLoader__.load({
 
 			Music and video use click-to-load previews, which keeps the opening page quick and avoids autoplay ambushes. Article links lead to useful web content; image credits remain image credits.
 
-			**Try it:** ask Chat for a visual history with \u201Crelevant photographs at each turning point, plus one video or music link where it genuinely helps.\u201D
+			**Try it:** ask, \u201CMake a visual-history Vibe with relevant photographs at each turning point, plus one video or music link where it genuinely helps.\u201D
 
 			[See the visual and provenance rules](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#visual-provenance).`
 			  }),
@@ -2870,7 +2870,7 @@ window.__ModuleLoader__.load({
 
 			The preview is private until you deliberately choose **Publish public link**. The resulting page can be opened by people who have neither DSH nor a ChatGPT or DeepSeek account.
 
-			**Try it:** make a short celebratory article in Chat, preview it in VIBE, check every word and image, then publish only if it is ready to leave home.
+			**Try it:** ask Chat to \u201Cmake a short celebratory Vibe article,\u201D preview it in VIBE, check every word and image, then publish only if it is ready to leave home.
 
 			[Read the two-step sharing guide](${VIBEIFY_REPOSITORY}/blob/main/docs/SHARING.md).`
 			  }),
@@ -3201,7 +3201,7 @@ window.__ModuleLoader__.load({
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player" }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
-			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Make something in Chat") : null, /* @__PURE__ */ import_react.default.createElement(
+			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
 			      "button",
 			      {
 			        type: "button",
@@ -3957,9 +3957,9 @@ window.__ModuleLoader__.load({
 							href: report.updater.url,
 							target: "_blank",
 							rel: "noreferrer",
-						}, "Download safe updater"),
+						}, report.updater.label || "Open updater guide"),
 					),
-					React.createElement("p", { className: "dsh-vibeify-updates-note" }, "The Mac updater checks again, installs immutable packages, and asks before restart. Finish active tasks first; the detached restart helper replaces DSH and verifies that it opens successfully."),
+					React.createElement("p", { className: "dsh-vibeify-updates-note" }, report?.updater?.note || "Finish active tasks before activating an update."),
 				);
 			};
 		}

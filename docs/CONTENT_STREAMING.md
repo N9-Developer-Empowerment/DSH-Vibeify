@@ -6,7 +6,7 @@ For the shorter, non-technical explanation and diagrams, start with [How DSH Vib
 
 ## Product decision
 
-Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. During an explicit reader-facing public-content request, each complete verified card can appear in Vibe while later cards are still being made. The completed answer remains visible in Chat and its durable history remains the fallback.
+Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. **“Make a Vibe about…”** is the recommended unambiguous instruction for the richer editorial route; make/create/write a Vibe and turn this into a Vibe are equivalent. During that explicit Vibe request—or another clearly reader-facing public-content request—each complete verified card can appear in Vibe while later cards are still being made. The completed answer remains visible in Chat and its durable history remains the fallback. An ordinary completed answer may still join Vibe after completion, but without a guarantee of article-level editing or progressive cards.
 
 The visible magazine changes for exactly three reasons:
 

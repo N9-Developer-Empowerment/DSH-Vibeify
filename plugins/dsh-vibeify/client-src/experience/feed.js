@@ -323,7 +323,9 @@ export function visualMediaForChunk(catalog, chunk) {
       episode,
     });
   }
-  const useGraphic = chunk?.source === "bundle" && chunk?.kind === "image" && episode.graphic !== undefined && mediaHash % 5 === 0;
+  const useGraphic = chunk?.kind === "image"
+    && episode.graphic !== undefined
+    && (chunk?.source === "welcome" || (chunk?.source === "bundle" && mediaHash % 5 === 0));
   if (useGraphic) {
     return Object.freeze({
       kind: episode.graphic.kind,

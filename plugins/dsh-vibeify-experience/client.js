@@ -607,7 +607,7 @@ window.__ModuleLoader__.load({
 			      episode
 			    });
 			  }
-			  const useGraphic = chunk?.source === "bundle" && chunk?.kind === "image" && episode.graphic !== void 0 && mediaHash % 5 === 0;
+			  const useGraphic = chunk?.kind === "image" && episode.graphic !== void 0 && (chunk?.source === "welcome" || chunk?.source === "bundle" && mediaHash % 5 === 0);
 			  if (useGraphic) {
 			    return Object.freeze({
 			      kind: episode.graphic.kind,
@@ -641,7 +641,7 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/content-store.js
 			var CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
-			var CONTENT_STORE_VERSION = 5;
+			var CONTENT_STORE_VERSION = 6;
 			var CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
 			var MAX_STREAM_CHUNKS = 160;
 			var MAX_STREAM_ANSWERS = 32;
@@ -652,7 +652,7 @@ window.__ModuleLoader__.load({
 			var TOKEN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 			var TRIBE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 			var KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
-			var SOURCES = /* @__PURE__ */ new Set(["bundle", "fresh-stream", "chat-directed", "radar-reserve"]);
+			var SOURCES = /* @__PURE__ */ new Set(["fresh-stream", "chat-directed", "radar-reserve"]);
 			function cleanText(value, limit, multiline = false) {
 			  if (typeof value !== "string") return null;
 			  const control = multiline ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g : /[\u0000-\u001f\u007f]/g;
@@ -704,7 +704,7 @@ window.__ModuleLoader__.load({
 			  if (storage3 === null || storage3 === void 0 || typeof storage3.getItem !== "function") return emptyStore();
 			  try {
 			    const parsed = JSON.parse(storage3.getItem(CONTENT_STORE_KEY) ?? "null");
-			    if (parsed === null || typeof parsed !== "object" || ![2, 3, 4, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
+			    if (parsed === null || typeof parsed !== "object" || ![2, 3, 4, 5, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
 			    const chunks = [];
 			    const seen = /* @__PURE__ */ new Set();
 			    for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {
@@ -2751,6 +2751,332 @@ window.__ModuleLoader__.load({
 			  return Object.freeze({ opened: true, cancel: cleanup });
 			}
 
+			// client-src/experience/welcome-edition.js
+			var VIBEIFY_SITE = "https://dsh-vibeify.ezzye.chatgpt.site/";
+			var VIBEIFY_REPOSITORY = "https://github.com/N9-Developer-Empowerment/DSH-Vibeify";
+			var DSH_REPOSITORY = "https://github.com/deepseek-ai/deepseek-harness";
+			var DSH_PLUGIN_GUIDE = "https://github.com/deepseek-ai/deepseek-harness/blob/master/docs/user/develop/basic/publish.md";
+			var PANELS = Object.freeze([
+			  Object.freeze({
+			    id: "good-choice",
+			    kind: "article",
+			    topicId: "shop-the-scene",
+			    title: "Good choice. You installed the part where AI becomes worth looking at.",
+			    markdown: `Most AI starts with an empty box and the faint suspicion that you have accidentally been given homework. VIBE starts with a magazine.
+
+			You ask normally in Chat. Useful finished material arrives here with hierarchy, pictures, links and room to breathe. The result is still yours to judge, save and share; it is simply dressed before coming downstairs.
+
+			**Try it:** open Chat and ask for something you would genuinely enjoy reading\u2014perhaps a weekend guide, a visual explainer or a short series on a person you admire. Then return to VIBE and watch your own edition take over.
+
+			[See what Vibeify is designed to do](${VIBEIFY_SITE}).`
+			  }),
+			  Object.freeze({
+			    id: "chat-is-the-front-door",
+			    kind: "article",
+			    topicId: "say-it-better",
+			    title: "Chat is the front door, not the whole house",
+			    markdown: `Chat is where you ask, steer, approve and correct. It is also where you can be gloriously imprecise: \u201Cteach me enough about this to have an opinion\u201D is a perfectly respectable beginning.
+
+			VIBE is where the finished answer becomes readable. One request runs one turn and stops; the magazine does not secretly restart old conversations. If you want a different direction, ask again in Chat.
+
+			**Try it:** ask for \u201Cfive joyful things happening in science, explained without jargon, with sources and pictures.\u201D
+
+			[Read the plain-English Vibeify overview](${VIBEIFY_SITE}).`
+			  }),
+			  Object.freeze({
+			    id: "stream-before-finished",
+			    kind: "image",
+			    topicId: "neon-rain",
+			    title: "A good page need not wait for the entire issue",
+			    markdown: `VIBE is built around streaming content, not turn-taking theatre. A checked, complete panel can appear while a deeper article is still being researched. Quick pleasures arrive quickly; slower pieces earn their delay.
+
+			Nothing half-written is published. The unit of streaming is a finished visual chunk\u2014a whole paragraph, card, questionnaire or article section\u2014not a sentence twitching across the screen one token at a time.
+
+			**Try it:** ask Chat for \u201Ca quick visual answer first, followed by a deeper sourced article.\u201D
+
+			[See how the streaming magazine is put together](${VIBEIFY_REPOSITORY}/blob/main/docs/CONTENT_STREAMING.md).`
+			  }),
+			  Object.freeze({
+			    id: "update-on-purpose",
+			    kind: "image",
+			    topicId: "street-style-edit",
+			    title: "Pull for more. Stop when you have enough.",
+			    markdown: `At the top of VIBE, pull down on a phone or with two fingers on a Mac trackpad. You can also press **Update**. Ready pages appear immediately, then one bounded editorial pass may add more.
+
+			There is no endless background slot machine. **Stop update** stops that magazine pass, and finishing one pass never starts another. Opening VIBE, scrolling or changing a setting does not spend anything by itself.
+
+			**Try it:** pull down once, watch the first page arrive, then press Stop if the edition has already done its job.
+
+			[Learn the visible update rules](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md).`
+			  }),
+			  Object.freeze({
+			    id: "editorial-direction",
+			    kind: "article",
+			    topicId: "street-style-edit",
+			    title: "Choose an audience lens, then give the editor a note",
+			    markdown: `VIBE's editorial settings are about perspective rather than demographics. Select any mix of lenses\u2014Global & curious, Builders & nerds, Culture & arts, Parents & families, Sports communities and more\u2014then add a free-text editor note in your own words.
+
+			The editor uses those choices as a brief, not as a personality test. It may still include a worthwhile surprise from outside your usual lane; magazines should contain at least one thing you did not know you wanted.
+
+			**Try it:** in VIBE settings, choose two lenses and write \u201Cbe witty, show me the people behind the work, and avoid manufactured outrage.\u201D
+
+			[Explore the editorial controls](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`
+			  }),
+			  Object.freeze({
+			    id: "questionnaires-learn-locally",
+			    kind: "image",
+			    topicId: "say-it-better",
+			    title: "The questionnaires are tiny editorial meetings",
+			    markdown: `A questionnaire lets you nudge the next edition with one tap: more depth, more creators, a calmer pace, a better surprise. There is no form to complete and no answer required.
+
+			Your explicit answers, saves, opens, plays and skips can shape later choices. That learning stays in this browser. It is not an uploaded behavioural dossier, and **Reset what the editor has learned** removes it.
+
+			**Try it:** answer one question, request an Update, and see whether the mix moves in the direction you chose.
+
+			[Read the local-learning boundary](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`
+			  }),
+			  Object.freeze({
+			    id: "pictures-do-work",
+			    kind: "article",
+			    topicId: "makeup-lessons",
+			    title: "Pictures are part of the article, not decorative parsley",
+			    markdown: `Every panel gets a visual immediately. Generated editions prefer relevant, credited documentary photography; longer pieces can place several images at useful pauses. Occasional AI-assisted graphics are labelled as such rather than dressed up as reportage.
+
+			Music and video use click-to-load previews, which keeps the opening page quick and avoids autoplay ambushes. Article links lead to useful web content; image credits remain image credits.
+
+			**Try it:** ask Chat for a visual history with \u201Crelevant photographs at each turning point, plus one video or music link where it genuinely helps.\u201D
+
+			[See the visual and provenance rules](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#visual-provenance).`
+			  }),
+			  Object.freeze({
+			    id: "save-or-skip",
+			    kind: "image",
+			    topicId: "mirror-minute",
+			    title: "Save the good one. Tell the editor when it has missed.",
+			    markdown: `The bookmark keeps a panel in your local reading state. **Not for me** is a quiet editorial signal: it marks that card as a miss and helps the local editor avoid more of the same.
+
+			Neither button publishes, messages anyone or alters the original Chat. They are simply the reader saying \u201Cmore like this\u201D or \u201Cperhaps never speak of this casserole again.\u201D
+
+			**Try it:** save one panel you would return to and dismiss one that does not earn its space.
+
+			[Learn how VIBE keeps reading choices local](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`
+			  }),
+			  Object.freeze({
+			    id: "share-one-good-thing",
+			    kind: "image",
+			    topicId: "shop-the-scene",
+			    title: "Share one good thing, not your private workspace",
+			    markdown: `**Preview and share** prepares only the article you can see: its title, edited copy, public links and permitted images. Your prompt, Chat history, reasoning, approvals, settings and account details stay behind.
+
+			The preview is private until you deliberately choose **Publish public link**. The resulting page can be opened by people who have neither DSH nor a ChatGPT or DeepSeek account.
+
+			**Try it:** make a short celebratory article in Chat, preview it in VIBE, check every word and image, then publish only if it is ready to leave home.
+
+			[Read the two-step sharing guide](${VIBEIFY_REPOSITORY}/blob/main/docs/SHARING.md).`
+			  }),
+			  Object.freeze({
+			    id: "dsh-in-plain-english",
+			    kind: "article",
+			    topicId: "neon-rain",
+			    title: "DeepSeek Harness is the stage manager",
+			    markdown: `DeepSeek Harness\u2014DSH\u2014is the open-source application underneath VIBE. It keeps sessions, agents, models, tools, permissions and approvals in one place. VIBE is not a replacement for that machinery; it is the audience-facing way of experiencing what the machinery produces.
+
+			You can use DSH with DeepSeek, ChatGPT, or both, depending on what you connect. An account with either provider is useful but the harness itself is not a subscription trapdoor.
+
+			**Try it:** open Chat and ask, \u201CExplain one task you can do here, what tools it would need, and what would still require my approval.\u201D
+
+			[Meet DeepSeek Harness at its open-source project](${DSH_REPOSITORY}).`
+			  }),
+			  Object.freeze({
+			    id: "vibe-is-a-plugin",
+			    kind: "image",
+			    topicId: "makeup-lessons",
+			    title: "VIBE is a plugin. The interesting part is that it did not need permission to become an app.",
+			    markdown: `Vibeify changes DSH's experience by composing a plugin: presentation, editorial behaviour, safe sharing and\u2014when selected\u2014the Codex lead integration. DSH remains underneath, and removing Vibeify does not turn your conversations into a proprietary format.
+
+			Plugins can add tools, settings, agents and entire experiences. Developers can make their own; everyone else can simply benefit from the fact that somebody can.
+
+			**Try it:** ask Chat, \u201CWhat kind of small DSH plugin would make my day easier?\u201D You can stop at the idea or ask it to sketch one safely.
+
+			[See the DSH plugin publishing guide](${DSH_PLUGIN_GUIDE}).`
+			  }),
+			  Object.freeze({
+			    id: "open-source-is-a-practical-feature",
+			    kind: "article",
+			    topicId: "street-style-edit",
+			    title: "Open source means the exit is visible",
+			    markdown: `Open source is not a guarantee that every line is perfect. It is a guarantee that the important questions can be asked in public: What is installed? What does it send? Who can change it? Can I leave?
+
+			DSH and Vibeify publish their code and operating boundaries. That makes independent inspection, repair, adaptation and community plugins possible. It also means a good idea does not have to wait for one company's product meeting.
+
+			**Try it:** ask Chat for a friendly tour of the Vibeify repository\u2014what each part does, and which boundaries protect the reader.
+
+			[Inspect the Vibeify source and documentation](${VIBEIFY_REPOSITORY}).`
+			  }),
+			  Object.freeze({
+			    id: "models-have-jobs",
+			    kind: "image",
+			    topicId: "neon-rain",
+			    title: "Use the expensive brain for judgement, not photocopying",
+			    markdown: `In combined mode, Codex remains the lead: it plans, sets acceptance, checks sources, integrates the result and answers. Eligible discovery and drafting can go to much cheaper DeepSeek workers, with their output treated as unverified until the lead checks it.
+
+			DeepSeek-only mode remains available, as does ChatGPT without DeepSeek. The point is choice: use each model for the work it can do well, and do not pretend a cheaper result is equally good until it has actually passed the checks.
+
+			**Try it:** ask Chat to explain how it would divide your next task between lead judgement and lower-cost execution.
+
+			[See the lead-and-worker architecture](${VIBEIFY_REPOSITORY}/blob/main/docs/HOW_IT_WORKS.md).`
+			  }),
+			  Object.freeze({
+			    id: "permissions-still-belong-to-you",
+			    kind: "article",
+			    topicId: "say-it-better",
+			    title: "Full Access is not a forged signature",
+			    markdown: `Full Access reduces interruptions for local work such as reading files and running commands. It does not quietly authorise sending an email, publishing a page, deleting cloud data, buying something or messaging another person.
+
+			Those protected external actions keep their own confirmation. The useful distinction is simple: an agent may prepare confidently, but the moment it acts in the outside world still belongs to you.
+
+			**Try it:** ask Chat to draft something and show the exact external action it would need before doing it. Preparation should be easy; consent should remain unmistakable.
+
+			[Read Vibeify's security boundaries](${VIBEIFY_REPOSITORY}/blob/main/docs/SECURITY.md).`
+			  }),
+			  Object.freeze({
+			    id: "queue-and-steer",
+			    kind: "article",
+			    topicId: "say-it-better",
+			    title: "Queue the next thought. Steer the one already moving.",
+			    markdown: `When an agent is busy, **Queue** saves a follow-up for the next turn. **Steer** changes the direction of the work already under way. The distinction prevents a useful correction from becoming a second, contradictory commission.
+
+			If the work has gone completely astray, Stop remains Stop. Queue and Steer are for keeping momentum without having to wait politely beside a blinking cursor.
+
+			**Try it:** ask Chat for a three-part guide. While it works, steer it toward a warmer tone, then queue a request for a one-paragraph summary after the guide is complete.
+
+			[See the live-work controls in the feature guide](${VIBEIFY_REPOSITORY}/blob/main/README.md#what-you-get).`
+			  }),
+			  Object.freeze({
+			    id: "thinking-and-trajectory",
+			    kind: "image",
+			    topicId: "mirror-minute",
+			    title: "Thinking is scaffolding. The answer is the room.",
+			    markdown: `While work is live, Vibeify opens **Think** so you can see useful progress rather than wonder whether anything is happening. When the final answer settles, the disclosure closes automatically. You can reopen it whenever the method matters.
+
+			**Trajectory** keeps the fuller agent-and-tool story available in Chat. The polished answer remains visually dominant; the evidence has not vanished merely because it stopped standing in the doorway.
+
+			**Try it:** give Chat a task with two checkable steps, watch Think while it runs, then open Trajectory after completion to inspect how the work was carried out.
+
+			[Read how live work stays visible without taking over](${VIBEIFY_REPOSITORY}/blob/main/README.md#what-you-get).`
+			  }),
+			  Object.freeze({
+			    id: "images-with-a-boundary",
+			    kind: "article",
+			    topicId: "makeup-lessons",
+			    title: "Bring an image. Keep control of where it goes.",
+			    markdown: `You can add an image to Chat when seeing it is part of the task\u2014reviewing a layout, identifying a visual problem or making something new. The active lead can use that image in the requested work.
+
+			Vibeify does not treat one upload as permission to forward private material to every available provider. Sending a current image to another model or service requires explicit intent, and public sharing still includes only the reviewed article assets.
+
+			**Try it:** attach a non-private screenshot and ask Chat to explain one visible design issue before proposing any change.
+
+			[Read the image and data-transfer boundary](${VIBEIFY_REPOSITORY}/blob/main/docs/SECURITY.md).`
+			  }),
+			  Object.freeze({
+			    id: "connected-apps-have-doorbells",
+			    kind: "image",
+			    topicId: "shop-the-scene",
+			    title: "Connected apps have doorbells, not secret passages",
+			    markdown: `A connected app can let the lead find or prepare work in a service you already use. Reading and drafting can be pleasantly direct. Sending, publishing, buying, deleting or changing access still keeps the service's protected confirmation.
+
+			That is the point of a harness: useful capabilities meet in one place without pretending every capability has the same authority.
+
+			**Try it:** ask Chat which connected tools are available and request a read-only example. If an external write would be useful, ask it to prepare the exact action without performing it.
+
+			[See how connected capabilities keep their boundaries](${VIBEIFY_REPOSITORY}/blob/main/docs/ARCHITECTURE.md#portability-boundary).`
+			  }),
+			  Object.freeze({
+			    id: "capability-levels",
+			    kind: "article",
+			    topicId: "neon-rain",
+			    title: "Choose the lead's thinking budget without changing its job",
+			    markdown: `In governed mode, **Settings \u2192 Codex** offers Efficient, Balanced, Frontier and Maximum. The setting changes the lead model and reasoning allowance. It does not hand final judgement to a worker or alter your permissions.
+
+			Frontier is the quality-preserving default. Lower levels are useful experiments for routine, highly checkable work; Maximum is for the rare task where judgement matters more than speed or economy.
+
+			**Try it:** keep Frontier for your first real task. Later, compare one repeatable low-risk request at a lighter level and judge the actual result rather than the label.
+
+			[Understand the Codex lead capability choices](${VIBEIFY_REPOSITORY}/blob/main/README.md#what-you-get).`
+			  }),
+			  Object.freeze({
+			    id: "provider-choice",
+			    kind: "image",
+			    topicId: "neon-rain",
+			    title: "DeepSeek, ChatGPT, both\u2014or connect one later",
+			    markdown: `Vibeify has three honest arrangements. DeepSeek-only keeps native DSH in the lead. ChatGPT-only uses the ChatGPT-authenticated Codex lead. Combined mode keeps Codex in charge of acceptance while eligible bounded work can go to lower-cost DeepSeek workers.
+
+			Neither account is individually compulsory during installation; at least one working provider is needed before asking AI to work. Provider billing and plan limits stay separate rather than being disguised as one subscription.
+
+			**Try it:** ask Chat which mode is active now and what would materially change\u2014not merely what buttons would appear\u2014if you chose another.
+
+			[Compare the friendly provider choices](${VIBEIFY_REPOSITORY}/blob/main/docs/INSTALL.md#choose-a-provider-mode).`
+			  }),
+			  Object.freeze({
+			    id: "updates-without-archaeology",
+			    kind: "image",
+			    topicId: "mirror-minute",
+			    title: "Updates should feel like a button, not an archaeological expedition",
+			    markdown: `Settings includes a read-only update check for DSH, Vibeify and the bundled Codex runtime. It distinguishes an update that is safely compatible from one that has merely appeared upstream.
+
+			The non-technical updater downloads, validates and canary-tests the new bundle before switching. A restart happens only after active work has finished and you have authorised it. Your magazine should survive; your patience need not be the backup strategy.
+
+			**Try it:** open Settings \u2192 Updates and choose **Check again**. Looking is safe; installing and restarting remain separate decisions.
+
+			[Open the friendly installation and update guide](${VIBEIFY_REPOSITORY}/blob/main/docs/INSTALL.md).`
+			  })
+			]);
+			function validatedPanels(catalog) {
+			  if (catalog === null || typeof catalog !== "object" || catalog.byId === null || typeof catalog.byId !== "object") {
+			    throw new TypeError("welcome edition requires a validated editorial catalogue");
+			  }
+			  return PANELS.map((panel) => {
+			    if (catalog.byId[panel.topicId] === void 0) throw new TypeError(`welcome panel references unknown topic ${panel.topicId}`);
+			    return Object.freeze({
+			      ...panel,
+			      id: `welcome-v1-${panel.id}`,
+			      source: "welcome",
+			      cta: "chat"
+			    });
+			  });
+			}
+			function createWelcomeEdition(catalog) {
+			  return Object.freeze(validatedPanels(catalog));
+			}
+			function deterministicSource(source) {
+			  return source === "welcome" || source === "bundle";
+			}
+			function boundMagazinePresentation(chunks, dynamicLimit = 160) {
+			  if (!Array.isArray(chunks)) throw new TypeError("magazine presentation must be an array");
+			  if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("magazine presentation limit is invalid");
+			  const retainedDynamicIds = new Set(chunks.filter((chunk) => !deterministicSource(chunk?.source)).slice(-dynamicLimit).map(({ id }) => id));
+			  return Object.freeze(chunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
+			}
+			function composeOpeningStream({ cached, bundle, welcome, now = Date.now(), dynamicLimit = 160 }) {
+			  if (![cached, bundle, welcome].every(Array.isArray)) throw new TypeError("opening stream inputs must be arrays");
+			  if (!Number.isFinite(now) || now <= 0) throw new TypeError("opening stream time is invalid");
+			  if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("opening stream limit is invalid");
+			  const chunks = [];
+			  const seen = /* @__PURE__ */ new Set();
+			  const append = (chunk) => {
+			    if (chunk === null || typeof chunk !== "object" || typeof chunk.id !== "string" || seen.has(chunk.id)) return;
+			    seen.add(chunk.id);
+			    chunks.push(Object.freeze({ ...chunk, publishedAt: chunk.publishedAt ?? now }));
+			  };
+			  for (const chunk of cached) {
+			    if (chunk?.source === "bundle" || chunk?.source === "welcome") continue;
+			    append(chunk);
+			  }
+			  for (const chunk of [...bundle].reverse()) append(chunk);
+			  for (const chunk of [...welcome].reverse()) append(chunk);
+			  return boundMagazinePresentation(chunks, dynamicLimit);
+			}
+
 			// client-src/experience/shell.jsx
 			var STYLE_ID = "dsh-vibeify-experience-style";
 			var SLOT_ID = "vibeify-experience";
@@ -2760,6 +3086,7 @@ window.__ModuleLoader__.load({
 			var EDITION_KEY = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 			var CATALOG = createEditorialEdition(createExperienceCatalog(), EDITION_KEY);
 			var BUNDLED_STREAM = createBundledStream(CATALOG, EDITION_KEY, BUNDLED_WELL_SIZE);
+			var WELCOME_STREAM = createWelcomeEdition(CATALOG);
 			function browserStorage() {
 			  try {
 			    return window.localStorage;
@@ -2770,19 +3097,13 @@ window.__ModuleLoader__.load({
 			function initialStream() {
 			  const now = Date.now();
 			  const cached = getCachedStream(browserStorage(), now);
-			  const chunks = [];
-			  const seen = /* @__PURE__ */ new Set();
-			  for (const chunk of [...BUNDLED_STREAM].reverse()) {
-			    if (seen.has(chunk.id)) continue;
-			    seen.add(chunk.id);
-			    chunks.push(Object.freeze({ ...chunk, publishedAt: now }));
-			  }
-			  for (const chunk of cached.chunks) {
-			    if (seen.has(chunk.id)) continue;
-			    seen.add(chunk.id);
-			    chunks.push(chunk);
-			  }
-			  return Object.freeze(chunks.slice(-160));
+			  return composeOpeningStream({
+			    cached: cached.chunks,
+			    bundle: BUNDLED_STREAM,
+			    welcome: WELCOME_STREAM,
+			    now,
+			    dynamicLimit: MAX_STREAM_CHUNKS
+			  });
 			}
 			function Icon({ name }) {
 			  const paths = {
@@ -2837,12 +3158,13 @@ window.__ModuleLoader__.load({
 			    }
 			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare }) {
+			function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
 			  const media = visualMediaForChunk(CATALOG, chunk);
 			  const contentLink = contentLinkForMarkdown(chunk.markdown);
 			  const episode = media?.episode;
 			  const visual = media === null ? null : media.externalUrl ?? ARTWORK[media.artwork];
 			  const isChatResult = chunk.source === "chat-directed";
+			  const isWelcome = chunk.source === "welcome";
 			  const isHero = index === 0 && !isChatResult;
 			  const layout = panelLayoutForChunk(chunk, index);
 			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
@@ -2879,7 +3201,7 @@ window.__ModuleLoader__.load({
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player" }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
-			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, /* @__PURE__ */ import_react.default.createElement(
+			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Make something in Chat") : null, /* @__PURE__ */ import_react.default.createElement(
 			      "button",
 			      {
 			        type: "button",
@@ -2889,7 +3211,7 @@ window.__ModuleLoader__.load({
 			      },
 			      /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }),
 			      { opening: "Opening preview\u2026", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"
-			    ), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
+			    ), isChatResult || isWelcome ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
 			  );
 			}
 			function ExperienceShell({ codexFeatures }) {
@@ -3011,7 +3333,7 @@ window.__ModuleLoader__.load({
 			      if (accepted.length === 0) return;
 			      setChunks((current) => {
 			        const seen = new Set(current.map(({ id }) => id));
-			        const next = [...current, ...accepted.filter(({ id }) => !seen.has(id))].slice(-160);
+			        const next = boundMagazinePresentation([...current, ...accepted.filter(({ id }) => !seen.has(id))], MAX_STREAM_CHUNKS);
 			        chunksRef.current = next;
 			        return next;
 			      });
@@ -3036,10 +3358,11 @@ window.__ModuleLoader__.load({
 			      const chunk = event.detail?.chunk;
 			      if (chunk === null || typeof chunk !== "object" || chunk.source !== "chat-directed") return;
 			      if (typeof chunk.id !== "string" || typeof chunk.title !== "string" || typeof chunk.markdown !== "string") return;
-			      appendCachedChunks(browserStorage(), [chunk]);
+			      const accepted = appendCachedChunks(browserStorage(), [chunk])[0];
+			      if (accepted === void 0) return;
 			      setChunks((current) => {
-			        if (current.some(({ id }) => id === chunk.id)) return current;
-			        const next = [...current, chunk].slice(-160);
+			        if (current.some(({ id }) => id === accepted.id)) return current;
+			        const next = boundMagazinePresentation([...current, accepted], MAX_STREAM_CHUNKS);
 			        chunksRef.current = next;
 			        return next;
 			      });
@@ -3055,7 +3378,7 @@ window.__ModuleLoader__.load({
 			      const cached = getCachedStream(browserStorage()).chunks;
 			      setChunks((current) => {
 			        const seen = new Set(current.map(({ id }) => id));
-			        const next = [...current, ...cached.filter(({ id }) => !seen.has(id))].slice(-160);
+			        const next = boundMagazinePresentation([...current, ...cached.filter(({ id }) => !seen.has(id))], MAX_STREAM_CHUNKS);
 			        chunksRef.current = next;
 			        return next;
 			      });
@@ -3195,6 +3518,10 @@ window.__ModuleLoader__.load({
 			  }, []);
 			  const displayChunks = newestFirst(chunks);
 			  const goHome = import_react.default.useCallback(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }), []);
+			  const enterChat = import_react.default.useCallback(() => {
+			    dispatch({ type: "enter-chat" });
+			    window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
+			  }, []);
 			  const updateNotice = {
 			    complete: "Magazine updated. It will stay still until another Chat answer completes or you request an update.",
 			    stopped: "Magazine update stopped.",
@@ -3220,14 +3547,11 @@ window.__ModuleLoader__.load({
 			        onHome: goHome,
 			        onUpdate: startRun,
 			        onStop: stopRun,
-			        onChat: () => {
-			          dispatch({ type: "enter-chat" });
-			          window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
-			        }
+			        onChat: enterChat
 			      }
 			    ),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
-			    /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Newest first \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "Your conversation, edited into a better view."), /* @__PURE__ */ import_react.default.createElement("p", null, "Completed answers from every Chat thread arrive here automatically. Pull down or choose Update for an immediate visual page and question; short pieces then stream in while deeper pages are checked. No next update starts by itself."), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
+			    /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
 			      StreamChunk,
 			      {
@@ -3243,7 +3567,8 @@ window.__ModuleLoader__.load({
 			        onAnswer,
 			        onEngage,
 			        onSkip,
-			        onShare
+			        onShare,
+			        onChat: enterChat
 			      }
 			    ))),
 			    /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 external actions stay in Chat"))
@@ -3274,6 +3599,7 @@ window.__ModuleLoader__.load({
 			.vfx-edition-intro h1 { max-width:940px; margin:9px 0 13px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(36px,5vw,70px); font-weight:500; line-height:.94; letter-spacing:-.055em; text-wrap:balance; }
 			.vfx-edition-intro p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.35vw,18px); line-height:1.5; }
 			.vfx-edition-intro .vfx-update-note { margin-top:14px; color:#ffb3cb; font-size:12px; font-weight:700; }
+			.vfx-intro-cta { min-height:44px; margin-top:22px; padding:0 18px; display:inline-flex; align-items:center; gap:9px; border:1px solid #ff9aba; border-radius:999px; background:#ff9aba; color:#190d13!important; cursor:pointer; font-size:13px!important; font-weight:850; }
 			.vfx-chunks { width:min(1240px,calc(100% - 40px)); min-width:0; margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
 			.vfx-chunk { grid-column:span 6; min-width:0; max-width:100%; align-self:start; overflow:hidden; contain:inline-size; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
 			.vfx-chunk[data-layout="compact"] { grid-column:span 4; }
@@ -3312,7 +3638,7 @@ window.__ModuleLoader__.load({
 			.vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 			.vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 			.vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
-			.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
+			.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-chat-cta,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-chat-cta { display:inline-flex; align-items:center; gap:7px; border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 20%,#171017); color:#fff; font-weight:800; }.vfx-chat-cta:hover { background:color-mix(in srgb,var(--chunk-accent) 32%,#171017); }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
 			.vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }

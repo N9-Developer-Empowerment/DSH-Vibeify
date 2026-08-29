@@ -1439,8 +1439,8 @@ window.__ModuleLoader__.load({
 			  });
 			}
 			function extractRunChunks(text, runId, publishedAt = Date.now()) {
-			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) return Object.freeze([]);
-			  return Object.freeze(extractPublishedChunks(text).filter(({ id }) => id.startsWith(`${runId}-`)).map((chunk) => freshStreamChunk(chunk, publishedAt)).filter(Boolean));
+			  if (runId !== null && (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId))) return Object.freeze([]);
+			  return Object.freeze(extractPublishedChunks(text).filter(({ id }) => runId === null ? id.startsWith("chat-") : id.startsWith(`${runId}-`)).map((chunk) => freshStreamChunk(chunk, publishedAt)).filter(Boolean));
 			}
 			function freshStreamChunksFromEvents(entries, runId = null, publishedAt = Date.now()) {
 			  const source = (Array.isArray(entries) ? entries : []).map((entry) => entry?.event ?? entry).map(textFromMessage).filter(Boolean).join("\n");
@@ -1475,26 +1475,27 @@ window.__ModuleLoader__.load({
 			    return null;
 			  }
 			}
-			function openLiveChunkStream({ sessionId, runId, onChunks }) {
-			  if (typeof WebSocket !== "function" || typeof onChunks !== "function") {
-			    return Object.freeze({ ready: Promise.resolve(false), close() {
-			    } });
-			  }
-			  const collector = createLiveChunkCollector({ runId });
+			function unavailableStream() {
+			  return Object.freeze({ ready: Promise.resolve(false), close() {
+			  } });
+			}
+			function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
+			  if (typeof WebSocket !== "function" || typeof onFrame !== "function" || typeof window === "undefined" || typeof window.location?.origin !== "string" || typeof window.setTimeout !== "function" || typeof window.clearTimeout !== "function") return unavailableStream();
 			  let socket;
 			  let closed = false;
 			  let resolveReady;
 			  let readyDone = false;
+			  let timeout = null;
 			  const ready = new Promise((resolve) => {
 			    resolveReady = resolve;
 			  });
 			  const settleReady = (value) => {
 			    if (readyDone) return;
 			    readyDone = true;
-			    window.clearTimeout(timeout);
+			    if (timeout !== null) window.clearTimeout(timeout);
 			    resolveReady(value);
 			  };
-			  const timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
+			  timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
 			  try {
 			    socket = new WebSocket(muxUrl());
 			  } catch {
@@ -1504,12 +1505,12 @@ window.__ModuleLoader__.load({
 			  }
 			  socket.addEventListener("message", (event) => {
 			    const frame = frameFromMessage(event);
-			    if (frame?.type === "session/subscribed" && frame.sessionId === sessionId) settleReady(true);
-			    if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
-			    const chunks = collector.push(frame);
-			    if (chunks.length > 0) onChunks(chunks);
+			    if (frame === null) return;
+			    if (typeof readyWhen === "function" && readyWhen(frame)) settleReady(true);
+			    onFrame(frame);
 			  });
 			  socket.addEventListener("open", () => {
+			    if (readyOnOpen) settleReady(true);
 			  });
 			  socket.addEventListener("error", () => settleReady(false));
 			  socket.addEventListener("close", () => settleReady(false));
@@ -1520,6 +1521,40 @@ window.__ModuleLoader__.load({
 			      closed = true;
 			      settleReady(false);
 			      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) socket.close();
+			    }
+			  });
+			}
+			function openLiveChunkStream({ sessionId, runId, onChunks }) {
+			  if (typeof onChunks !== "function") return unavailableStream();
+			  const collector = createLiveChunkCollector({ runId });
+			  return openMuxStream({
+			    readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
+			    onFrame(frame) {
+			      if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
+			      const chunks = collector.push(frame);
+			      if (chunks.length > 0) onChunks(chunks);
+			    }
+			  });
+			}
+			function openLiveChatChunkStream({ acceptSession, onChunks }) {
+			  if (typeof acceptSession !== "function" || typeof onChunks !== "function") return unavailableStream();
+			  const collectors = /* @__PURE__ */ new Map();
+			  return openMuxStream({
+			    readyOnOpen: true,
+			    onFrame(frame) {
+			      if (frame?.type !== "session/event" || typeof frame.sessionId !== "string") return;
+			      if (frame.event?.type === "turn/end") {
+			        collectors.delete(frame.sessionId);
+			        return;
+			      }
+			      if (!acceptSession(frame.sessionId)) return;
+			      let collector = collectors.get(frame.sessionId);
+			      if (collector === void 0) {
+			        collector = createLiveChunkCollector({ runId: null });
+			        collectors.set(frame.sessionId, collector);
+			      }
+			      const chunks = collector.push(frame);
+			      if (chunks.length > 0) onChunks(frame.sessionId, chunks);
 			    }
 			  });
 			}
@@ -1957,6 +1992,11 @@ window.__ModuleLoader__.load({
 			  if (typeof summary.id !== "string" || !Number.isFinite(summary.updatedAt)) return false;
 			  return scanned.get(summary.id) !== summary.updatedAt;
 			}
+			function sessionAllowsLiveMagazine(summary, storage3) {
+			  if (summary === null || typeof summary !== "object" || typeof summary.id !== "string" || summary.blank === true) return false;
+			  if (summary.origin === "subagent" || isBackgroundSession(summary, storage3)) return false;
+			  return summary.id !== readUpdateSessionId(storage3);
+			}
 			async function readCompleteSessionHistory(api, sessionId) {
 			  const pages = [];
 			  let beforeSeq;
@@ -2000,6 +2040,20 @@ window.__ModuleLoader__.load({
 			    const pending = /* @__PURE__ */ new Map();
 			    let pump = () => {
 			    };
+			    const liveStream = openLiveChatChunkStream({
+			      acceptSession(sessionId) {
+			        const summary = sessions.list.getSnapshot().byId?.[sessionId];
+			        return sessionAllowsLiveMagazine(summary, safeStorage());
+			      },
+			      onChunks(_sessionId, chunks) {
+			        if (disposed) return;
+			        const appended = appendCachedChunks(safeStorage(), chunks);
+			        if (appended.length === 0) return;
+			        window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+			          detail: { runId: "chat-live", chunks: appended, durationMs: 0 }
+			        }));
+			      }
+			    });
 			    const scan = async (summary) => {
 			      if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
 			      inFlight.add(summary.id);
@@ -2055,6 +2109,7 @@ window.__ModuleLoader__.load({
 			    schedule();
 			    return () => {
 			      disposed = true;
+			      liveStream.close();
 			      unsubscribe();
 			    };
 			  }, "dsh-vibeify: completed threads to one local magazine");

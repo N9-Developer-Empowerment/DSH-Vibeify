@@ -7,7 +7,7 @@ DSH Vibeify is a local agent harness presented as a living magazine. It is not a
 Think of it as a small editorial studio:
 
 - **Vibe is the magazine.** It opens with useful visual material already available from a local content well and the reader's saved edition.
-- **Chat is the commissioning desk.** A request starts one agent turn. Its completed answer remains in Chat and may also become a formatted Vibe page.
+- **Chat is the commissioning desk.** A request starts one agent turn. Its completed answer remains in Chat. For an explicit public-content request, each complete verified card may also appear in Vibe before the whole answer is finished.
 - **A public radar watches the world, not the reader.** GitHub publishes a content-only catalogue of current public signals every 30 minutes. It contains no local history or preferences.
 - **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
 - **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page and questionnaire remain the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
@@ -37,7 +37,7 @@ flowchart TB
     LEAD --> WORKERS
     WORKERS -->|"unverified evidence"| LEAD
     LEAD -->|"completed answer"| CHAT
-    LEAD -->|"closed verified pages"| VIBE
+    LEAD -->|"each closed verified page"| VIBE
 ```
 
 DSH remains the runtime underneath both surfaces. It owns the sessions, models, tools, permissions, approvals, and durable event history. Vibeify adds the presentation and the narrow publication rules; it does not bypass DSH.
@@ -79,14 +79,18 @@ sequenceDiagram
     C->>D: Start one turn
     D->>L: Provide tools, policy and context
     L-->>C: Useful progress while working
+    opt Explicit public-content request
+        L-->>V: Publish first short verified card
+        L-->>V: Publish each later closed card independently
+    end
     L->>C: Complete final answer
     D->>D: Record durable turn/end: completed
-    D-->>V: Read the completed local history
-    V->>V: Sanitise and add one formatted page
+    D-->>V: Read completed local history as fallback
+    V->>V: Fill a missed card or add an ordinary final-answer page
     Note over D,L: The source turn is not reopened or resumed
 ```
 
-Only a durably completed assistant turn is eligible. Vibe ignores the raw user prompt, hidden reasoning, tool calls, approvals, attachments, session identifiers, interrupted turns, aborted work, and internal subagent sessions. The original answer stays in Chat; the Vibe page is a bounded browser-local projection of completed material.
+Only two boundaries are eligible: a complete verified `chat-` envelope from an ordinary reader session, or the final assistant output of a durably completed turn. Vibe ignores the raw user prompt, hidden reasoning, tool calls, approvals, attachments, session identifiers, interrupted turns, aborted work, unfinished envelopes, and internal subagent sessions. The original answer stays in Chat; each Vibe page is a bounded browser-local projection of completed semantic material.
 
 ## What happens after Pull to update or Update
 
@@ -143,7 +147,8 @@ For visual pages, the editor considers at least 18 potential images from three o
 | Scroll or reach the bottom | No | Existing pages continue | No task started |
 | Change colour theme | No | Presentation changes | Immediate |
 | Change editorial direction | No | Setting is saved for a future update | Immediate |
-| Complete a Chat request | No additional call beyond that requested Chat turn | Final answer stays in Chat and may gain a Vibe page | The Chat turn ends |
+| Run a public-content Chat request | No additional call beyond that requested Chat turn | Closed verified pages stream independently; final answer stays in Chat | The Chat turn ends |
+| Complete any other Chat request | No additional call beyond that requested Chat turn | Final answer stays in Chat and may gain a Vibe page | The Chat turn ends |
 | Pull at the top or press **Update** | Usually no new call when at least four ready pages exist | Ready pages immediately; local fallbacks and one foreground batch only if short | One release; any fallback batch has Stop/error/20-minute ceiling |
 | Answer a questionnaire, save, open, play or skip | No | The explicit signal is saved locally | It may shape later reserve selection |
 

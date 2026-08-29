@@ -6,21 +6,30 @@ For the shorter, non-technical explanation and diagrams, start with [How DSH Vib
 
 ## Product decision
 
-Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. The completed answer remains visible in Chat and can also become a formatted Vibe card.
+Opening DSH opens a full-screen website-like edition containing useful material immediately. **Chat** remains the request, progress, approval, Queue, Steer, and evidence surface. A Chat thread runs only after the user sends it a request; after its answer completes, that turn stops. During an explicit reader-facing public-content request, each complete verified card can appear in Vibe while later cards are still being made. The completed answer remains visible in Chat and its durable history remains the fallback.
 
-The visible magazine changes for exactly two reasons:
+The visible magazine changes for exactly three reasons:
 
-1. a Chat turn in any local DSH thread durably finishes with `turn/end: completed`; or
-2. the user deliberately pulls down at the top of Vibe or presses **Update**.
+1. a complete verified `chat-` envelope closes inside an explicit public-content request;
+2. a Chat turn in any local DSH thread durably finishes with `turn/end: completed`; or
+3. the user deliberately pulls down at the top of Vibe or presses **Update**.
 
 Opening Vibe, scrolling, reaching the bottom, changing editorial settings, finishing an update, and returning from Chat never start foreground work or change visible pages. A hidden reserve may refill only under the separate gates below.
 
 ```text
-send a Chat request
+send an ordinary Chat request
   -> that thread runs one turn
   -> the final answer is visible in Chat
   -> durable completion is read locally
   -> a sanitized copy joins the shared Vibe magazine
+  -> the Chat thread is idle
+
+send a public-content Chat request
+  -> the lead verifies a short bounded item first
+  -> its complete closed card joins Vibe before the turn ends
+  -> each later verified card joins independently while research continues
+  -> the final answer remains in Chat
+  -> durable history fills any gap if the live local stream disconnected
   -> the Chat thread is idle
 
 pull down at the top / press Update
@@ -42,7 +51,7 @@ The layers are implementation details; the reader sees one uninterrupted magazin
 | --- | --- | --- |
 | Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited photography, labelled AI-assisted graphics and responsive panel spans | None |
 | Saved magazine | Return-visit continuity: up to 160 bounded items, rolling visual URLs with provenance, and 32 short questionnaire choices for 30 days | None |
-| Completed Chat answers | Conversation continuity across every local DSH thread | None beyond the Chat turn the user already requested |
+| Chat results | Complete verified public-content cards while a reader turn runs, plus durable final-answer continuity across every local DSH thread | None beyond the Chat turn the user already requested |
 | Shared public radar | Public headlines, links, geography and broad tribe hints rebuilt by GitHub Actions every 30 minutes | Public data fetch only; no reader data and no model |
 | Local editorial reserve | Seven-day signals, three-day candidates, seven-day ready pages, recent-use time and conservative daily spend ledger | Bounded hidden editor only when all gates pass |
 | Instant update reserve | One visual short and one questionnaire released synchronously on every explicit update | None |
@@ -50,7 +59,11 @@ The layers are implementation details; the reader sees one uninterrupted magazin
 
 Bundled and saved content are read synchronously during initial state creation. They contain no await, provider request, or dependency on a DSH session becoming ready. This provides useful first content without starting invisible work.
 
-## Completed Chat projection
+## Live Chat cards and completed-answer projection
+
+The browser maintains one passive subscription to DSH's local mux. It considers only ordinary reader sessions and accepts only complete closed envelopes with a `chat-` id. The closing delimiter is the publication boundary: the browser can append that card while the parent Chat turn continues, then independently append the next card when it closes. A turn-ending event discards any unfinished envelope so partial text cannot leak into a later turn.
+
+Subagent sessions, the hidden background editor and the dedicated foreground-update session are excluded before collection. Ordinary thinking, progress, worker prose and un-enveloped partial answer text never cross this route.
 
 The browser subscribes to DSH's session list and considers only idle, non-blank reader sessions whose durable activity changed. It excludes sessions marked with the `subagent` origin before reading history. It pages through `session.history`, which can inspect a cold persisted log without resuming or publishing an Agent.
 
@@ -64,7 +77,7 @@ For each thread, the bridge:
 6. hashes transient session/message identity into a non-reversible local presentation id; and
 7. appends the card to the browser-local magazine.
 
-The bridge has history-read capability only. It does not call session create, prompt, resume, select, or cancel. A new Chat card therefore cannot wake an old thread or consume additional model quota. Visible DOM changes are not accepted as completion evidence.
+The durable-history bridge has history-read capability only. The live route is also passive: neither route calls session create, prompt, resume, select, or cancel. A new Chat card therefore cannot wake an old thread or consume additional model quota. Visible DOM changes are not accepted as completion evidence.
 
 ## Explicit update control
 
@@ -89,7 +102,7 @@ The browser fetches that fixed public JSON without credentials or referrer data.
 
 The hidden editor checks after initial Vibe activity and then at 30-minute intervals. Work is refused unless the document is visible, Vibe was used within 24 hours, **Fill the hidden reserve** is enabled, six valid radar signals exist, the appropriate reserve contains fewer than 12 pages, and the conservative daily ledger has capacity. One attempt reserves US $0.25 against the configured ceiling, which cannot exceed US $2/day. The separate session is titled `VIBE background editor`, has a 15-minute timeout, never opens in Chat and cannot start, resume or steer another session.
 
-The browser listens to DSH's loopback mux stream for the dedicated session. It accumulates text and reasoning deltas only long enough to recognise a complete closed `<vibe-chunk>` envelope for the active run. The final closing delimiter is the publication boundary: incomplete envelopes, ordinary progress and worker prose remain invisible. Final persisted history is read once more on completion, so a dropped live socket loses no completed page.
+The browser also uses DSH's loopback mux for the dedicated update session. It accumulates text and reasoning deltas only long enough to recognise a complete closed `<vibe-chunk>` envelope for the active run. The final closing delimiter is the publication boundary: incomplete envelopes, ordinary progress and worker prose remain invisible. Final persisted history is read once more on completion, so a dropped live socket loses no completed page.
 
 ## Complete semantic chunks
 
@@ -101,7 +114,7 @@ Complete Markdown for one semantic item.
 </vibe-chunk>
 ```
 
-Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The collector accepts only complete closed envelopes whose id belongs to the active run. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe. Internal subagent sessions are excluded from the all-thread Chat collector, and the dedicated update session can never fall back to a raw Chat card.
+Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The update collector accepts only complete closed envelopes whose id belongs to the active run; the ordinary-Chat collector accepts only `chat-` envelopes from an eligible reader session. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe. Internal subagent sessions are excluded from the all-thread Chat collector, and the dedicated update session can never fall back to a raw Chat card.
 
 Every generated non-questionnaire envelope carries a useful HTTPS content destination inside its Markdown. Visual media has a separate provenance contract: the lead image is followed by its creator/source page, both are lifted into the figure and caption, and the duplicate visual credit is removed from the displayed article body. `feed.js` independently chooses the first safe reader-facing link for the card's **Read source** action, stripping common tracking parameters and rejecting image files, approved image hosts and known photo-credit pages. The original content link stays where the editor placed it in the prose.
 
@@ -179,8 +192,8 @@ Initial service-level gates are:
 ## Implementation map
 
 - `client-src/experience/shell.jsx` — magazine presentation, Update/Stop, pull gesture, Chat escape, cards, and status.
-- `client-src/experience/thread-magazine.js` — all-thread durable-history projection without Agent activation.
-- `client-src/experience/live-stream-collector.js` — active-run mux deltas to complete closed Vibe chunks, with a persisted-history fallback.
+- `client-src/experience/thread-magazine.js` — passive ordinary-Chat card routing plus all-thread durable-history projection without Agent activation.
+- `client-src/experience/live-stream-collector.js` — ordinary-Chat and active-update mux deltas to complete closed Vibe chunks, with persisted history as fallback.
 - `client-src/experience/update-session.js` — the dedicated update-session identity shared by the runner and raw-summary exclusion boundary.
 - `client-src/experience/refresh-control.js` — pure top-of-page pull state machine.
 - `client-src/experience/recipe-runner.js` — one reusable dedicated session, overlap guard, exact Stop, and timeout.

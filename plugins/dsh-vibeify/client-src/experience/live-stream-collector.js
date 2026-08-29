@@ -38,9 +38,9 @@ export function freshStreamChunk(chunk, publishedAt = Date.now()) {
 }
 
 export function extractRunChunks(text, runId, publishedAt = Date.now()) {
-  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) return Object.freeze([]);
+  if (runId !== null && (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId))) return Object.freeze([]);
   return Object.freeze(extractPublishedChunks(text)
-    .filter(({ id }) => id.startsWith(`${runId}-`))
+    .filter(({ id }) => runId === null ? id.startsWith("chat-") : id.startsWith(`${runId}-`))
     .map((chunk) => freshStreamChunk(chunk, publishedAt))
     .filter(Boolean));
 }
@@ -89,28 +89,30 @@ function frameFromMessage(event) {
   }
 }
 
-/**
- * Listen to the existing DSH mux protocol without selecting or rendering the
- * dedicated update session. Complete closed envelopes are released as soon as
- * their final delimiter arrives; partial prose and worker output are ignored.
- */
-export function openLiveChunkStream({ sessionId, runId, onChunks }) {
-  if (typeof WebSocket !== "function" || typeof onChunks !== "function") {
-    return Object.freeze({ ready: Promise.resolve(false), close() {} });
-  }
-  const collector = createLiveChunkCollector({ runId });
+function unavailableStream() {
+  return Object.freeze({ ready: Promise.resolve(false), close() {} });
+}
+
+function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
+  if (typeof WebSocket !== "function"
+    || typeof onFrame !== "function"
+    || typeof window === "undefined"
+    || typeof window.location?.origin !== "string"
+    || typeof window.setTimeout !== "function"
+    || typeof window.clearTimeout !== "function") return unavailableStream();
   let socket;
   let closed = false;
   let resolveReady;
   let readyDone = false;
+  let timeout = null;
   const ready = new Promise((resolve) => { resolveReady = resolve; });
   const settleReady = (value) => {
     if (readyDone) return;
     readyDone = true;
-    window.clearTimeout(timeout);
+    if (timeout !== null) window.clearTimeout(timeout);
     resolveReady(value);
   };
-  const timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
+  timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
   try {
     socket = new WebSocket(muxUrl());
   } catch {
@@ -119,12 +121,11 @@ export function openLiveChunkStream({ sessionId, runId, onChunks }) {
   }
   socket.addEventListener("message", (event) => {
     const frame = frameFromMessage(event);
-    if (frame?.type === "session/subscribed" && frame.sessionId === sessionId) settleReady(true);
-    if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
-    const chunks = collector.push(frame);
-    if (chunks.length > 0) onChunks(chunks);
+    if (frame === null) return;
+    if (typeof readyWhen === "function" && readyWhen(frame)) settleReady(true);
+    onFrame(frame);
   });
-  socket.addEventListener("open", () => { /* Wait for the target session replay marker. */ });
+  socket.addEventListener("open", () => { if (readyOnOpen) settleReady(true); });
   socket.addEventListener("error", () => settleReady(false));
   socket.addEventListener("close", () => settleReady(false));
   return Object.freeze({
@@ -134,6 +135,52 @@ export function openLiveChunkStream({ sessionId, runId, onChunks }) {
       closed = true;
       settleReady(false);
       if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) socket.close();
+    },
+  });
+}
+
+/**
+ * Listen to the existing DSH mux protocol without selecting or rendering the
+ * dedicated update session. Complete closed envelopes are released as soon as
+ * their final delimiter arrives; partial prose and worker output are ignored.
+ */
+export function openLiveChunkStream({ sessionId, runId, onChunks }) {
+  if (typeof onChunks !== "function") return unavailableStream();
+  const collector = createLiveChunkCollector({ runId });
+  return openMuxStream({
+    readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
+    onFrame(frame) {
+      if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
+      const chunks = collector.push(frame);
+      if (chunks.length > 0) onChunks(chunks);
+    },
+  });
+}
+
+/**
+ * Passively follow all ordinary Chat sessions on the existing mux. Only a
+ * complete `chat-` envelope crosses this boundary; partial prose and the
+ * dedicated update namespace are ignored.
+ */
+export function openLiveChatChunkStream({ acceptSession, onChunks }) {
+  if (typeof acceptSession !== "function" || typeof onChunks !== "function") return unavailableStream();
+  const collectors = new Map();
+  return openMuxStream({
+    readyOnOpen: true,
+    onFrame(frame) {
+      if (frame?.type !== "session/event" || typeof frame.sessionId !== "string") return;
+      if (frame.event?.type === "turn/end") {
+        collectors.delete(frame.sessionId);
+        return;
+      }
+      if (!acceptSession(frame.sessionId)) return;
+      let collector = collectors.get(frame.sessionId);
+      if (collector === undefined) {
+        collector = createLiveChunkCollector({ runId: null });
+        collectors.set(frame.sessionId, collector);
+      }
+      const chunks = collector.push(frame);
+      if (chunks.length > 0) onChunks(frame.sessionId, chunks);
     },
   });
 }

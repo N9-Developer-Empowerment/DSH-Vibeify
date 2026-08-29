@@ -1,5 +1,5 @@
 import { appendCachedChunks } from "./content-store.js";
-import { freshStreamChunksFromEvents } from "./live-stream-collector.js";
+import { freshStreamChunksFromEvents, openLiveChatChunkStream } from "./live-stream-collector.js";
 import { readUpdateSessionId } from "./update-session.js";
 import { isBackgroundSession } from "./background-session.js";
 import {
@@ -124,6 +124,12 @@ export function sessionNeedsMagazineScan(summary, scanned) {
   return scanned.get(summary.id) !== summary.updatedAt;
 }
 
+export function sessionAllowsLiveMagazine(summary, storage) {
+  if (summary === null || typeof summary !== "object" || typeof summary.id !== "string" || summary.blank === true) return false;
+  if (summary.origin === "subagent" || isBackgroundSession(summary, storage)) return false;
+  return summary.id !== readUpdateSessionId(storage);
+}
+
 /** Read every local history page without opening, resuming, or prompting the session. */
 export async function readCompleteSessionHistory(api, sessionId) {
   const pages = [];
@@ -171,6 +177,21 @@ export function installThreadMagazineBridge(ctx) {
     const inFlight = new Set();
     const pending = new Map();
     let pump = () => {};
+
+    const liveStream = openLiveChatChunkStream({
+      acceptSession(sessionId) {
+        const summary = sessions.list.getSnapshot().byId?.[sessionId];
+        return sessionAllowsLiveMagazine(summary, safeStorage());
+      },
+      onChunks(_sessionId, chunks) {
+        if (disposed) return;
+        const appended = appendCachedChunks(safeStorage(), chunks);
+        if (appended.length === 0) return;
+        window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+          detail: { runId: "chat-live", chunks: appended, durationMs: 0 },
+        }));
+      },
+    });
 
     const scan = async (summary) => {
       if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
@@ -229,6 +250,7 @@ export function installThreadMagazineBridge(ctx) {
     schedule();
     return () => {
       disposed = true;
+      liveStream.close();
       unsubscribe();
     };
   }, "dsh-vibeify: completed threads to one local magazine");

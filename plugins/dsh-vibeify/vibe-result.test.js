@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   chunkBelongsToPublication,
+  collapseCompletedThinking,
   completedAnswer,
   createChatResultChunk,
   extractPublishedChunks,
@@ -224,6 +225,56 @@ test("the current DSH icon-only Copy action marks only its own closing assistant
   const answer = currentHostAnswer(environment, element("div", [element("p", [textNode("A settled answer")])]));
   assert.equal(completedAnswer(answer), true);
   assert.equal(isAssistantAnswer(answer), true);
+  environment.restore();
+});
+
+test("thinking opened by Vibeify closes once when its assistant turn completes", () => {
+  const environment = installVibeBridgeBrowser([]);
+  let clicks = 0;
+  const toggle = Object.assign(new environment.FakeElement(), {
+    getAttribute(name) { return name === "aria-expanded" ? "true" : null; },
+    click() { clicks += 1; },
+  });
+  const copy = {
+    textContent: "",
+    getAttribute(name) { return name === "aria-label" ? "Copy" : null; },
+  };
+  const tail = Object.assign(new environment.FakeElement(), {
+    nextElementSibling: null,
+    getAttribute(name) { return name === "data-chat-flow-kind" ? "turn-tail" : null; },
+    querySelectorAll(selector) { return selector === "button" ? [copy] : []; },
+  });
+  const row = Object.assign(new environment.FakeElement(), {
+    dataset: { codexProgressOpened: "true" },
+    nextElementSibling: tail,
+    getAttribute(name) { return name === "data-chat-flow-kind" ? "assistant-step" : null; },
+    querySelector() { return toggle; },
+    closest(selector) { return selector === '[data-chat-flow-kind="assistant-step"]' ? this : null; },
+  });
+
+  assert.equal(collapseCompletedThinking(row), true);
+  assert.equal(clicks, 1);
+  assert.equal(row.dataset.codexProgressAutoCollapsed, "true");
+  assert.equal(collapseCompletedThinking(row), false);
+  assert.equal(clicks, 1);
+  environment.restore();
+});
+
+test("thinking stays open until completion and manually opened panels are left alone", () => {
+  const environment = installVibeBridgeBrowser([]);
+  const toggle = Object.assign(new environment.FakeElement(), {
+    getAttribute(name) { return name === "aria-expanded" ? "true" : null; },
+    click() { assert.fail("an unsettled or manually opened panel must not be closed"); },
+  });
+  const row = Object.assign(new environment.FakeElement(), {
+    dataset: { codexProgressOpened: "true" },
+    nextElementSibling: null,
+    querySelector() { return toggle; },
+    closest(selector) { return selector === '[data-chat-flow-kind="assistant-step"]' ? this : null; },
+  });
+  assert.equal(collapseCompletedThinking(row), false);
+  delete row.dataset.codexProgressOpened;
+  assert.equal(collapseCompletedThinking(row), false);
   environment.restore();
 });
 

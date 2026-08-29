@@ -42,6 +42,7 @@ window.__ModuleLoader__.load({
 			  EDITORIAL_PRESETS: () => EDITORIAL_PRESETS,
 			  EDITORIAL_SETTINGS_EVENT: () => EDITORIAL_SETTINGS_EVENT,
 			  EDITORIAL_TRIBES: () => EDITORIAL_TRIBES,
+			  collapseCompletedThinking: () => collapseCompletedThinking,
 			  loadEditorialProfile: () => loadEditorialProfile,
 			  registerExperienceShell: () => registerExperienceShell,
 			  resetEditorialLearning: () => resetEditorialLearning,
@@ -490,10 +491,18 @@ window.__ModuleLoader__.load({
 			var VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
 			var IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 			var TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
-			function allowedImageUrl(value) {
+			function allowedImageUrl(value, sourceValue = null) {
 			  try {
 			    const url = new URL(value);
-			    if (url.protocol !== "https:" || !REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || url.username !== "" || url.password !== "") return null;
+			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+			    const host = url.hostname.toLowerCase();
+			    const reviewedHost = REMOTE_IMAGE_HOSTS.has(host);
+			    let firstParty = false;
+			    if (typeof sourceValue === "string") {
+			      const source = new URL(sourceValue);
+			      firstParty = source.protocol === "https:" && source.username === "" && source.password === "" && source.hostname.toLowerCase() === host && !IMAGE_FILE_PATH.test(source.pathname);
+			    }
+			    if (!reviewedHost && (!firstParty || !IMAGE_FILE_PATH.test(url.pathname))) return null;
 			    url.hash = "";
 			    for (const key of [...url.searchParams.keys()]) {
 			      if (!REMOTE_IMAGE_QUERY_KEYS.has(key.toLowerCase())) url.searchParams.delete(key);
@@ -520,13 +529,13 @@ window.__ModuleLoader__.load({
 			  const seen = /* @__PURE__ */ new Set();
 			  for (let index = 0; index < images.length; index += 1) {
 			    const image = images[index];
-			    const imageUrl = allowedImageUrl(image[2]);
-			    if (imageUrl === null || seen.has(imageUrl)) continue;
 			    const start = (image.index ?? 0) + image[0].length;
 			    const end = images[index + 1]?.index ?? markdown.length;
 			    const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
 			    const sourceUrl = source === null ? null : visualSource(source[2]);
 			    if (source === null || sourceUrl === null) continue;
+			    const imageUrl = allowedImageUrl(image[2], sourceUrl);
+			    if (imageUrl === null || seen.has(imageUrl)) continue;
 			    seen.add(imageUrl);
 			    visuals.push(Object.freeze({
 			      imageUrl,
@@ -575,7 +584,7 @@ window.__ModuleLoader__.load({
 			  if (typeof markdown !== "string") return "";
 			  const visuals = remoteVisualsForMarkdown(markdown) ?? [];
 			  const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
-			  return markdown.replace(IMAGE_PATTERN, (match, _alt, value) => allowedImageUrl(value) === null ? match : "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
+			  return markdown.replace(IMAGE_PATTERN, "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
 			    const sourceUrl = visualSource(value);
 			    return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;
 			  }).replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
@@ -902,7 +911,7 @@ window.__ModuleLoader__.load({
 			- Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
 			- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
 			- Every non-questionnaire chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
-			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use only direct HTTPS image URLs hosted by images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com. The exact form is "![Useful alt text](https://approved-host/image)" then "[Photograph \xB7 Creator](https://source-page)". An AI-assisted graphic is allowed only when the story itself is conceptual or visual and the graphic is explicitly labelled; use no more than one in the batch and never substitute one for available documentary photography. Never reuse a recent image URL, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
+			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator](https://source-page)". An AI-assisted graphic is allowed only when the story itself is conceptual or visual and the graphic is explicitly labelled; use no more than one in the batch and never substitute one for available documentary photography. Never reuse a recent image URL, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
 			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 			- A later deeper chunk may begin with natural editorial continuity such as \u201CI dug further into this\u2026\u201D or \u201CA few pages later, the stronger route is\u2026\u201D. It must add knowledge rather than revise or silently replace an earlier chunk.
@@ -1245,6 +1254,42 @@ window.__ModuleLoader__.load({
 			  }
 			  return null;
 			}
+			function hasCopyControl(root) {
+			  return [...root.querySelectorAll("button")].some((button) => {
+			    const text = button.textContent?.trim();
+			    const label = button.getAttribute?.("aria-label")?.trim();
+			    return text === "Copy" || label === "Copy";
+			  });
+			}
+			function currentHostTurnTail(source) {
+			  const assistantRow = source.closest?.('[data-chat-flow-kind="assistant-step"]');
+			  if (typeof HTMLElement === "undefined" || !(assistantRow instanceof HTMLElement)) return void 0;
+			  for (let row = assistantRow.nextElementSibling; row !== null; row = row.nextElementSibling) {
+			    const kind = row.getAttribute?.("data-chat-flow-kind");
+			    if (kind === "assistant-step" || kind === "user" || kind === "steering") return null;
+			    if (kind === "turn-tail") return row;
+			  }
+			  return null;
+			}
+			function completedAnswer(source) {
+			  const turnTail = currentHostTurnTail(source);
+			  if (turnTail !== void 0) return turnTail !== null && hasCopyControl(turnTail);
+			  let root = source;
+			  for (let depth = 0; depth < 5 && root !== null; depth += 1, root = root.parentElement) {
+			    if (hasCopyControl(root)) return true;
+			  }
+			  return false;
+			}
+			function collapseCompletedThinking(row) {
+			  if (row?.dataset?.codexProgressOpened !== "true" || row.dataset.codexProgressAutoCollapsed === "true") return false;
+			  if (!completedAnswer(row)) return false;
+			  const toggle = row.querySelector?.('[role="button"][aria-expanded="true"], button[aria-expanded="true"]');
+			  if (typeof HTMLElement !== "undefined" && !(toggle instanceof HTMLElement)) return false;
+			  if (toggle === null || typeof toggle?.click !== "function") return false;
+			  row.dataset.codexProgressAutoCollapsed = "true";
+			  toggle.click();
+			  return true;
+			}
 			function removeLegacyChatPresentation() {
 			  document.getElementById("dsh-vibeify-output-style")?.remove();
 			  for (const node of document.querySelectorAll(".vibeify-output")) {
@@ -1394,8 +1439,8 @@ window.__ModuleLoader__.load({
 			  });
 			}
 			function extractRunChunks(text, runId, publishedAt = Date.now()) {
-			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) return Object.freeze([]);
-			  return Object.freeze(extractPublishedChunks(text).filter(({ id }) => id.startsWith(`${runId}-`)).map((chunk) => freshStreamChunk(chunk, publishedAt)).filter(Boolean));
+			  if (runId !== null && (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId))) return Object.freeze([]);
+			  return Object.freeze(extractPublishedChunks(text).filter(({ id }) => runId === null ? id.startsWith("chat-") : id.startsWith(`${runId}-`)).map((chunk) => freshStreamChunk(chunk, publishedAt)).filter(Boolean));
 			}
 			function freshStreamChunksFromEvents(entries, runId = null, publishedAt = Date.now()) {
 			  const source = (Array.isArray(entries) ? entries : []).map((entry) => entry?.event ?? entry).map(textFromMessage).filter(Boolean).join("\n");
@@ -1430,26 +1475,27 @@ window.__ModuleLoader__.load({
 			    return null;
 			  }
 			}
-			function openLiveChunkStream({ sessionId, runId, onChunks }) {
-			  if (typeof WebSocket !== "function" || typeof onChunks !== "function") {
-			    return Object.freeze({ ready: Promise.resolve(false), close() {
-			    } });
-			  }
-			  const collector = createLiveChunkCollector({ runId });
+			function unavailableStream() {
+			  return Object.freeze({ ready: Promise.resolve(false), close() {
+			  } });
+			}
+			function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
+			  if (typeof WebSocket !== "function" || typeof onFrame !== "function" || typeof window === "undefined" || typeof window.location?.origin !== "string" || typeof window.setTimeout !== "function" || typeof window.clearTimeout !== "function") return unavailableStream();
 			  let socket;
 			  let closed = false;
 			  let resolveReady;
 			  let readyDone = false;
+			  let timeout = null;
 			  const ready = new Promise((resolve) => {
 			    resolveReady = resolve;
 			  });
 			  const settleReady = (value) => {
 			    if (readyDone) return;
 			    readyDone = true;
-			    window.clearTimeout(timeout);
+			    if (timeout !== null) window.clearTimeout(timeout);
 			    resolveReady(value);
 			  };
-			  const timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
+			  timeout = window.setTimeout(() => settleReady(false), SUBSCRIBE_TIMEOUT_MS);
 			  try {
 			    socket = new WebSocket(muxUrl());
 			  } catch {
@@ -1459,12 +1505,12 @@ window.__ModuleLoader__.load({
 			  }
 			  socket.addEventListener("message", (event) => {
 			    const frame = frameFromMessage(event);
-			    if (frame?.type === "session/subscribed" && frame.sessionId === sessionId) settleReady(true);
-			    if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
-			    const chunks = collector.push(frame);
-			    if (chunks.length > 0) onChunks(chunks);
+			    if (frame === null) return;
+			    if (typeof readyWhen === "function" && readyWhen(frame)) settleReady(true);
+			    onFrame(frame);
 			  });
 			  socket.addEventListener("open", () => {
+			    if (readyOnOpen) settleReady(true);
 			  });
 			  socket.addEventListener("error", () => settleReady(false));
 			  socket.addEventListener("close", () => settleReady(false));
@@ -1475,6 +1521,40 @@ window.__ModuleLoader__.load({
 			      closed = true;
 			      settleReady(false);
 			      if (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN) socket.close();
+			    }
+			  });
+			}
+			function openLiveChunkStream({ sessionId, runId, onChunks }) {
+			  if (typeof onChunks !== "function") return unavailableStream();
+			  const collector = createLiveChunkCollector({ runId });
+			  return openMuxStream({
+			    readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
+			    onFrame(frame) {
+			      if (frame?.type !== "session/event" || frame.sessionId !== sessionId) return;
+			      const chunks = collector.push(frame);
+			      if (chunks.length > 0) onChunks(chunks);
+			    }
+			  });
+			}
+			function openLiveChatChunkStream({ acceptSession, onChunks }) {
+			  if (typeof acceptSession !== "function" || typeof onChunks !== "function") return unavailableStream();
+			  const collectors = /* @__PURE__ */ new Map();
+			  return openMuxStream({
+			    readyOnOpen: true,
+			    onFrame(frame) {
+			      if (frame?.type !== "session/event" || typeof frame.sessionId !== "string") return;
+			      if (frame.event?.type === "turn/end") {
+			        collectors.delete(frame.sessionId);
+			        return;
+			      }
+			      if (!acceptSession(frame.sessionId)) return;
+			      let collector = collectors.get(frame.sessionId);
+			      if (collector === void 0) {
+			        collector = createLiveChunkCollector({ runId: null });
+			        collectors.set(frame.sessionId, collector);
+			      }
+			      const chunks = collector.push(frame);
+			      if (chunks.length > 0) onChunks(frame.sessionId, chunks);
 			    }
 			  });
 			}
@@ -1912,6 +1992,11 @@ window.__ModuleLoader__.load({
 			  if (typeof summary.id !== "string" || !Number.isFinite(summary.updatedAt)) return false;
 			  return scanned.get(summary.id) !== summary.updatedAt;
 			}
+			function sessionAllowsLiveMagazine(summary, storage3) {
+			  if (summary === null || typeof summary !== "object" || typeof summary.id !== "string" || summary.blank === true) return false;
+			  if (summary.origin === "subagent" || isBackgroundSession(summary, storage3)) return false;
+			  return summary.id !== readUpdateSessionId(storage3);
+			}
 			async function readCompleteSessionHistory(api, sessionId) {
 			  const pages = [];
 			  let beforeSeq;
@@ -1955,6 +2040,20 @@ window.__ModuleLoader__.load({
 			    const pending = /* @__PURE__ */ new Map();
 			    let pump = () => {
 			    };
+			    const liveStream = openLiveChatChunkStream({
+			      acceptSession(sessionId) {
+			        const summary = sessions.list.getSnapshot().byId?.[sessionId];
+			        return sessionAllowsLiveMagazine(summary, safeStorage());
+			      },
+			      onChunks(_sessionId, chunks) {
+			        if (disposed) return;
+			        const appended = appendCachedChunks(safeStorage(), chunks);
+			        if (appended.length === 0) return;
+			        window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+			          detail: { runId: "chat-live", chunks: appended, durationMs: 0 }
+			        }));
+			      }
+			    });
 			    const scan = async (summary) => {
 			      if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
 			      inFlight.add(summary.id);
@@ -2010,6 +2109,7 @@ window.__ModuleLoader__.load({
 			    schedule();
 			    return () => {
 			      disposed = true;
+			      liveStream.close();
 			      unsubscribe();
 			    };
 			  }, "dsh-vibeify: completed threads to one local magazine");
@@ -2320,7 +2420,7 @@ window.__ModuleLoader__.load({
 
 			Output only closed envelopes, one after another, exactly:
 			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-			Markdown body beginning with ![specific, subject-matched alt text](https://approved-image-host/...) followed by a separate photograph credit/source link, then useful copy and content links.
+			Markdown body beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
 			</vibe-chunk>
 
 			Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -3017,8 +3117,8 @@ window.__ModuleLoader__.load({
 			.vfx-chunk-copy { min-width:0; max-width:100%; padding:clamp(24px,3vw,42px); }
 			.vfx-chunk-heading { min-width:0; display:flex; align-items:start; justify-content:space-between; gap:24px; }.vfx-chunk-heading>div { min-width:0; }
 			.vfx-chunk-heading span { color:var(--chunk-accent); font-size:9px; font-weight:850; letter-spacing:.14em; text-transform:uppercase; }
-			.vfx-chunk h2 { max-width:100%; margin:8px 0 20px; overflow-wrap:anywhere; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
-			.vfx-chunk.is-hero h2 { font-size:clamp(42px,5vw,76px); }
+			.vfx-chunk h2 { max-width:100%; margin:8px 0 20px; overflow-wrap:normal; word-break:normal; hyphens:none; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
+			.vfx-chunk.is-hero h2 { font-size:clamp(40px,3vw,60px); }
 			.vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 			.vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
 			.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre,.vfx-markdown table { display:block; max-width:100%; overflow-x:auto; }.vfx-markdown pre { white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
@@ -3032,6 +3132,7 @@ window.__ModuleLoader__.load({
 			.vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
 			.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-card-actions .vfx-skip { margin-left:auto; flex:none; }.vfx-skip,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
 			.vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
+			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
 			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
@@ -3620,6 +3721,12 @@ window.__ModuleLoader__.load({
 					if (toggle instanceof HTMLElement) toggle.click();
 				};
 
+				const collapseSettledProgress = () => {
+					for (const row of document.querySelectorAll('[data-variant="think"][data-codex-progress-opened="true"]')) {
+						__DshVibeifyExperience.collapseCompletedThinking(row);
+					}
+				};
+
 				const modeFromSettings = () => {
 					const value = conversationSettings.getSnapshot().value?.[BUSY_ENTER_FIELD];
 					return BUSY_ENTER_BEHAVIORS.has(value) ? value : "queue";
@@ -3674,6 +3781,7 @@ window.__ModuleLoader__.load({
 					if (disposed) return;
 					preferredMode = modeFromSettings();
 					revealProgress();
+					collapseSettledProgress();
 					renderControls();
 				};
 

@@ -8,13 +8,16 @@ test("completed Chat answers share one local magazine while explicit updates rem
   assert.match(contract, /one shared edited Vibe surface/i);
   assert.match(contract, /durably ended as completed/i);
   assert.match(contract, /across DSH threads without reopening, prompting, or resuming them/i);
-  assert.match(contract, /never starts an AI\/model call/i);
+  assert.match(contract, /Neither route starts an additional AI\/model call/i);
   assert.match(contract, /newest-first/i);
   assert.match(contract, /must never copy the user's raw prompt/i);
   assert.match(contract, /show, find, discover, browse, or recommend/i);
   assert.match(contract, /commentary/i);
   assert.match(contract, /<vibe-chunk/i);
   assert.match(contract, /complete closed envelope/i);
+  assert.match(contract, /first bounded complete item.+before researching the whole series/i);
+  assert.match(contract, /one envelope per commentary update/i);
+  assert.match(contract, /slower research.+continue/i);
   assert.match(contract, /technical answers can therefore appear in Vibe once complete/i);
   assert.match(contract, /private|sensitive/i);
   assert.match(contract, /final answer in Chat/i);

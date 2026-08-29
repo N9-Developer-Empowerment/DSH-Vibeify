@@ -18,7 +18,7 @@ const outputPath = resolve(root, outputArgument ?? "dist/radar/latest.json");
 const previousPath = resolve(root, process.argv.find((value) => value.startsWith("--previous="))?.slice("--previous=".length) ?? "radar/bootstrap.json");
 const sources = JSON.parse(await readFile(join(root, "radar", "sources.json"), "utf8"));
 const now = new Date();
-const headers = { "user-agent": "DSH-Vibeify/0.13.2 (+https://github.com/N9-Developer-Empowerment/DSH-Vibeify)" };
+const headers = { "user-agent": "DSH-Vibeify/0.13.5 (+https://github.com/N9-Developer-Empowerment/DSH-Vibeify)" };
 
 async function fetchText(url) {
   const response = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });

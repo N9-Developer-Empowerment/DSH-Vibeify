@@ -111,6 +111,32 @@ test("an approved generated image joins the rolling catalogue with visible prove
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Visual source · Alex Example/);
 });
 
+test("an official first-party image can render beside its separate same-origin source page", () => {
+  const imageUrl = "https://blog.luanti.org/static/blog/2026_dmca/cover.webp";
+  const sourceUrl = "https://blog.luanti.org/2026/08/27/luanti-dmca-tracer-ai/";
+  const markdown = `![Luanti cubes beneath the logos involved in its Google Play takedown dispute](${imageUrl})\n\n[Artwork and source · Luanti](${sourceUrl})\n\nA complete article with [the F-Droid package](https://f-droid.org/packages/net.minetest.minetest/).`;
+  const visual = remoteVisualForMarkdown(markdown);
+  const media = visualMediaForChunk(catalog, Object.freeze({
+    id: "refill-luanti-first-party-image",
+    kind: "editorial",
+    source: "fresh-stream",
+    title: "The copyright robot has found cubes",
+    markdown,
+    topicId: null,
+  }));
+
+  assert.deepEqual(visual, {
+    imageUrl,
+    sourceUrl,
+    alt: "Luanti cubes beneath the logos involved in its Google Play takedown dispute",
+    credit: "Artwork and source · Luanti",
+  });
+  assert.equal(media.kind, "fresh-image");
+  assert.equal(media.externalUrl, imageUrl);
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /!\[/);
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Artwork and source · Luanti/);
+});
+
 test("long magazine pages retain several relevant photographs as visual beats", () => {
   const markdown = [
     "![Jason Arday speaking at a lectern](https://upload.wikimedia.org/wikipedia/commons/a/aa/jason-one.jpg)",
@@ -150,6 +176,8 @@ test("unapproved remote images cannot enter the catalogue and receive a local fa
   assert.equal(remoteVisualForMarkdown(markdown), null);
   assert.notEqual(media.kind, "fresh-image");
   assert.ok(["photograph", "ai-graphic"].includes(media.kind));
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /!\[/);
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Tracking image/);
 });
 
 test("rolling catalogue images require provenance and discard tracking parameters", () => {

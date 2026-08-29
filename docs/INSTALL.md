@@ -42,7 +42,7 @@ The currently tested combination is:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
 - `@openai/codex` `0.147.0` inside the governed bridge;
-- DSH Vibeify `0.13.2`.
+- DSH Vibeify `0.13.5`.
 
 Clone and install:
 

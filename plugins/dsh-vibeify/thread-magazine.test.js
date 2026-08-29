@@ -5,10 +5,12 @@ import {
   completedHistoryMagazineChunks,
   installThreadMagazineBridge,
   readCompleteSessionHistory,
+  sessionAllowsLiveMagazine,
   sessionNeedsMagazineScan,
 } from "./client-src/experience/thread-magazine.js";
-import { VIBE_CHAT_RESULT_EVENT } from "./client-src/experience/vibe-result.js";
+import { VIBE_CHAT_RESULT_EVENT, VIBE_STREAM_CHUNKS_EVENT } from "./client-src/experience/vibe-result.js";
 import { BACKGROUND_SESSION_KEY } from "./client-src/experience/background-session.js";
+import { UPDATE_SESSION_KEY } from "./client-src/experience/update-session.js";
 
 function message({ seq, time, turn = 1, step = 1, id, content, interrupted = false }) {
   return {
@@ -97,6 +99,99 @@ test("only idle non-blank sessions with new durable activity are scanned", () =>
   assert.equal(sessionNeedsMagazineScan({ id: "same", running: false, blank: false, updatedAt: 20 }, scanned), false);
   assert.equal(sessionNeedsMagazineScan({ id: "worker", origin: "subagent", running: false, blank: false, updatedAt: 30 }, scanned), false);
   assert.equal(sessionNeedsMagazineScan({ id: "fresh", running: false, blank: false, updatedAt: 30 }, scanned), true);
+});
+
+test("live magazine streaming accepts only ordinary reader sessions", () => {
+  const values = new Map([
+    [BACKGROUND_SESSION_KEY, "background-session"],
+    [UPDATE_SESSION_KEY, "update-session"],
+  ]);
+  const storage = { getItem(key) { return values.get(key) ?? null; } };
+  assert.equal(sessionAllowsLiveMagazine({ id: "reader-session", title: "A reader request", blank: false }, storage), true);
+  assert.equal(sessionAllowsLiveMagazine({ id: "worker-session", origin: "subagent", blank: false }, storage), false);
+  assert.equal(sessionAllowsLiveMagazine({ id: "background-session", title: "VIBE background editor", blank: false }, storage), false);
+  assert.equal(sessionAllowsLiveMagazine({ id: "update-session", title: "VIBE magazine updates", blank: false }, storage), false);
+  assert.equal(sessionAllowsLiveMagazine({ id: "blank-session", blank: true }, storage), false);
+});
+
+test("the shared magazine receives a closed Chat chunk while that reader turn is still running", async () => {
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const originalCustomEvent = Object.getOwnPropertyDescriptor(globalThis, "CustomEvent");
+  const originalWebSocket = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");
+  class FakeCustomEvent extends Event {
+    constructor(type, options = {}) { super(type); this.detail = options.detail; }
+  }
+  class FakeWebSocket extends EventTarget {
+    static CONNECTING = 0;
+    static OPEN = 1;
+    constructor() {
+      super();
+      this.readyState = FakeWebSocket.OPEN;
+      FakeWebSocket.instance = this;
+      queueMicrotask(() => this.dispatchEvent(new Event("open")));
+    }
+    emit(payload) {
+      const event = new Event("message");
+      Object.defineProperty(event, "data", { value: JSON.stringify({ payload }) });
+      this.dispatchEvent(event);
+    }
+    close() { this.readyState = 3; this.dispatchEvent(new Event("close")); }
+  }
+  const values = new Map([
+    [BACKGROUND_SESSION_KEY, "background-session"],
+    [UPDATE_SESSION_KEY, "update-session"],
+  ]);
+  const browserWindow = new EventTarget();
+  browserWindow.location = { origin: "http://127.0.0.1:3080" };
+  browserWindow.setTimeout = setTimeout;
+  browserWindow.clearTimeout = clearTimeout;
+  browserWindow.localStorage = {
+    getItem(key) { return values.get(key) ?? null; },
+    setItem(key, value) { values.set(key, String(value)); },
+  };
+  Object.defineProperty(globalThis, "window", { configurable: true, writable: true, value: browserWindow });
+  Object.defineProperty(globalThis, "CustomEvent", { configurable: true, writable: true, value: FakeCustomEvent });
+  Object.defineProperty(globalThis, "WebSocket", { configurable: true, writable: true, value: FakeWebSocket });
+  const summaries = {
+    ids: ["reader-session", "worker-session", "background-session", "update-session"],
+    byId: {
+      "reader-session": { id: "reader-session", title: "A reader request", running: true, blank: false, updatedAt: 10 },
+      "worker-session": { id: "worker-session", origin: "subagent", running: true, blank: false, updatedAt: 20 },
+      "background-session": { id: "background-session", title: "VIBE background editor", running: true, blank: false, updatedAt: 30 },
+      "update-session": { id: "update-session", title: "VIBE magazine updates", running: true, blank: false, updatedAt: 40 },
+    },
+  };
+  const sessions = { list: { getSnapshot: () => summaries, subscribe: () => () => {} } };
+  const connection = { api: { sessions: { async history() { assert.fail("running sessions must not be history-scanned"); } } } };
+  const ctx = {
+    get(name) { return name === "connection" ? connection : sessions; },
+    effect(setup) { this.cleanup = setup(); },
+  };
+  const published = [];
+  browserWindow.addEventListener(VIBE_STREAM_CHUNKS_EVENT, (event) => published.push(...event.detail.chunks));
+  try {
+    installThreadMagazineBridge(ctx);
+    await new Promise(queueMicrotask);
+    FakeWebSocket.instance.emit({
+      type: "session/event",
+      sessionId: "reader-session",
+      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-jason-first" kind="article" title="First Jason article">Ready now.</vibe-chunk>' } } },
+    });
+    FakeWebSocket.instance.emit({
+      type: "session/event",
+      sessionId: "worker-session",
+      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-worker" kind="article" title="Worker">Never.</vibe-chunk>' } } },
+    });
+    assert.deepEqual(published.map(({ title }) => title), ["First Jason article"]);
+  } finally {
+    ctx.cleanup?.();
+    if (originalWindow === undefined) delete globalThis.window;
+    else Object.defineProperty(globalThis, "window", originalWindow);
+    if (originalCustomEvent === undefined) delete globalThis.CustomEvent;
+    else Object.defineProperty(globalThis, "CustomEvent", originalCustomEvent);
+    if (originalWebSocket === undefined) delete globalThis.WebSocket;
+    else Object.defineProperty(globalThis, "WebSocket", originalWebSocket);
+  }
 });
 
 test("all local history pages are read backwards without resuming or prompting a thread", async () => {

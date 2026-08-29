@@ -568,6 +568,12 @@ window.__ModuleLoader__.load({
 					if (toggle instanceof HTMLElement) toggle.click();
 				};
 
+				const collapseSettledProgress = () => {
+					for (const row of document.querySelectorAll('[data-variant="think"][data-codex-progress-opened="true"]')) {
+						__DshVibeifyExperience.collapseCompletedThinking(row);
+					}
+				};
+
 				const modeFromSettings = () => {
 					const value = conversationSettings.getSnapshot().value?.[BUSY_ENTER_FIELD];
 					return BUSY_ENTER_BEHAVIORS.has(value) ? value : "queue";
@@ -622,6 +628,7 @@ window.__ModuleLoader__.load({
 					if (disposed) return;
 					preferredMode = modeFromSettings();
 					revealProgress();
+					collapseSettledProgress();
 					renderControls();
 				};
 

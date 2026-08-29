@@ -1,10 +1,12 @@
 # DSH Vibeify
 
-**A generative-AI harness that feels like a living website. DeepSeek, ChatGPT, or both.**
+**Turn your AI work into a living magazine.**
 
-![DSH Vibeify — one lead agent connected to specialist workers](docs/assets/dsh-vibeify-social-preview.png)
+DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It gives AI work a visual, content-first home: use DeepSeek, ChatGPT, or both; keep Chat for control; and share only the finished article you choose.
 
-[Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [See how it works](docs/HOW_IT_WORKS.md) · [Read the installation guide](docs/INSTALL.md) · [Get installation help](docs/FAQ.md)
+![The real DSH Vibeify welcome edition, with visual articles already on screen](docs/assets/dsh-vibeify-magazine-social.png)
+
+[Download Vibeify 0.15.2](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.2) · [Watch the 72-second walkthrough](https://dsh-vibeify.ezzye.chatgpt.site/#demo) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md)
 
 DSH Vibeify's magazine is **not** a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence. An optional, deliberately separate share service can publish one reviewed article at a time without exposing the local magazine or requiring the recipient to have DSH, ChatGPT, or DeepSeek.
 

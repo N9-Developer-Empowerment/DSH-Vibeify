@@ -89,3 +89,30 @@ test("a Vibe card maps only its public rendering into the share snapshot", () =>
   assert.equal(result.visual.imageUrl, "https://images.example.org/lead.webp");
   assert.doesNotMatch(JSON.stringify(result), /private-local-id|private-local-lens|private-catalogue-id|fresh-stream/);
 });
+
+test("a bundled Vibe photograph keeps a public copy when the article is shared", () => {
+  const result = shareSnapshotForChunk({
+    chunk: {
+      title: "Sound, patience and belief",
+      kind: "article",
+      publishedAt: snapshot.publishedAt,
+    },
+    markdown: "A finished public article.",
+    media: {
+      artwork: "sayItBetter",
+      alt: "Two people talking together",
+      href: "https://unsplash.com/photos/example",
+      label: "Photograph · Example",
+      episode: {
+        photo: {
+          publicImageUrl: "https://images.unsplash.com/photo-example?auto=format&fit=crop&w=1600&q=82",
+        },
+      },
+    },
+    inlineVisuals: [],
+    contentLink: null,
+  }, snapshot.publishedAt);
+
+  assert.equal(result.visual.imageUrl, "https://images.unsplash.com/photo-example?auto=format&fit=crop&w=1600&q=82");
+  assert.equal(result.visual.sourceUrl, "https://unsplash.com/photos/example");
+});

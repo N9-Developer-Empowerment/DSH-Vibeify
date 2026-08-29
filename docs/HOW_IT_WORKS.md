@@ -202,7 +202,7 @@ It does not store raw prompts, DSH session ids, account information, attachments
 - up to four selected public image URLs with their alt text, credit, and source pages; and
 - one separate reader-facing content link when present.
 
-There is no field for a prompt, DSH session or message id, reasoning, approval, attachment, selected tribe, reader interaction, local catalogue id, credential, or browser history. The share page renders a private preview first. Only its separate **Publish public link** button writes the article to public storage. The resulting URL is ordinary public HTML with social preview metadata; its reader needs no DSH, ChatGPT, or DeepSeek account. See [Sharing one Vibe article](SHARING.md) for the trust boundary, removal token, retention, and operator setup.
+There is no field for a prompt, DSH session or message id, reasoning, approval, attachment, selected tribe, reader interaction, local catalogue id, credential, or browser history. The share page renders a private preview first and requires at least one reviewed public image for every new publication. Only its separate **Publish public link** button writes the article to public storage. On success the URL is copied to the clipboard and remains available through **Copy link**. The resulting URL is ordinary public HTML with a responsive cover and social preview metadata; its reader needs no DSH, ChatGPT, or DeepSeek account. Existing older text-only pages remain readable. See [Sharing one Vibe article](SHARING.md) for the trust boundary, removal token, retention, and operator setup.
 
 ## Failures remain bounded
 

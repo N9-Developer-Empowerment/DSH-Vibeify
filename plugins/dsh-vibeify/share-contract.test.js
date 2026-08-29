@@ -6,6 +6,7 @@ import {
   SHARE_SNAPSHOT_VERSION,
   cleanShareSnapshot,
   createShareTransfer,
+  hasShareVisual,
   isShareReadyMessage,
 } from "../../shared/vibe-share-contract.js";
 
@@ -91,4 +92,26 @@ test("the opener handshake is versioned and pinned to the public share origin", 
   assert.equal(isShareReadyMessage({ type: "vibe-share:ready", version: SHARE_SNAPSHOT_VERSION }, SHARE_ORIGIN), true);
   assert.equal(isShareReadyMessage({ type: "vibe-share:ready", version: SHARE_SNAPSHOT_VERSION }, "https://lookalike.example"), false);
   assert.equal(isShareReadyMessage({ type: "vibe-share:ready", version: 999 }, SHARE_ORIGIN), false);
+});
+
+test("the public writer can require an image without breaking old stored articles", () => {
+  const textOnly = cleanShareSnapshot({
+    version: SHARE_SNAPSHOT_VERSION,
+    title: "An older text-only article",
+    kind: "article",
+    markdown: "This remains readable after the publishing rule changes.",
+    publishedAt: NOW,
+  }, NOW);
+  const pictured = cleanShareSnapshot({
+    ...textOnly,
+    visual: {
+      imageUrl: "https://images.example.org/lead.webp",
+      sourceUrl: "https://example.org/lead",
+      alt: "A useful public photograph",
+      credit: "Photograph · Example",
+    },
+  }, NOW);
+
+  assert.equal(hasShareVisual(textOnly), false);
+  assert.equal(hasShareVisual(pictured), true);
 });

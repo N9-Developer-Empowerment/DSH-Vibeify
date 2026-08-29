@@ -88,6 +88,12 @@ export function cleanShareSnapshot(candidate, now = Date.now()) {
   });
 }
 
+export function hasShareVisual(snapshot) {
+  return snapshot !== null
+    && typeof snapshot === "object"
+    && (snapshot.visual !== null || (Array.isArray(snapshot.inlineVisuals) && snapshot.inlineVisuals.length > 0));
+}
+
 export function createShareTransfer(snapshot) {
   const cleaned = cleanShareSnapshot(snapshot, Math.max(Date.now(), Number(snapshot?.publishedAt) || 0));
   if (cleaned === null) throw new TypeError("share snapshot is invalid");

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { SHARE_SNAPSHOT_VERSION } from "../../shared/vibe-share-contract.js";
+import { APP_JS } from "./src/app-source.mjs";
 import { markdownToHtml, renderPublicArticle } from "./src/render.mjs";
 import { handleRequest } from "./src/worker.mjs";
 
@@ -75,7 +76,27 @@ test("public rendering escapes raw HTML while preserving safe article links", ()
   assert.match(page, /og:image/);
   assert.match(page, /cover\.webp/);
   assert.match(page, /The copyright robot has found cubes/);
+  assert.match(page, /https:\/\/dsh-vibeify\.ezzye\.chatgpt\.site\//);
+  assert.match(page, /Make your own Vibe/);
   assert.doesNotMatch(page, /private-session|must never cross/);
+});
+
+test("an inline photograph becomes the lead when an older snapshot has no lead image", () => {
+  const page = renderPublicArticle({
+    ...snapshot,
+    visual: null,
+    inlineVisuals: [snapshot.visual],
+  }, `${origin}/a/example123`);
+
+  assert.match(page, /<figure class="lead">/);
+  assert.match(page, /cover\.webp/);
+  assert.doesNotMatch(page, /<div class="gallery"><figure class="inline">/);
+});
+
+test("publishing copies the final link and keeps an explicit copy control", () => {
+  assert.match(APP_JS, /await copyPublicLink\(result\.url\)/);
+  assert.match(APP_JS, /Copied to clipboard/);
+  assert.match(APP_JS, /Copy link/);
 });
 
 test("preview describes the privacy boundary and production publishing fails closed", async () => {
@@ -83,6 +104,7 @@ test("preview describes the privacy boundary and production publishing fails clo
   const previewHtml = await preview.text();
   assert.equal(preview.status, 200);
   assert.match(previewHtml, /Chat prompts, reasoning, sessions, settings and local history stay on your computer/);
+  assert.match(previewHtml, /Make your own Vibe/);
   assert.match(previewHtml, /Publishing is not configured yet/);
 
   const db = new MemoryDb();
@@ -117,6 +139,19 @@ test("a deliberate local publish stores only the cleaned snapshot and returns a 
   assert.equal(wrongDelete.status, 404);
   const removed = await handleRequest(new Request(`${origin}/api/articles/${created.slug}`, { method: "DELETE", headers: { authorization: `Bearer ${created.deleteToken}` } }), { VIBE_SHARE_DB: db });
   assert.equal(removed.status, 200);
+  assert.equal(db.rows.size, 0);
+});
+
+test("new public pages require at least one image", async () => {
+  const db = new MemoryDb();
+  const response = await handleRequest(new Request(`${origin}/api/articles`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, turnstileToken: "local-test" }),
+  }), { VIBE_SHARE_DB: db, VIBE_SHARE_LOCAL_DEV: "true" });
+
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /image/i);
   assert.equal(db.rows.size, 0);
 });
 

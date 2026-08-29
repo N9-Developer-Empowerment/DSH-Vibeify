@@ -8,9 +8,11 @@ Vibe is one private, browser-local magazine across all DSH threads. Sharing does
 2. A separate Coding for Justice page opens and displays the exact article, images, credits, and source link that are eligible to leave DSH.
 3. Nothing is public yet. Read the preview and close it if it is not right.
 4. Choose **Publish public link** on the preview page.
-5. Copy the resulting `share.codingforjustice.org.uk/a/...` link into a message or social post. The recipient needs only a web browser.
+5. The resulting `share.codingforjustice.org.uk/a/...` link is copied to the clipboard automatically. A visible **Copy link** button remains available if the browser blocks clipboard access or the reader wants to copy it again. The recipient needs only a web browser.
 
-The public page includes Open Graph and large-image social metadata when the article has a suitable public image. It is responsive, uses normal semantic HTML, preserves safe HTTPS article links, and presents visual provenance separately from editorial sources.
+Every new public page must include at least one selected public image. A Vibe card backed by a bundled local photograph transfers the credited public copy of that photograph; remote editorial images keep their reviewed public URL. The first selected image becomes the responsive cover and social preview, with further images retained as an article gallery. Older text-only links remain readable. The page uses normal semantic HTML, preserves safe HTTPS article links, and presents visual provenance separately from editorial sources.
+
+Every preview and shared page also links to the public DSH Vibeify site with an invitation to download the open-source tools and make a personal Vibe for creativity, curiosity, expression and wellbeing. That call to action is separate from the article and never changes its copy or source links.
 
 ## What crosses the boundary
 

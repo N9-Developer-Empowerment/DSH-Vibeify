@@ -1,4 +1,4 @@
-import { cleanShareSnapshot } from "../../../shared/vibe-share-contract.js";
+import { cleanShareSnapshot, hasShareVisual } from "../../../shared/vibe-share-contract.js";
 import { renderNewPage, renderNotFound, renderPublicArticle } from "./render.mjs";
 import { APP_JS } from "./app-source.mjs";
 
@@ -104,6 +104,7 @@ async function createArticle(request, env, url) {
   try { body = await request.json(); } catch { return json({ error: "Invalid article request" }, 400); }
   const snapshot = cleanShareSnapshot(body?.snapshot);
   if (snapshot === null) return json({ error: "Article failed the public-share privacy contract" }, 400);
+  if (!hasShareVisual(snapshot)) return json({ error: "A public article needs at least one image" }, 400);
   if (!await verifyPublishProtection(body?.turnstileToken, request, env)) return json({ error: "Publishing protection could not approve this request. Please try again later." }, 403);
 
   const now = Date.now();

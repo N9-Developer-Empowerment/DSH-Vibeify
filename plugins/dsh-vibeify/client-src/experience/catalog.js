@@ -2,8 +2,8 @@ const CREATOR_STATUS = new Set(["creator-led", "source-led"]);
 const PHOTO_LICENSE = "https://unsplash.com/license";
 const GRAPHIC_PROVENANCE = "https://github.com/N9-Developer-Empowerment/DSH-Vibeify/blob/main/docs/VIBES.md#visual-provenance";
 
-function photo(photographer, sourceUrl, alt, focalPoint) {
-  return Object.freeze({ kind: "photograph", photographer, sourceUrl, licenseUrl: PHOTO_LICENSE, alt, focalPoint });
+function photo(photographer, sourceUrl, publicImageUrl, alt, focalPoint) {
+  return Object.freeze({ kind: "photograph", photographer, sourceUrl, publicImageUrl, licenseUrl: PHOTO_LICENSE, alt, focalPoint });
 }
 
 function graphic(artwork, alt, focalPoint = "center") {
@@ -24,7 +24,7 @@ const EPISODES = Object.freeze([
     creatorLine: "Source-led edit · original creators linked",
     creatorStatus: "source-led",
     aiDisclosure: "AI graphic treatment: colour, type and layout; the photograph and recommended works are real",
-    photo: photo("Komorebi Photo", "https://unsplash.com/photos/woman-in-sunglasses-at-night-with-neon-lights-qfhEfyK7xaY", "A woman wearing sunglasses beneath city lights at night", "center 50%"),
+    photo: photo("Komorebi Photo", "https://unsplash.com/photos/woman-in-sunglasses-at-night-with-neon-lights-qfhEfyK7xaY", "https://images.unsplash.com/photo-1767897213817-8664d9b82393?auto=format&fit=crop&w=1600&q=82", "A woman wearing sunglasses beneath city lights at night", "center 50%"),
     graphic: graphic("neonGraphic", "An AI-assisted abstract night-city graphic with luminous arcs and stars"),
     editorialNotes: Object.freeze(["A vivid route into tonight's real watch options", "Picked for mood-first discovery, not hype", "An after-dark edit with legal links and creator credits"]),
     resultFeatures: Object.freeze(["Legal UK availability", "Official trailers", "Creator credits", "Mood routes"]),
@@ -43,7 +43,7 @@ const EPISODES = Object.freeze([
     creatorLine: "Source-led edit · experts and creators linked",
     creatorStatus: "source-led",
     aiDisclosure: "AI graphic treatment: colour, type and layout; the photograph, products and evidence are real",
-    photo: photo("Christian Agbede", "https://unsplash.com/photos/woman-applying-face-cream-in-front-of-a-mirror-Vpcy3ytvQVw", "A woman applying face cream while looking in a mirror", "center 30%"),
+    photo: photo("Christian Agbede", "https://unsplash.com/photos/woman-applying-face-cream-in-front-of-a-mirror-Vpcy3ytvQVw", "https://images.unsplash.com/photo-1775642548371-861fab6cea75?auto=format&fit=crop&w=1600&q=82", "A woman applying face cream while looking in a mirror", "center 30%"),
     graphic: graphic("careGraphic", "An AI-assisted editorial graphic of translucent circles and soft light"),
     editorialNotes: Object.freeze(["A calm starting point for a noisy category", "Picked for evidence, range and useful demonstrations", "The beauty desk's no-hype route into skin care"]),
     resultFeatures: Object.freeze(["Routine routes", "Product cards", "Image and video links", "Safety context"]),
@@ -62,7 +62,7 @@ const EPISODES = Object.freeze([
     creatorLine: "Source-led edit · educators and creators linked",
     creatorStatus: "source-led",
     aiDisclosure: "AI graphic treatment: colour, type and layout; the photograph and expert sources are real",
-    photo: photo("Haberdoedas", "https://unsplash.com/photos/two-women-talking-at-a-cafe-table-EyNU9nims7c", "Two women talking together at a cafe counter", "center 48%"),
+    photo: photo("Haberdoedas", "https://unsplash.com/photos/two-women-talking-at-a-cafe-table-EyNU9nims7c", "https://images.unsplash.com/photo-1777464320955-1f884994b3ea?auto=format&fit=crop&w=1600&q=82", "Two women talking together at a cafe counter", "center 48%"),
     graphic: graphic("conversationGraphic", "An AI-assisted graphic of overlapping speech forms and connecting lines"),
     editorialNotes: Object.freeze(["Useful language for a conversation you keep postponing", "Picked for warmth, clarity and credible educators", "Three routes through one recognisably human moment"]),
     resultFeatures: Object.freeze(["Expert sources", "Creator videos", "Three approaches", "Safety signposting"]),
@@ -81,7 +81,7 @@ const EPISODES = Object.freeze([
     creatorLine: "Source-led edit · stylists and creators linked",
     creatorStatus: "source-led",
     aiDisclosure: "AI graphic treatment: colour, type and layout; the photograph and linked products are real",
-    photo: photo("Max Omen", "https://unsplash.com/photos/a-woman-walks-towards-the-camera-outdoors-V7oBvq1qsxw", "A woman wearing casual street style beneath an urban bridge", "center 25%"),
+    photo: photo("Max Omen", "https://unsplash.com/photos/a-woman-walks-towards-the-camera-outdoors-V7oBvq1qsxw", "https://images.unsplash.com/photo-1745142640164-74774600af1d?auto=format&fit=crop&w=1600&q=82", "A woman wearing casual street style beneath an urban bridge", "center 25%"),
     graphic: graphic("styleGraphic", "An AI-assisted fashion graphic built from layered fabric-like shapes"),
     editorialNotes: Object.freeze(["One strong visual idea, translated without the shopping avalanche", "Picked for useful alternatives and honest prices", "A cinematic look with a wear-again reality check"]),
     resultFeatures: Object.freeze(["Hero look", "Budget remix", "Official product images", "Styling videos"]),
@@ -100,7 +100,7 @@ const EPISODES = Object.freeze([
     creatorLine: "Creator-led edit · working makeup artists linked",
     creatorStatus: "creator-led",
     aiDisclosure: "AI graphic treatment: colour, type and layout; the photograph, artists and tutorials are real",
-    photo: photo("Ashim Das", "https://unsplash.com/photos/a-woman-putting-makeup-on-another-womans-face-n42VxNU5288", "A makeup artist applying eye makeup to a model", "center 20%"),
+    photo: photo("Ashim Das", "https://unsplash.com/photos/a-woman-putting-makeup-on-another-womans-face-n42VxNU5288", "https://images.unsplash.com/photo-1638628064365-f08ad0ec8245?auto=format&fit=crop&w=1600&q=82", "A makeup artist applying eye makeup to a model", "center 20%"),
     graphic: graphic("makeupGraphic", "An AI-assisted graphic of colour swatches, brush strokes and reflected light"),
     editorialNotes: Object.freeze(["The tutorial shelf chosen for technique, not product placement", "Picked to put working artists before shopping links", "A creator-first route from five minutes to full expression"]),
     resultFeatures: Object.freeze(["Original tutorials", "Artist credits", "Technique routes", "Minimal product lists"]),
@@ -119,7 +119,7 @@ const EPISODES = Object.freeze([
     creatorLine: "Photo-led edit · photographers and stylists linked",
     creatorStatus: "creator-led",
     aiDisclosure: "AI graphic treatment: colour, type and layout; the photograph, editorials and clothes are real",
-    photo: photo("Ignacio Estevo", "https://unsplash.com/photos/two-young-women-walk-down-a-busy-city-street-gEfyNyCshQY", "Two women walking down a busy city street in layered outfits", "center 30%"),
+    photo: photo("Ignacio Estevo", "https://unsplash.com/photos/two-young-women-walk-down-a-busy-city-street-gEfyNyCshQY", "https://images.unsplash.com/photo-1775193849983-fa98a1fe03e2?auto=format&fit=crop&w=1600&q=82", "Two women walking down a busy city street in layered outfits", "center 30%"),
     graphic: graphic("streetGraphic", "An AI-assisted city graphic of blocks, crossings and moving silhouettes"),
     editorialNotes: Object.freeze(["A real-photography route to clothes you might actually wear", "Picked for observation, not manufactured trend claims", "The street-style desk's wear-what-you-own edition"]),
     resultFeatures: Object.freeze(["Credited photography", "Three visual directions", "Wear-what-you-own routes", "Dated product links"]),
@@ -174,8 +174,8 @@ export function validateExperienceEpisode(episode) {
   if (episode.photo === null || typeof episode.photo !== "object" || episode.photo.kind !== "photograph") {
     throw new TypeError("episode.photo must identify a real photograph");
   }
-  for (const field of ["photographer", "sourceUrl", "licenseUrl", "alt", "focalPoint"]) assertText(episode.photo[field], `episode.photo.${field}`);
-  for (const field of ["sourceUrl", "licenseUrl"]) {
+  for (const field of ["photographer", "sourceUrl", "publicImageUrl", "licenseUrl", "alt", "focalPoint"]) assertText(episode.photo[field], `episode.photo.${field}`);
+  for (const field of ["sourceUrl", "publicImageUrl", "licenseUrl"]) {
     if (!/^https:\/\//i.test(episode.photo[field])) throw new TypeError(`episode.photo.${field} must be an HTTPS URL`);
   }
   if (!/AI graphic treatment/i.test(episode.aiDisclosure)) {

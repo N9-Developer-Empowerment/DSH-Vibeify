@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { createExperienceCatalog } from "./client-src/experience/catalog.js";
 import { createEditorialEdition } from "./client-src/experience/editorial.js";
+import { createWelcomeEdition } from "./client-src/experience/welcome-edition.js";
 import {
   contentLinkForMarkdown,
   createBundledStream,
@@ -84,6 +85,16 @@ test("reader and generated cards default to photography while bundled visual fea
   const chat = visualMediaForChunk(catalog, { id: "chat-jason-arday", kind: "article", source: "chat-directed", title: "Jason Arday", markdown: "A finished answer.", topicId: null });
   assert.equal(generated.kind, "photograph");
   assert.equal(chat.kind, "photograph");
+});
+
+test("the welcome magazine has an immediate visual on every panel and mixes photographs with labelled graphics", () => {
+  const welcome = createWelcomeEdition(catalog);
+  const media = welcome.map((chunk) => visualMediaForChunk(catalog, chunk));
+  assert.equal(media.length, welcome.length);
+  assert.ok(media.every(({ artwork, alt, href, label }) => artwork.length > 0 && alt.length > 0 && href.startsWith("https://") && label.length > 0));
+  assert.ok(media.some(({ kind }) => kind === "photograph"));
+  assert.ok(media.some(({ kind }) => kind === "ai-graphic"));
+  assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= catalog.episodes.length);
 });
 
 test("an approved generated image joins the rolling catalogue with visible provenance", () => {

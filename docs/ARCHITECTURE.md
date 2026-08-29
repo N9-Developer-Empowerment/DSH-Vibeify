@@ -47,9 +47,10 @@ The modular boundary is deliberate:
 - `client-src/experience/catalog.js` maps those recipes onto the visual channels with explicit source and AI provenance.
 - `client-src/experience/editorial.js` builds the date-keyed editor's edition. The same date is deterministic; different editions vary hero, selection notes and rail order while avoiding adjacent duplicate categories when possible. It is a local presentation function and makes no model call.
 - `client-src/experience/feed.js` builds the 24-chunk synchronous editorial well, spends a locally prepared visual short and questionnaire at explicit update time, parses questionnaire cards, presents append-only arrivals newest-first, assigns every tile stable visual media plus an explicit editorial span, and admits only allow-listed lead-image URLs into the rolling visual catalogue. It contains no model scheduler.
+- `client-src/experience/welcome-edition.js` owns the evergreen reader orientation issue and the launch composition order. It puts the installed version's welcome pages above older local cards, retains the bundled well below them, and lets any new current-visit page rise naturally to the top. It contains no model call or storage write.
 - `client-src/experience/state.js` owns the Vibe/Chat state plus saved and last-read chunk ids. Every browser visit lands on Vibe even if Chat was previously open.
 - `client-src/experience/share-client.js` owns the reader-clicked public-preview handshake. It maps a displayed card through the shared allow-list contract, opens only the pinned share origin, and posts the snapshot only after the exact window and versioned origin respond. It never calls the publishing API.
-- `client-src/experience/content-store.js` owns the append-only 30-day cache for at most 160 allow-listed presentation chunks and 32 visible questionnaire labels. Chat cards contain only a hashed local id, source class, title, bounded Markdown and publication time; prompts and DSH session/message ids never enter storage.
+- `client-src/experience/content-store.js` owns the append-only 30-day cache for at most 160 allow-listed reader-specific presentation chunks and 32 visible questionnaire labels. Deterministic welcome and bundled-example pages are rebuilt from the active plugin and rejected from durable storage, including during migration from older cache versions. Chat cards contain only a hashed local id, source class, title, bounded Markdown and publication time; prompts and DSH session/message ids never enter storage.
 - `client-src/experience/editorial-settings.js` owns the browser-local default, built-in editorial directions, the bounded free-text editor note that can refine any preset, sanitisation and settings event. Colour remains separate and presentation-only.
 - `chat-vibe-contract.js` tells the Codex lead when an explicit public-content browse request may use the closed Vibe transport and when technical, private, draft or authorization-bearing work must remain in Chat.
 - `client-src/experience/stream-metrics.js` owns the content-free local duration ledger; it performs no network request.
@@ -66,12 +67,13 @@ The modular boundary is deliberate:
 
 ```text
 Vibe continuous edition
+  ├─ relaunch -> current welcome issue above older saved pages, no model work
   ├─ each closed verified public-content card -> immediate browser-local top card
   ├─ completed answers from all local threads -> durable-history top cards and fallback
   ├─ pull-to-update or Update -> exactly one bounded magazine turn
   ├─ Stop -> cancel only that dedicated update turn
   ├─ explicit public-content request -> add closed verified chunks at top
-  ├─ bundled well + saved stream -> older local depth
+  ├─ bundled well + saved stream -> older local depth below the welcome issue
   ├─ questionnaire answer -> soft input to the next requested update
   ├─ opening, scrolling and settings changes -> no model work
   └─ Chat

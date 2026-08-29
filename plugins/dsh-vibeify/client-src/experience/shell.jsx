@@ -18,6 +18,7 @@ import {
 } from "./feed.js";
 import {
   CONTENT_STORE_KEY,
+  MAX_STREAM_CHUNKS,
   appendCachedChunks,
   getCachedStream,
   saveStreamAnswer,
@@ -68,6 +69,11 @@ import {
 } from "./reserve-store.js";
 import { clickToLoadMedia } from "./media-embed.js";
 import { beginSharePreview, shareSnapshotForChunk } from "./share-client.js";
+import {
+  boundMagazinePresentation,
+  composeOpeningStream,
+  createWelcomeEdition,
+} from "./welcome-edition.js";
 
 const STYLE_ID = "dsh-vibeify-experience-style";
 const SLOT_ID = "vibeify-experience";
@@ -79,6 +85,7 @@ const today = new Date();
 const EDITION_KEY = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 const CATALOG = createEditorialEdition(createExperienceCatalog(), EDITION_KEY);
 const BUNDLED_STREAM = createBundledStream(CATALOG, EDITION_KEY, BUNDLED_WELL_SIZE);
+const WELCOME_STREAM = createWelcomeEdition(CATALOG);
 
 function browserStorage() {
   try { return window.localStorage; } catch { return null; }
@@ -87,22 +94,13 @@ function browserStorage() {
 function initialStream() {
   const now = Date.now();
   const cached = getCachedStream(browserStorage(), now);
-  const chunks = [];
-  const seen = new Set();
-  // The bundled edition was authored in top-to-bottom order. Store it in the
-  // opposite direction so the shared newest-first presentation restores that
-  // intended opening beneath any genuinely newer cached material.
-  for (const chunk of [...BUNDLED_STREAM].reverse()) {
-    if (seen.has(chunk.id)) continue;
-    seen.add(chunk.id);
-    chunks.push(Object.freeze({ ...chunk, publishedAt: now }));
-  }
-  for (const chunk of cached.chunks) {
-    if (seen.has(chunk.id)) continue;
-    seen.add(chunk.id);
-    chunks.push(chunk);
-  }
-  return Object.freeze(chunks.slice(-160));
+  return composeOpeningStream({
+    cached: cached.chunks,
+    bundle: BUNDLED_STREAM,
+    welcome: WELCOME_STREAM,
+    now,
+    dynamicLimit: MAX_STREAM_CHUNKS,
+  });
 }
 
 function Icon({ name }) {
@@ -185,12 +183,13 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare }) {
+function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
   const media = visualMediaForChunk(CATALOG, chunk);
   const contentLink = contentLinkForMarkdown(chunk.markdown);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
   const isChatResult = chunk.source === "chat-directed";
+  const isWelcome = chunk.source === "welcome";
   const isHero = index === 0 && !isChatResult;
   const layout = panelLayoutForChunk(chunk, index);
   const [playerOpen, setPlayerOpen] = React.useState(false);
@@ -256,6 +255,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickT
               </a>
             )}
             <div className="vfx-reader-actions">
+              {isWelcome ? <button type="button" className="vfx-chat-cta" onClick={onChat}><Icon name="chat" /> Make something in Chat</button> : null}
               <button
                 type="button"
                 className="vfx-share"
@@ -265,7 +265,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickT
                 <Icon name="share" />
                 {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
               </button>
-              {isChatResult ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
+              {isChatResult || isWelcome ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
             </div>
           </div>
         )}
@@ -399,7 +399,7 @@ function ExperienceShell({ codexFeatures }) {
       if (accepted.length === 0) return;
       setChunks((current) => {
         const seen = new Set(current.map(({ id }) => id));
-        const next = [...current, ...accepted.filter(({ id }) => !seen.has(id))].slice(-160);
+        const next = boundMagazinePresentation([...current, ...accepted.filter(({ id }) => !seen.has(id))], MAX_STREAM_CHUNKS);
         chunksRef.current = next;
         return next;
       });
@@ -424,10 +424,11 @@ function ExperienceShell({ codexFeatures }) {
       const chunk = event.detail?.chunk;
       if (chunk === null || typeof chunk !== "object" || chunk.source !== "chat-directed") return;
       if (typeof chunk.id !== "string" || typeof chunk.title !== "string" || typeof chunk.markdown !== "string") return;
-      appendCachedChunks(browserStorage(), [chunk]);
+      const accepted = appendCachedChunks(browserStorage(), [chunk])[0];
+      if (accepted === undefined) return;
       setChunks((current) => {
-        if (current.some(({ id }) => id === chunk.id)) return current;
-        const next = [...current, chunk].slice(-160);
+        if (current.some(({ id }) => id === accepted.id)) return current;
+        const next = boundMagazinePresentation([...current, accepted], MAX_STREAM_CHUNKS);
         chunksRef.current = next;
         return next;
       });
@@ -443,7 +444,7 @@ function ExperienceShell({ codexFeatures }) {
       const cached = getCachedStream(browserStorage()).chunks;
       setChunks((current) => {
         const seen = new Set(current.map(({ id }) => id));
-        const next = [...current, ...cached.filter(({ id }) => !seen.has(id))].slice(-160);
+        const next = boundMagazinePresentation([...current, ...cached.filter(({ id }) => !seen.has(id))], MAX_STREAM_CHUNKS);
         chunksRef.current = next;
         return next;
       });
@@ -590,6 +591,10 @@ function ExperienceShell({ codexFeatures }) {
   }, []);
   const displayChunks = newestFirst(chunks);
   const goHome = React.useCallback(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }), []);
+  const enterChat = React.useCallback(() => {
+    dispatch({ type: "enter-chat" });
+    window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
+  }, []);
   const updateNotice = {
     complete: "Magazine updated. It will stay still until another Chat answer completes or you request an update.",
     stopped: "Magazine update stopped.",
@@ -615,18 +620,16 @@ function ExperienceShell({ codexFeatures }) {
             onHome={goHome}
             onUpdate={startRun}
             onStop={stopRun}
-            onChat={() => {
-              dispatch({ type: "enter-chat" });
-              window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
-            }}
+            onChat={enterChat}
           />
           <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
             <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
           </div>
           <section className="vfx-edition-intro">
-            <span>Newest first · {editorialProfile.label}</span>
-            <h1>Your conversation, edited into a better view.</h1>
-            <p>Completed answers from every Chat thread arrive here automatically. Pull down or choose Update for an immediate visual page and question; short pieces then stream in while deeper pages are checked. No next update starts by itself.</p>
+            <span>Welcome edition · {editorialProfile.label}</span>
+            <h1>You chose well. Now make VIBE yours.</h1>
+            <p>This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down.</p>
+            <button type="button" className="vfx-intro-cta" onClick={enterChat}><Icon name="chat" /> Ask for your first new VIBE</button>
             {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
           </section>
           <div className="vfx-chunks">
@@ -645,6 +648,7 @@ function ExperienceShell({ codexFeatures }) {
                 onEngage={onEngage}
                 onSkip={onSkip}
                 onShare={onShare}
+                onChat={enterChat}
               />
             ))}
           </div>
@@ -680,6 +684,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-edition-intro h1 { max-width:940px; margin:9px 0 13px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(36px,5vw,70px); font-weight:500; line-height:.94; letter-spacing:-.055em; text-wrap:balance; }
 .vfx-edition-intro p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.35vw,18px); line-height:1.5; }
 .vfx-edition-intro .vfx-update-note { margin-top:14px; color:#ffb3cb; font-size:12px; font-weight:700; }
+.vfx-intro-cta { min-height:44px; margin-top:22px; padding:0 18px; display:inline-flex; align-items:center; gap:9px; border:1px solid #ff9aba; border-radius:999px; background:#ff9aba; color:#190d13!important; cursor:pointer; font-size:13px!important; font-weight:850; }
 .vfx-chunks { width:min(1240px,calc(100% - 40px)); min-width:0; margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
 .vfx-chunk { grid-column:span 6; min-width:0; max-width:100%; align-self:start; overflow:hidden; contain:inline-size; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
 .vfx-chunk[data-layout="compact"] { grid-column:span 4; }
@@ -718,7 +723,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 .vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 .vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
-.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
+.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-chat-cta,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-chat-cta { display:inline-flex; align-items:center; gap:7px; border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 20%,#171017); color:#fff; font-weight:800; }.vfx-chat-cta:hover { background:color-mix(in srgb,var(--chunk-accent) 32%,#171017); }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 @media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }

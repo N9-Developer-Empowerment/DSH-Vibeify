@@ -6,7 +6,7 @@ DSH Vibeify is a local agent harness presented as a living magazine. It is not a
 
 Think of it as a small editorial studio:
 
-- **Vibe is the magazine.** It opens with useful visual material already available from a local content well and the reader's saved edition.
+- **Vibe is the magazine.** It opens with a fresh evergreen welcome issue, then a local content well and the reader's older saved edition. The welcome articles explain the product and lead directly to making a personal Vibe in Chat.
 - **Chat is the commissioning desk.** A request starts one agent turn. Its completed answer remains in Chat. For an explicit public-content request, each complete verified card may also appear in Vibe before the whole answer is finished.
 - **A public radar watches the world, not the reader.** GitHub publishes a content-only catalogue of current public signals every 30 minutes. It contains no local history or preferences.
 - **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
@@ -47,10 +47,14 @@ DSH remains the runtime underneath both surfaces. It owns the sessions, models, 
 
 Vibe renders from local material before it needs a model or network request:
 
-1. a bundled 24-item editorial well supplies a useful cold start;
-2. up to 160 previously completed Vibe pages are restored from that browser's local cache;
-3. the newest material is presented first; and
-4. images below the fold load lazily.
+1. a 21-panel evergreen welcome issue re-sells the choice in plain English and supplies practical **Try it** prompts;
+2. a bundled 24-item editorial well supplies further useful cold-start depth;
+3. up to 160 reader-specific completed Vibe pages are restored from that browser's local cache;
+4. the welcome issue is placed above older saved pages without deleting them;
+5. any new completed page made during the current visit arrives above the welcome issue; and
+6. images below the fold load lazily.
+
+The welcome and bundled pages are deterministic assets from the active plugin version, so they are never written into durable browser storage. That prevents an upgrade from reopening with the previous release's orientation or example edition. Only reader-specific Chat, update and reserve pages persist.
 
 Opening Vibe, returning to it, scrolling, reaching the bottom, or changing a colour theme never changes the visible magazine or starts an ordinary Chat turn. When the recent-use, visibility, reserve-capacity and spend gates all pass, the background editor may refresh the hidden reserve; it remains invisible until the reader explicitly updates. Blank-content time is designed to be zero.
 
@@ -144,7 +148,7 @@ For visual pages, the editor considers at least 18 potential images from three o
 
 | Reader action or event | Model work? | Visible result | Stop condition |
 | --- | --- | --- | --- |
-| Open or return to Vibe | No visible update; hidden reserve work may pass its strict gates | Bundled and saved magazine appears | Immediate local render |
+| Open or return to Vibe | No visible update; hidden reserve work may pass its strict gates | Current welcome issue, bundled depth and older saved pages appear | Immediate local render |
 | Scroll or reach the bottom | No | Existing pages continue | No task started |
 | Change colour theme | No | Presentation changes | Immediate |
 | Change editorial direction | No | Setting is saved for a future update | Immediate |

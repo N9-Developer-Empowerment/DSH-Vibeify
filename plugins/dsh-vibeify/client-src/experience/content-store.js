@@ -1,5 +1,5 @@
 export const CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
-export const CONTENT_STORE_VERSION = 5;
+export const CONTENT_STORE_VERSION = 6;
 export const CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_STREAM_CHUNKS = 160;
 export const MAX_STREAM_ANSWERS = 32;
@@ -11,7 +11,10 @@ const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 const TOKEN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const TRIBE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
-const SOURCES = new Set(["bundle", "fresh-stream", "chat-directed", "radar-reserve"]);
+// Only reader-specific material belongs in durable browser storage. The bundled
+// examples and welcome edition are deterministic assets supplied by the active
+// plugin version, so persisting either would make an upgraded relaunch look old.
+const SOURCES = new Set(["fresh-stream", "chat-directed", "radar-reserve"]);
 
 function cleanText(value, limit, multiline = false) {
   if (typeof value !== "string") return null;
@@ -81,7 +84,7 @@ function readStore(storage, now = Date.now()) {
   if (storage === null || storage === undefined || typeof storage.getItem !== "function") return emptyStore();
   try {
     const parsed = JSON.parse(storage.getItem(CONTENT_STORE_KEY) ?? "null");
-    if (parsed === null || typeof parsed !== "object" || ![2, 3, 4, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
+    if (parsed === null || typeof parsed !== "object" || ![2, 3, 4, 5, CONTENT_STORE_VERSION].includes(parsed.version)) return emptyStore();
     const chunks = [];
     const seen = new Set();
     for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {

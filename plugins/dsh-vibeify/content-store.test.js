@@ -106,6 +106,27 @@ test("completed Chat answers persist locally with the shared magazine but prompt
   assert.equal(getCachedStream(storage, now + 1).chunks[0].source, "chat-directed");
 });
 
+test("deterministic welcome and bundled pages are rebuilt from the active plugin rather than persisted", () => {
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  const appended = appendCachedChunks(storage, [
+    { ...chunk("welcome:one"), source: "welcome" },
+    { ...chunk("bundle:one"), source: "bundle" },
+    { ...chunk("chat:one"), source: "chat-directed" },
+  ], now);
+  assert.deepEqual(appended.map(({ id }) => id), ["chat:one"]);
+
+  storage.values.set(CONTENT_STORE_KEY, JSON.stringify({
+    version: 5,
+    answers: [],
+    chunks: [
+      { ...chunk("old-bundle"), source: "bundle", publishedAt: now },
+      { ...chunk("old-chat"), source: "chat-directed", publishedAt: now },
+    ],
+  }));
+  assert.deepEqual(getCachedStream(storage, now + 1).chunks.map(({ id }) => id), ["old-chat"]);
+});
+
 test("legacy worker reports and update summaries are removed from the reader cache", () => {
   const storage = memoryStorage();
   const now = 1_700_000_000_000;

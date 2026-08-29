@@ -15,6 +15,7 @@ Think of it as a small editorial studio:
 - **Workers are contributors.** DeepSeek or another available worker can research or build bounded pieces, but its raw report is never itself a Vibe article.
 - **Finished pages stream independently.** A quick page does not wait for a deeper research lane. Each complete, checked page appears as soon as it is ready.
 - **The run stops.** One Chat request produces one answer; one Vibe update produces one batch. Neither completion nor ordinary scrolling starts another run.
+- **Sharing is a separate deliberate route.** A reader can preview one finished article outside DSH, inspect the exact public copy, and then explicitly publish an account-free link. The rest of the magazine stays local.
 
 ## Two surfaces, one harness
 
@@ -192,6 +193,16 @@ Partial envelopes, raw worker reports, candidate lists, research memos, tool out
 The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, broad selected tribe ids, publication time, and up to 32 visible questionnaire choices. The separate reserve stores only public radar signals, bounded candidate/ready pages, recent-use time and a daily spend ledger. Local learning stores only explicit interaction type, bounded page id/kind, broad tribe ids, visible questionnaire label and time.
 
 It does not store raw prompts, DSH session ids, account information, attachments, reasoning, tool calls, approval contents, credentials, or worker packets. Vibeify does not send current images or private project material to a different provider without explicit permission.
+
+## Sharing one article without sharing the magazine
+
+**Preview and share** is available on finished article, editorial, recommendation, image, music, and video cards; questionnaires are deliberately excluded. The click opens the fixed `share.codingforjustice.org.uk` origin. DSH does not send anything until that exact window and origin return the versioned ready handshake. It then transfers one cleaned presentation snapshot:
+
+- title, page kind, bounded Markdown, and publication time;
+- up to four selected public image URLs with their alt text, credit, and source pages; and
+- one separate reader-facing content link when present.
+
+There is no field for a prompt, DSH session or message id, reasoning, approval, attachment, selected tribe, reader interaction, local catalogue id, credential, or browser history. The share page renders a private preview first. Only its separate **Publish public link** button writes the article to public storage. The resulting URL is ordinary public HTML with social preview metadata; its reader needs no DSH, ChatGPT, or DeepSeek account. See [Sharing one Vibe article](SHARING.md) for the trust boundary, removal token, retention, and operator setup.
 
 ## Failures remain bounded
 

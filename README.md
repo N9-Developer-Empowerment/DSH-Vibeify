@@ -6,7 +6,7 @@
 
 [Visit the DSH Vibeify information and download site](https://dsh-vibeify.ezzye.chatgpt.site) · [See how it works](docs/HOW_IT_WORKS.md) · [Read the installation guide](docs/INSTALL.md)
 
-DSH Vibeify does **not** create or host a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence.
+DSH Vibeify's magazine is **not** a public website. It turns [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)—a local runtime for agents, models, tools, permissions and sessions—into a creator-first streaming experience that *behaves* like a website. Vibe is the visual, content-first home; Chat remains underneath for detailed requests, progress, approvals, Queue, Steer and technical evidence. An optional, deliberately separate share service can publish one reviewed article at a time without exposing the local magazine or requiring the recipient to have DSH, ChatGPT, or DeepSeek.
 
 ## The idea: generative AI beyond turn-by-turn chat
 
@@ -28,6 +28,8 @@ flowchart LR
     INSTANT --> VIBE
     STREAM --> VIBE
     STREAM --> STOP["One bounded update completes, then stops"]
+    VIBE --> PREVIEW["Share one article\nprivate preview first"]
+    PREVIEW -->|"reader presses Publish"| PUBLIC["Public article link\nno DSH account required"]
     EXPLORE -. "open when you want control or detail" .-> CHAT["Chat\nask · queue · steer · approve · inspect"]
     CHAT --> HARNESS
 ```
@@ -42,6 +44,7 @@ The visible surface is website-like, but the machinery underneath is an agent ha
 | **Chat** | Lets the user ask directly, queue or steer work, approve protected actions and inspect progress or technical evidence. |
 | **Lead agent** | Plans, sets the acceptance bar, validates work and owns the final result. This is Codex in governed ChatGPT/combined mode, or the native DSH agent in DeepSeek-only mode. |
 | **Workers** | Optionally perform bounded research, coding, analysis or media work; their output is not published merely because they say it is finished. |
+| **Optional share service** | Receives one allow-listed, reader-reviewed article only after **Share** is clicked, shows a private preview, and performs a public write only after a second **Publish public link** click. It never receives the Chat prompt, reasoning, session identity, settings, local history, or credentials. |
 
 “Streaming” here means a continuous stream of **complete, formatted content items**, not merely text appearing token by token. The edition is available immediately from local bundled, saved, and ready-reserve material. A deliberate pull or Update click releases ready pages immediately, including visual and questionnaire formats, then uses one foreground batch only when the reserve is short. During an explicit public-content Chat request, the first short verified card arrives before the whole series is researched and each later closed card follows independently; ordinary un-enveloped final answers join after durable completion. Neither route makes an extra AI call. Opening, scrolling, changing settings, or finishing a batch never changes the visible edition by itself.
 
@@ -105,6 +108,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **No empty wait or hidden work.** Bundled and saved content render in the first local frame. A content-free ledger measures first frame, restore, explicit updates, chunk arrival, and engagement. Simply reading the magazine consumes no model quota.
 - **Real photography, labelled AI graphics.** Six locally bundled photographs and six labelled local AI-assisted SVG compositions provide a zero-wait offline fallback; they are not the live editorial catalogue. Every generated non-questionnaire page begins with verified subject-relevant public photography, while features above 500 words may show two or three separately credited photographs. Each batch considers at least 18 potential images from three or more credible source families, ranks exact subject/entity relevance, informative value, credit clarity, composition, freshness and recent-use diversity, and publishes only the best choices. AI graphics are occasional, story-specific and labelled—never generic documentary substitutes. The browser accepts reviewed catalogue hosts or a direct first-party image paired with a separate official page on the exact same HTTPS host; arbitrary third-party images stay blocked. It remembers 80 recently used remote image URLs, suppresses referrer data, removes rejected image syntax from article prose, and falls back locally if a remote image fails. Saved cards—including their visual provenance—age out with the bounded 30-day/160-item magazine cache.
 - **Useful exits from every panel.** Visual credits stay attached to their images. Every generated non-questionnaire panel carries a separate, relevant content destination in the article copy—for example the story, original work, official creator page, paper, video, music or useful service—and Vibe repeats that destination as a compact **Read source** action. Image files and visual-credit pages are never presented as the article link.
+- **Review before sharing.** Every finished non-questionnaire card has **Preview and share**. It opens the fixed first-party share origin, waits for an exact-origin handshake, and transfers only that card's title, rendered Markdown, selected public images, credits, source link, kind, and publication time. The preview cannot publish automatically: the reader must inspect it and choose **Publish public link**. Recipients need no AI account. See [Sharing one Vibe article](docs/SHARING.md).
 - **Provider-neutral Vibe.** `dsh-vibeify-experience` supplies Vibe without installing a Codex provider, so native DSH/DeepSeek remains in control.
 - **Optional governed mode.** `dsh-vibeify` uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process. In this mode Codex remains the lead.
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
@@ -164,6 +168,8 @@ DSH-Vibeify/
 │   ├── client.js                      # generated DSH browser artifact
 │   └── skills/dsh-vibeify/SKILL.md    # Codex operational guidance
 ├── plugins/dsh-vibeify-experience/    # provider-neutral DSH client package
+├── services/vibe-share/               # optional account-free public article host
+├── shared/vibe-share-contract.js      # allow-list boundary shared by DSH and host
 └── scripts/                            # installer, migration and doctor
 ```
 
@@ -171,7 +177,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.13.5`
+- DSH Vibeify `0.14.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

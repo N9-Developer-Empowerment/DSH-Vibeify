@@ -69,6 +69,10 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /Add your own editor note/);
   assert.match(client, /AI-assisted graphic/);
   assert.match(client, /Read source/);
+  assert.match(client, /Preview and share/);
+  assert.match(client, /share\.codingforjustice\.org\.uk/);
+  assert.match(client, /vibe-share:snapshot/);
+  assert.doesNotMatch(client, /\/api\/articles/);
   assert.match(client, /dsh-vibeify-vibe-tab-style/);
   assert.match(client, /grid-auto-flow:dense/);
   assert.match(client, /overflow-x:clip/);

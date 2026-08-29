@@ -67,6 +67,7 @@ import {
   markVibeActivity,
 } from "./reserve-store.js";
 import { clickToLoadMedia } from "./media-embed.js";
+import { beginSharePreview, shareSnapshotForChunk } from "./share-client.js";
 
 const STYLE_ID = "dsh-vibeify-experience-style";
 const SLOT_ID = "vibeify-experience";
@@ -108,6 +109,7 @@ function Icon({ name }) {
   const paths = {
     chat: "M4 5h16v11H8l-4 4V5zm4 5h8M8 7h8M8 13h5",
     save: "M6 3h12v18l-6-4-6 4V3z",
+    share: "M12 3v12m-4-8 4-4 4 4M5 11v9h14v-9",
     check: "M5 12l4 4L19 6",
     arrow: "M5 12h14m-5-5 5 5-5 5",
   };
@@ -183,7 +185,7 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave, onAnswer, onEngage, onSkip }) {
+function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare }) {
   const media = visualMediaForChunk(CATALOG, chunk);
   const contentLink = contentLinkForMarkdown(chunk.markdown);
   const episode = media?.episode;
@@ -246,16 +248,27 @@ function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave
         )}
         {chunk.source === "fresh-stream" ? <span className="vfx-next-page"><Icon name="arrow" /> from an explicit magazine update</span> : null}
         {isChatResult ? <span className="vfx-next-page"><Icon name="arrow" /> completed in Chat · shared locally across threads</span> : null}
-        {contentLink !== null || !isChatResult ? (
+        {chunk.kind === "questionnaire" ? null : (
           <div className="vfx-card-actions">
             {contentLink === null ? null : (
               <a className="vfx-source-link" href={contentLink.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>
                 <span>Read source</span><strong>{contentLink.label}</strong><Icon name="arrow" />
               </a>
             )}
-            {isChatResult ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
+            <div className="vfx-reader-actions">
+              <button
+                type="button"
+                className="vfx-share"
+                disabled={shareStatus === "opening"}
+                onClick={() => onShare(chunk, { media, inlineVisuals, contentLink })}
+              >
+                <Icon name="share" />
+                {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
+              </button>
+              {isChatResult ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
     </article>
   );
@@ -268,6 +281,7 @@ function ExperienceShell({ codexFeatures }) {
   const [updateState, setUpdateState] = React.useState("idle");
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
+  const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
   const [answers, setAnswers] = React.useState(() => {
     const store = getCachedStream(browserStorage());
     return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
@@ -555,6 +569,25 @@ function ExperienceShell({ codexFeatures }) {
     appendLearningEvent(browserStorage(), { event: "skipped", chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
     setSkipped((current) => new Set([...current, chunk.id]));
   }, []);
+  const onShare = React.useCallback((chunk, { media, inlineVisuals, contentLink }) => {
+    const snapshot = shareSnapshotForChunk({
+      chunk,
+      markdown: markdownWithoutLeadVisual(chunk.markdown),
+      media,
+      inlineVisuals,
+      contentLink,
+    });
+    if (snapshot === null) {
+      setShareState({ chunkId: chunk.id, status: "invalid" });
+      return;
+    }
+    setShareState({ chunkId: chunk.id, status: "opening" });
+    beginSharePreview(snapshot, {
+      onStatus(status) {
+        setShareState({ chunkId: chunk.id, status });
+      },
+    });
+  }, []);
   const displayChunks = newestFirst(chunks);
   const goHome = React.useCallback(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }), []);
   const updateNotice = {
@@ -605,11 +638,13 @@ function ExperienceShell({ codexFeatures }) {
                 saved={state.savedChunkIds.includes(chunk.id)}
                 answer={answers[chunk.id]}
                 skipped={skipped.has(chunk.id)}
+                shareStatus={shareState.chunkId === chunk.id ? shareState.status : "idle"}
                 clickToLoad={editorialProfile.clickToLoadMedia}
                 onSave={onSave}
                 onAnswer={onAnswer}
                 onEngage={onEngage}
                 onSkip={onSkip}
+                onShare={onShare}
               />
             ))}
           </div>
@@ -683,7 +718,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 .vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 .vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
-.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-card-actions .vfx-skip { margin-left:auto; flex:none; }.vfx-skip,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
+.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player iframe { width:100%; height:100%; border:0; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 @media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }

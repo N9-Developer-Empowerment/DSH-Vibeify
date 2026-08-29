@@ -1,6 +1,6 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.13.5+codex.20260829091701",
+  "version": "0.14.0+codex.20260829085555",
   "description": "Install, operate, diagnose, and personalize DeepSeek Harness with DeepSeek-only, ChatGPT-only, or combined Codex-led modes.",
   "author": {
     "name": "Errol Elliott and Daniela Elliott",
@@ -19,7 +19,7 @@
   "interface": {
     "displayName": "DSH Vibeify",
     "shortDescription": "A visual DSH home for DeepSeek, ChatGPT, or both.",
-    "longDescription": "Guides installation and operation of DSH Vibeify in DeepSeek-only, ChatGPT-only, or combined Codex-led modes. The Web UI becomes a content-first visual experience; governed mode adds Codex capability presets, visible progress, queue/steer controls, bounded DeepSeek execution, and safe update checks while connected apps retain protected approvals.",
+    "longDescription": "Guides installation and operation of DSH Vibeify in DeepSeek-only, ChatGPT-only, or combined Codex-led modes. The Web UI becomes a content-first visual experience; governed mode adds Codex capability presets, visible progress, queue/steer controls, bounded DeepSeek execution, safe update checks, and privacy-gated single-article sharing while connected apps retain protected approvals.",
     "developerName": "Errol Elliott & Daniela Elliott",
     "websiteURL": "https://dsh-vibeify.ezzye.chatgpt.site",
     "category": "Developer Tools",
@@ -28,12 +28,14 @@
       "Diagnose",
       "Customize",
       "Agent routing",
+      "Article sharing",
       "Safe updates"
     ],
     "defaultPrompt": [
       "Install DSH Vibeify safely.",
       "Check my DSH Vibeify setup.",
-      "Explain Codex and DeepSeek routing."
+      "Explain Codex and DeepSeek routing.",
+      "Explain how to share one Vibe article safely."
     ],
     "brandColor": "#7C3AED"
   }

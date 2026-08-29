@@ -99,7 +99,7 @@ Return 6 to 8 finished magazine pages. Mix short instant reads with richer piece
 
 Output only closed envelopes, one after another, exactly:
 <vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-Markdown body beginning with ![specific, subject-matched alt text](https://approved-image-host/...) followed by a separate photograph credit/source link, then useful copy and content links.
+Markdown body beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
 </vibe-chunk>
 
 Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.

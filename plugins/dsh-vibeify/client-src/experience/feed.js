@@ -182,10 +182,22 @@ const VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:
 const IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 
-function allowedImageUrl(value) {
+function allowedImageUrl(value, sourceValue = null) {
   try {
     const url = new URL(value);
-    if (url.protocol !== "https:" || !REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || url.username !== "" || url.password !== "") return null;
+    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+    const host = url.hostname.toLowerCase();
+    const reviewedHost = REMOTE_IMAGE_HOSTS.has(host);
+    let firstParty = false;
+    if (typeof sourceValue === "string") {
+      const source = new URL(sourceValue);
+      firstParty = source.protocol === "https:"
+        && source.username === ""
+        && source.password === ""
+        && source.hostname.toLowerCase() === host
+        && !IMAGE_FILE_PATH.test(source.pathname);
+    }
+    if (!reviewedHost && (!firstParty || !IMAGE_FILE_PATH.test(url.pathname))) return null;
     url.hash = "";
     for (const key of [...url.searchParams.keys()]) {
       if (!REMOTE_IMAGE_QUERY_KEYS.has(key.toLowerCase())) url.searchParams.delete(key);
@@ -215,13 +227,13 @@ export function remoteVisualsForMarkdown(markdown) {
   const seen = new Set();
   for (let index = 0; index < images.length; index += 1) {
     const image = images[index];
-    const imageUrl = allowedImageUrl(image[2]);
-    if (imageUrl === null || seen.has(imageUrl)) continue;
     const start = (image.index ?? 0) + image[0].length;
     const end = images[index + 1]?.index ?? markdown.length;
     const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
     const sourceUrl = source === null ? null : visualSource(source[2]);
     if (source === null || sourceUrl === null) continue;
+    const imageUrl = allowedImageUrl(image[2], sourceUrl);
+    if (imageUrl === null || seen.has(imageUrl)) continue;
     seen.add(imageUrl);
     visuals.push(Object.freeze({
       imageUrl,
@@ -283,7 +295,7 @@ export function markdownWithoutLeadVisual(markdown) {
   const visuals = remoteVisualsForMarkdown(markdown) ?? [];
   const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
   return markdown
-    .replace(IMAGE_PATTERN, (match, _alt, value) => allowedImageUrl(value) === null ? match : "")
+    .replace(IMAGE_PATTERN, "")
     .replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
       const sourceUrl = visualSource(value);
       return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;

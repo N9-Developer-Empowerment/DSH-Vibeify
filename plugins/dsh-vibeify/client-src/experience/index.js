@@ -7,3 +7,4 @@ export {
   saveEditorialProfile,
 } from "./editorial-settings.js";
 export { resetEditorialLearning } from "./learning-store.js";
+export { collapseCompletedThinking } from "./vibe-result.js";

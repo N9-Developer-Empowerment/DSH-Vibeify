@@ -323,6 +323,21 @@ export function completedAnswer(source) {
   return false;
 }
 
+/**
+ * Close progress disclosure once, but only when Vibeify opened it and the host
+ * has attached the settled turn tail. A later reader click remains sovereign.
+ */
+export function collapseCompletedThinking(row) {
+  if (row?.dataset?.codexProgressOpened !== "true" || row.dataset.codexProgressAutoCollapsed === "true") return false;
+  if (!completedAnswer(row)) return false;
+  const toggle = row.querySelector?.('[role="button"][aria-expanded="true"], button[aria-expanded="true"]');
+  if (typeof HTMLElement !== "undefined" && !(toggle instanceof HTMLElement)) return false;
+  if (toggle === null || typeof toggle?.click !== "function") return false;
+  row.dataset.codexProgressAutoCollapsed = "true";
+  toggle.click();
+  return true;
+}
+
 export function isAssistantAnswer(source) {
   const flowRow = source.closest?.("[data-chat-flow-kind]");
   if (typeof HTMLElement !== "undefined" && flowRow instanceof HTMLElement) {

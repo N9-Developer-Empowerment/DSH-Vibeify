@@ -42,6 +42,7 @@ window.__ModuleLoader__.load({
 			  EDITORIAL_PRESETS: () => EDITORIAL_PRESETS,
 			  EDITORIAL_SETTINGS_EVENT: () => EDITORIAL_SETTINGS_EVENT,
 			  EDITORIAL_TRIBES: () => EDITORIAL_TRIBES,
+			  collapseCompletedThinking: () => collapseCompletedThinking,
 			  loadEditorialProfile: () => loadEditorialProfile,
 			  registerExperienceShell: () => registerExperienceShell,
 			  resetEditorialLearning: () => resetEditorialLearning,
@@ -490,10 +491,18 @@ window.__ModuleLoader__.load({
 			var VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
 			var IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 			var TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
-			function allowedImageUrl(value) {
+			function allowedImageUrl(value, sourceValue = null) {
 			  try {
 			    const url = new URL(value);
-			    if (url.protocol !== "https:" || !REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || url.username !== "" || url.password !== "") return null;
+			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+			    const host = url.hostname.toLowerCase();
+			    const reviewedHost = REMOTE_IMAGE_HOSTS.has(host);
+			    let firstParty = false;
+			    if (typeof sourceValue === "string") {
+			      const source = new URL(sourceValue);
+			      firstParty = source.protocol === "https:" && source.username === "" && source.password === "" && source.hostname.toLowerCase() === host && !IMAGE_FILE_PATH.test(source.pathname);
+			    }
+			    if (!reviewedHost && (!firstParty || !IMAGE_FILE_PATH.test(url.pathname))) return null;
 			    url.hash = "";
 			    for (const key of [...url.searchParams.keys()]) {
 			      if (!REMOTE_IMAGE_QUERY_KEYS.has(key.toLowerCase())) url.searchParams.delete(key);
@@ -520,13 +529,13 @@ window.__ModuleLoader__.load({
 			  const seen = /* @__PURE__ */ new Set();
 			  for (let index = 0; index < images.length; index += 1) {
 			    const image = images[index];
-			    const imageUrl = allowedImageUrl(image[2]);
-			    if (imageUrl === null || seen.has(imageUrl)) continue;
 			    const start = (image.index ?? 0) + image[0].length;
 			    const end = images[index + 1]?.index ?? markdown.length;
 			    const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
 			    const sourceUrl = source === null ? null : visualSource(source[2]);
 			    if (source === null || sourceUrl === null) continue;
+			    const imageUrl = allowedImageUrl(image[2], sourceUrl);
+			    if (imageUrl === null || seen.has(imageUrl)) continue;
 			    seen.add(imageUrl);
 			    visuals.push(Object.freeze({
 			      imageUrl,
@@ -575,7 +584,7 @@ window.__ModuleLoader__.load({
 			  if (typeof markdown !== "string") return "";
 			  const visuals = remoteVisualsForMarkdown(markdown) ?? [];
 			  const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
-			  return markdown.replace(IMAGE_PATTERN, (match, _alt, value) => allowedImageUrl(value) === null ? match : "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
+			  return markdown.replace(IMAGE_PATTERN, "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
 			    const sourceUrl = visualSource(value);
 			    return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;
 			  }).replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
@@ -902,7 +911,7 @@ window.__ModuleLoader__.load({
 			- Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
 			- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
 			- Every non-questionnaire chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
-			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use only direct HTTPS image URLs hosted by images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com. The exact form is "![Useful alt text](https://approved-host/image)" then "[Photograph \xB7 Creator](https://source-page)". An AI-assisted graphic is allowed only when the story itself is conceptual or visual and the graphic is explicitly labelled; use no more than one in the batch and never substitute one for available documentary photography. Never reuse a recent image URL, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
+			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator](https://source-page)". An AI-assisted graphic is allowed only when the story itself is conceptual or visual and the graphic is explicitly labelled; use no more than one in the batch and never substitute one for available documentary photography. Never reuse a recent image URL, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
 			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 			- A later deeper chunk may begin with natural editorial continuity such as \u201CI dug further into this\u2026\u201D or \u201CA few pages later, the stronger route is\u2026\u201D. It must add knowledge rather than revise or silently replace an earlier chunk.
@@ -1244,6 +1253,42 @@ window.__ModuleLoader__.load({
 			    if (tab.textContent?.trim() === "Chat" && isNativeResultTabList(tab.parentElement)) return tab.parentElement;
 			  }
 			  return null;
+			}
+			function hasCopyControl(root) {
+			  return [...root.querySelectorAll("button")].some((button) => {
+			    const text = button.textContent?.trim();
+			    const label = button.getAttribute?.("aria-label")?.trim();
+			    return text === "Copy" || label === "Copy";
+			  });
+			}
+			function currentHostTurnTail(source) {
+			  const assistantRow = source.closest?.('[data-chat-flow-kind="assistant-step"]');
+			  if (typeof HTMLElement === "undefined" || !(assistantRow instanceof HTMLElement)) return void 0;
+			  for (let row = assistantRow.nextElementSibling; row !== null; row = row.nextElementSibling) {
+			    const kind = row.getAttribute?.("data-chat-flow-kind");
+			    if (kind === "assistant-step" || kind === "user" || kind === "steering") return null;
+			    if (kind === "turn-tail") return row;
+			  }
+			  return null;
+			}
+			function completedAnswer(source) {
+			  const turnTail = currentHostTurnTail(source);
+			  if (turnTail !== void 0) return turnTail !== null && hasCopyControl(turnTail);
+			  let root = source;
+			  for (let depth = 0; depth < 5 && root !== null; depth += 1, root = root.parentElement) {
+			    if (hasCopyControl(root)) return true;
+			  }
+			  return false;
+			}
+			function collapseCompletedThinking(row) {
+			  if (row?.dataset?.codexProgressOpened !== "true" || row.dataset.codexProgressAutoCollapsed === "true") return false;
+			  if (!completedAnswer(row)) return false;
+			  const toggle = row.querySelector?.('[role="button"][aria-expanded="true"], button[aria-expanded="true"]');
+			  if (typeof HTMLElement !== "undefined" && !(toggle instanceof HTMLElement)) return false;
+			  if (toggle === null || typeof toggle?.click !== "function") return false;
+			  row.dataset.codexProgressAutoCollapsed = "true";
+			  toggle.click();
+			  return true;
 			}
 			function removeLegacyChatPresentation() {
 			  document.getElementById("dsh-vibeify-output-style")?.remove();
@@ -2320,7 +2365,7 @@ window.__ModuleLoader__.load({
 
 			Output only closed envelopes, one after another, exactly:
 			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-			Markdown body beginning with ![specific, subject-matched alt text](https://approved-image-host/...) followed by a separate photograph credit/source link, then useful copy and content links.
+			Markdown body beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
 			</vibe-chunk>
 
 			Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -3620,6 +3665,12 @@ window.__ModuleLoader__.load({
 					if (toggle instanceof HTMLElement) toggle.click();
 				};
 
+				const collapseSettledProgress = () => {
+					for (const row of document.querySelectorAll('[data-variant="think"][data-codex-progress-opened="true"]')) {
+						__DshVibeifyExperience.collapseCompletedThinking(row);
+					}
+				};
+
 				const modeFromSettings = () => {
 					const value = conversationSettings.getSnapshot().value?.[BUSY_ENTER_FIELD];
 					return BUSY_ENTER_BEHAVIORS.has(value) ? value : "queue";
@@ -3674,6 +3725,7 @@ window.__ModuleLoader__.load({
 					if (disposed) return;
 					preferredMode = modeFromSettings();
 					revealProgress();
+					collapseSettledProgress();
 					renderControls();
 				};
 

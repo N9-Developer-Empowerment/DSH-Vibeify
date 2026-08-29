@@ -130,7 +130,7 @@ The browser does not create a fan-out of provider calls itself. The lead selects
 
 ## Browser-local persistence
 
-`dsh-vibeify.feed.v2` uses schema version 4 and stores only allow-listed presentation data. Version 4 also removes legacy internal worker reports and update summaries that older collectors may have cached:
+`dsh-vibeify.feed.v2` uses schema version 5 and stores only allow-listed presentation data. Version 5 also removes legacy internal worker reports, update summaries and accidentally cached raw Vibe transport envelopes from older collectors:
 
 ```text
 chunk: hashed/local id, kind, source class, title, bounded Markdown, catalogue topic id, publication time

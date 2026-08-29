@@ -803,6 +803,8 @@ window.__ModuleLoader__.load({
 			#${VIBE_ROOT_ID} .dsh-vibeify-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:5px 0; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-control { padding:8px 9px; border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); }
 			#${VIBE_ROOT_ID} .dsh-vibeify-control input[type="range"] { width:100%; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-money { margin-top:5px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:600; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-money input { width:100%; min-width:0; box-sizing:border-box; padding:6px 7px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:6px; background:var(--dsw-alias-bg-layer-1); font:inherit; font-variant-numeric:tabular-nums; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-reset { color:var(--dsw-alias-label-secondary); border:0; background:none; cursor:pointer; text-decoration:underline; font:inherit; font-size:11px; }
 			#${VIBE_ROOT_ID} .dsh-vibeify-field label {
 			  color: var(--dsw-alias-label-primary);
@@ -876,7 +878,7 @@ window.__ModuleLoader__.load({
 			      <div class="dsh-vibeify-tribes" aria-label="Editorial tribes">${Object.values(EDITORIAL_TRIBES).map(({ id, label }) => `<button class="dsh-vibeify-tribe" type="button" data-tribe="${id}" aria-pressed="false">${label}</button>`).join("")}</div>
 			      <div class="dsh-vibeify-controls">
 			        <label class="dsh-vibeify-control">Useful surprises <output id="dsh-vibeify-serendipity-value">20%</output><input id="dsh-vibeify-serendipity" type="range" min="10" max="40" step="5" value="20"></label>
-			        <label class="dsh-vibeify-control">DeepSeek daily maximum<input id="dsh-vibeify-budget" type="number" min="0" max="2" step="0.25" value="2"></label>
+			        <label class="dsh-vibeify-control">DeepSeek daily maximum <span class="dsh-vibeify-money"><span aria-hidden="true">$</span><input id="dsh-vibeify-budget" type="number" min="0" max="2" step="0.25" value="2.00" inputmode="decimal" aria-label="DeepSeek daily maximum in US dollars"><span>USD / day</span></span></label>
 			        <label class="dsh-vibeify-control"><input id="dsh-vibeify-background" type="checkbox" checked> Fill the hidden reserve</label>
 			        <label class="dsh-vibeify-control"><input id="dsh-vibeify-content-notes" type="checkbox" checked> Gentle content notes</label>
 			      </div>
@@ -906,7 +908,7 @@ window.__ModuleLoader__.load({
 					customDirection.value = editorialProfile.customDirection;
 					serendipity.value = String(Math.round(editorialProfile.serendipity * 100));
 					serendipityValue.textContent = `${serendipity.value}%`;
-					budget.value = String(editorialProfile.dailyBudgetUsd);
+					budget.value = Number(editorialProfile.dailyBudgetUsd).toFixed(2);
 					background.checked = editorialProfile.backgroundEditor;
 					contentNotes.checked = editorialProfile.contentNotes;
 					trigger.title = `Vibe settings · ${VIBE_PRESETS[selected].label} · ${editorialProfile.label}`;

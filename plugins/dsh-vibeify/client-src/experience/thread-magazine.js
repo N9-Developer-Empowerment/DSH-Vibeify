@@ -1,7 +1,9 @@
 import { appendCachedChunks } from "./content-store.js";
 import { freshStreamChunksFromEvents } from "./live-stream-collector.js";
 import { readUpdateSessionId } from "./update-session.js";
+import { isBackgroundSession } from "./background-session.js";
 import {
+  stripDuplicatedLeadTitle,
   VIBE_CHAT_RESULT_EVENT,
   VIBE_STREAM_CHUNKS_EVENT,
 } from "./vibe-result.js";
@@ -69,15 +71,18 @@ function chatChunk(sessionId, event, publishedAt) {
   const blocks = messageBlocks(event, new Set(["text"]));
   const hasToolCall = Array.isArray(event?.data?.message?.content)
     && event.data.message.content.some((block) => block?.type === "tool-call");
-  const markdown = blocks.join("\n\n").trim().slice(0, MAX_MARKDOWN);
-  if (hasToolCall || markdown.length === 0) return null;
+  const originalMarkdown = blocks.join("\n\n").trim().slice(0, MAX_MARKDOWN);
+  if (hasToolCall || originalMarkdown.length === 0) return null;
+  const title = titleFromMarkdown(originalMarkdown);
+  const markdown = stripDuplicatedLeadTitle(originalMarkdown, title);
+  if (markdown.length === 0) return null;
   const messageId = event.data?.message?.id ?? `${event.data?.turn}:${event.data?.step}:${event.seq}`;
   const recommendation = /\[[^\]]+\]\(https?:\/\//i.test(markdown) || /^[-*]\s+/m.test(markdown);
   return Object.freeze({
     id: `chat-result-${digest(`${sessionId}:${messageId}`)}`,
     kind: recommendation ? "recommendation" : "article",
     source: "chat-directed",
-    title: titleFromMarkdown(markdown),
+    title,
     markdown,
     topicId: null,
     publishedAt,
@@ -168,7 +173,7 @@ export function installThreadMagazineBridge(ctx) {
     let pump = () => {};
 
     const scan = async (summary) => {
-      if (disposed || inFlight.has(summary.id) || !sessionNeedsMagazineScan(summary, scanned)) return;
+      if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
       inFlight.add(summary.id);
       try {
         const entries = await readCompleteSessionHistory(connection.api, summary.id);
@@ -211,7 +216,7 @@ export function installThreadMagazineBridge(ctx) {
       const snapshot = sessions.list.getSnapshot();
       for (const id of snapshot.ids ?? []) {
         const summary = snapshot.byId?.[id];
-        if (sessionNeedsMagazineScan(summary, scanned)) pending.set(id, summary);
+        if (!isBackgroundSession(summary, safeStorage()) && sessionNeedsMagazineScan(summary, scanned)) pending.set(id, summary);
       }
       pump();
     };

@@ -19,7 +19,9 @@ test("each explicit update renews the rolling visual catalogue without reusing r
   assert.match(prompt, /at least 18 potential image candidates/i);
   assert.match(prompt, /at least three credible source families/i);
   assert.match(prompt, /exact subject or named-entity match/i);
-  assert.match(prompt, /at least two generated chunks must begin with a fresh verified public image/i);
+  assert.match(prompt, /every generated non-questionnaire chunk must begin with a fresh verified public image/i);
+  assert.match(prompt, /longer than 500 words.*two or three/i);
+  assert.match(prompt, /documentary photography by default/i);
   assert.match(prompt, /images\.unsplash\.com, images\.pexels\.com, upload\.wikimedia\.org, or cdn\.pixabay\.com/i);
   assert.match(prompt, /never reuse a recent image URL/i);
   assert.equal(prompt.split(oldImage).length - 1, 1);

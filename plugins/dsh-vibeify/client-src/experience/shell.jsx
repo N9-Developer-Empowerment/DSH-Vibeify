@@ -13,6 +13,7 @@ import {
   questionnaireIntroduction,
   questionnaireOptions,
   remoteVisualForMarkdown,
+  remoteVisualsForMarkdown,
   visualMediaForChunk,
 } from "./feed.js";
 import {
@@ -36,6 +37,7 @@ import {
 import { ARTWORK } from "virtual:vibeify-artwork";
 import {
   VIBE_CHAT_RESULT_EVENT,
+  VIBE_CHAT_EVENT,
   VIBE_HOME_EVENT,
   VIBE_STREAM_CHUNKS_EVENT,
   installVibeStreamBridge,
@@ -160,6 +162,27 @@ function Questionnaire({ chunk, answer, onAnswer }) {
   );
 }
 
+function InlineVisuals({ visuals, title, onOpen }) {
+  if (!Array.isArray(visuals) || visuals.length === 0) return null;
+  return (
+    <div className="vfx-inline-visuals" aria-label={`More photographs for ${title}`}>
+      {visuals.map((visual) => (
+        <figure key={visual.imageUrl}>
+          <img
+            src={visual.imageUrl}
+            alt={visual.alt}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            onError={(event) => { event.currentTarget.closest("figure")?.setAttribute("hidden", ""); }}
+          />
+          <figcaption><a href={visual.sourceUrl} target="_blank" rel="noreferrer" onClick={onOpen}>{visual.credit}</a></figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave, onAnswer, onEngage, onSkip }) {
   const media = visualMediaForChunk(CATALOG, chunk);
   const contentLink = contentLinkForMarkdown(chunk.markdown);
@@ -170,6 +193,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave
   const layout = panelLayoutForChunk(chunk, index);
   const [playerOpen, setPlayerOpen] = React.useState(false);
   const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
+  const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
   return (
     <article
       className={`vfx-chunk${isHero ? " is-hero" : ""}`}
@@ -212,6 +236,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, clickToLoad, onSave
         {chunk.kind === "questionnaire"
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
           : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} onLink={() => onEngage(chunk, "opened")} />}
+        {chunk.kind === "questionnaire" ? null : <InlineVisuals visuals={inlineVisuals} title={chunk.title} onOpen={() => onEngage(chunk, "opened")} />}
         {player === null ? null : playerOpen ? (
           <div className="vfx-player">
             <iframe title={`${player.kind} player for ${chunk.title}`} src={player.src} loading="lazy" allow="encrypted-media; fullscreen; picture-in-picture" referrerPolicy="strict-origin-when-cross-origin" sandbox="allow-scripts allow-same-origin allow-presentation" />
@@ -557,7 +582,10 @@ function ExperienceShell({ codexFeatures }) {
             onHome={goHome}
             onUpdate={startRun}
             onStop={stopRun}
-            onChat={() => dispatch({ type: "enter-chat" })}
+            onChat={() => {
+              dispatch({ type: "enter-chat" });
+              window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
+            }}
           />
           <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
             <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
@@ -647,6 +675,8 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 .vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
 .vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre,.vfx-markdown table { display:block; max-width:100%; overflow-x:auto; }.vfx-markdown pre { white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
+.vfx-markdown table { width:100%; margin:22px 0; border-collapse:collapse; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+.vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
 .vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 .vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
@@ -657,7 +687,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 @media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
-@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-footer { flex-direction:column; } }
+@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 `;
 

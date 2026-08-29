@@ -12,6 +12,7 @@ import {
   panelLayoutForChunk,
   questionnaireOptions,
   remoteVisualForMarkdown,
+  remoteVisualsForMarkdown,
   visualMediaForChunk,
   visualEpisodeForChunk,
 } from "./client-src/experience/feed.js";
@@ -72,13 +73,17 @@ test("every valid stream tile receives a stable locally bundled photograph", () 
   assert.equal(visualEpisodeForChunk(catalog, topicChunk).id, topicChunk.topicId);
 });
 
-test("the visual resolver mixes credited photography with labelled AI-assisted graphics", () => {
+test("reader and generated cards default to photography while bundled visual features may use labelled graphics", () => {
   const stream = createBundledStream(catalog, "2026-08-28", 72);
   const media = stream.map((chunk) => visualMediaForChunk(catalog, chunk));
   assert.ok(media.every(({ artwork, alt, href, label }) => artwork.length > 0 && alt.length > 0 && href.startsWith("https://") && label.length > 0));
   assert.ok(media.some(({ kind }) => kind === "photograph"));
   assert.ok(media.some(({ kind }) => kind === "ai-graphic"));
-  assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= 10);
+  assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= catalog.episodes.length);
+  const generated = visualMediaForChunk(catalog, { id: "reader-jason-arday", kind: "article", source: "fresh-stream", title: "Jason Arday", markdown: "A finished article.", topicId: null });
+  const chat = visualMediaForChunk(catalog, { id: "chat-jason-arday", kind: "article", source: "chat-directed", title: "Jason Arday", markdown: "A finished answer.", topicId: null });
+  assert.equal(generated.kind, "photograph");
+  assert.equal(chat.kind, "photograph");
 });
 
 test("an approved generated image joins the rolling catalogue with visible provenance", () => {
@@ -104,6 +109,25 @@ test("an approved generated image joins the rolling catalogue with visible prove
   assert.ok(media.fallbackArtwork.length > 0);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /^!\[/);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Visual source · Alex Example/);
+});
+
+test("long magazine pages retain several relevant photographs as visual beats", () => {
+  const markdown = [
+    "![Jason Arday speaking at a lectern](https://upload.wikimedia.org/wikipedia/commons/a/aa/jason-one.jpg)",
+    "[Photograph · University archive](https://commons.wikimedia.org/wiki/File:Jason_one.jpg)",
+    "An opening section with [the appointment profile](https://university.example/jason-arday).",
+    "![A university corridor with portraits](https://images.pexels.com/photos/123/corridor.jpeg?w=1600)",
+    "[Photograph · Alex Example](https://www.pexels.com/photo/corridor-123/)",
+    "A later section that benefits from a second visual reference.",
+  ].join("\n\n");
+  const visuals = remoteVisualsForMarkdown(markdown);
+  assert.equal(visuals.length, 2);
+  assert.match(visuals[0].alt, /Jason Arday/);
+  assert.match(visuals[1].alt, /corridor/);
+  const body = markdownWithoutLeadVisual(markdown);
+  assert.doesNotMatch(body, /!\[/);
+  assert.doesNotMatch(body, /Photograph ·/);
+  assert.match(body, /appointment profile/);
 });
 
 test("article destinations exclude image files and visual-credit links", () => {

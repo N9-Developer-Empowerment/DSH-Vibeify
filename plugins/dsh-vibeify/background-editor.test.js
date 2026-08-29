@@ -35,5 +35,7 @@ test("prompt establishes the provider boundary and closed envelope contract", ()
   assert.match(prompt, /at least 18 potential image candidates/i);
   assert.match(prompt, /at least three credible source families/i);
   assert.match(prompt, /recent-use diversity/i);
+  assert.match(prompt, /every non-questionnaire page must begin with a subject-relevant photograph/i);
+  assert.match(prompt, /longer than 500 words.*two or three/i);
   assert.match(buildBackgroundReservePrompt({ runId: "reserve-abc", profile, signals, learning, codexFeatures: false }), /Do not claim Codex or independent verification/);
 });

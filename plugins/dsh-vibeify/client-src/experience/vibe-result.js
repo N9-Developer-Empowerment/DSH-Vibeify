@@ -102,6 +102,25 @@ export function renderedAnswerToMarkdown(source) {
     .trim();
 }
 
+function comparableTitle(value) {
+  return String(value ?? "")
+    .replace(/\[([^\]]+)\]\([^\s)]+\)/g, "$1")
+    .replace(/[*_`>#]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .toLocaleLowerCase();
+}
+
+/** The card chrome owns the title; an identical first heading is redundant. */
+export function stripDuplicatedLeadTitle(markdown, title) {
+  if (typeof markdown !== "string") return "";
+  const lead = markdown.match(/^\s*(?:(?:#{1,3})\s+([^\n]+)|\*\*([^*\n]+)\*\*)\s*(?:\n+|$)/);
+  if (lead === null) return markdown;
+  const candidate = lead[1] ?? lead[2] ?? "";
+  if (comparableTitle(candidate) !== comparableTitle(title)) return markdown;
+  return markdown.slice(lead[0].length).trimStart();
+}
+
 export function createChatResultChunk(source, publishedAt = Date.now()) {
   if (!Number.isFinite(publishedAt) || publishedAt <= 0) return null;
   const markdown = renderedAnswerToMarkdown(source);
@@ -109,6 +128,8 @@ export function createChatResultChunk(source, publishedAt = Date.now()) {
   const titleNode = source?.querySelector?.("h1,h2,h3") ?? source?.querySelector?.("strong");
   const rawTitle = titleNode?.textContent?.replace(/\s+/g, " ").trim() || "From Chat";
   const title = `${rawTitle.charAt(0).toUpperCase()}${rawTitle.slice(1)}`.slice(0, 180);
+  const body = stripDuplicatedLeadTitle(markdown, title);
+  if (body.length === 0) return null;
   const recommendation = (source?.querySelectorAll?.("a")?.length ?? 0) > 0
     || (source?.querySelectorAll?.("li")?.length ?? 0) > 1;
   return Object.freeze({
@@ -116,7 +137,7 @@ export function createChatResultChunk(source, publishedAt = Date.now()) {
     kind: recommendation ? "recommendation" : "article",
     source: "chat-directed",
     title,
-    markdown,
+    markdown: body,
     topicId: null,
     publishedAt,
   });
@@ -157,6 +178,30 @@ function appendInline(container, value) {
   if (cursor < value.length) container.append(document.createTextNode(value.slice(cursor)));
 }
 
+function tableCells(line) {
+  const value = String(line ?? "").trim();
+  if (!value.includes("|") || !value.startsWith("|") || !value.endsWith("|")) return null;
+  const cells = value.slice(1, -1).split("|").map((cell) => cell.trim());
+  return cells.length >= 2 && cells.every((cell) => cell.length > 0) ? cells : null;
+}
+
+export function markdownTableAt(lines, startIndex) {
+  if (!Array.isArray(lines) || !Number.isInteger(startIndex)) return null;
+  const headers = tableCells(lines[startIndex]);
+  const alignment = tableCells(lines[startIndex + 1]);
+  if (headers === null || alignment === null || headers.length !== alignment.length) return null;
+  if (!alignment.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+  const rows = [];
+  let nextIndex = startIndex + 2;
+  while (nextIndex < lines.length) {
+    const cells = tableCells(lines[nextIndex]);
+    if (cells === null || cells.length !== headers.length) break;
+    rows.push(cells);
+    nextIndex += 1;
+  }
+  return { headers, rows, nextIndex };
+}
+
 export function markdownFragment(markdown) {
   const fragment = document.createDocumentFragment();
   const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -165,6 +210,33 @@ export function markdownFragment(markdown) {
   while (index < lines.length) {
     const line = lines[index];
     if (line.trim().length === 0) { index += 1; continue; }
+    const table = markdownTableAt(lines, index);
+    if (table !== null) {
+      const element = document.createElement("table");
+      const head = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const value of table.headers) {
+        const cell = document.createElement("th");
+        appendInline(cell, value);
+        headRow.append(cell);
+      }
+      head.append(headRow);
+      element.append(head);
+      const body = document.createElement("tbody");
+      for (const row of table.rows) {
+        const bodyRow = document.createElement("tr");
+        for (const value of row) {
+          const cell = document.createElement("td");
+          appendInline(cell, value);
+          bodyRow.append(cell);
+        }
+        body.append(bodyRow);
+      }
+      element.append(body);
+      fragment.append(element);
+      index = table.nextIndex;
+      continue;
+    }
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     if (heading !== null) {
       const element = document.createElement(`h${heading[1].length}`);
@@ -288,23 +360,31 @@ function installVibeTabStyle() {
   style.id = TAB_STYLE_ID;
   style.textContent = `
 #${TAB_ID} {
-  min-height:34px!important;
-  margin-inline:7px!important;
-  padding-inline:14px!important;
+  position:relative!important;
+  min-height:40px!important;
+  margin:0 6px!important;
+  padding:0 13px!important;
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
-  gap:7px!important;
+  gap:8px!important;
   white-space:nowrap!important;
   line-height:1!important;
   color:var(--dsw-alias-label-primary)!important;
-  border:1px solid color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 45%,transparent)!important;
-  border-radius:999px!important;
-  background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 10%,transparent)!important;
-  font-weight:780!important;
+  border:0!important;
+  border-radius:8px 8px 0 0!important;
+  background:transparent!important;
+  font-size:14px!important;
+  font-weight:720!important;
+  letter-spacing:.045em!important;
+  opacity:1!important;
 }
-#${TAB_ID}::before { content:"✦"; color:var(--dsw-alias-state-business-primary,#c0182a); font-size:11px; }
-#${TAB_ID}:hover { background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 17%,transparent)!important; }
+#${TAB_ID}::before { content:""; width:6px; height:6px; flex:none; border-radius:1px; background:var(--dsw-alias-state-business-primary,#c0182a); transform:rotate(45deg); }
+#${TAB_ID}::after { content:""; position:absolute; left:12px; right:12px; bottom:-1px; height:2px; border-radius:2px 2px 0 0; background:var(--dsw-alias-state-business-primary,#c0182a); transform:scaleX(0); transform-origin:center; transition:transform .16s ease; }
+#${TAB_ID}:hover { color:var(--dsw-alias-label-primary)!important; background:color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 7%,transparent)!important; }
+#${TAB_ID}[data-vibe-active="true"] { color:var(--dsw-alias-label-primary)!important; background:linear-gradient(180deg,transparent,color-mix(in srgb,var(--dsw-alias-state-business-primary,#c0182a) 8%,transparent))!important; }
+#${TAB_ID}[data-vibe-active="true"]::after { transform:scaleX(1); }
+@media (max-width:560px) { #${TAB_ID} { margin:0 2px!important; padding:0 9px!important; font-size:13px!important; } }
 `;
   document.getElementById(TAB_STYLE_ID)?.remove();
   document.head.appendChild(style);
@@ -316,25 +396,35 @@ export function installVibeStreamBridge(ctx) {
   ctx.effect(() => {
     let frame = null;
     let disposed = false;
+    let vibeActive = false;
     const removeTabStyle = installVibeTabStyle();
 
     const ensureVibeTab = () => {
       const tabList = nativeTabList();
       if (!(tabList instanceof HTMLElement)) return;
-      if (tabList.querySelector(`#${TAB_ID}`) instanceof HTMLButtonElement) return;
+      const existing = tabList.querySelector(`#${TAB_ID}`);
+      if (existing instanceof HTMLButtonElement) {
+        existing.dataset.vibeActive = String(vibeActive);
+        existing.setAttribute("aria-selected", String(vibeActive));
+        return;
+      }
       const trajectory = [...tabList.querySelectorAll('[role="tab"]')].find((tab) => tab.textContent?.trim() === "Trajectory");
       if (!(trajectory instanceof HTMLButtonElement)) return;
       const vibeTab = trajectory.cloneNode(false);
       vibeTab.id = TAB_ID;
       vibeTab.type = "button";
-      vibeTab.textContent = "Vibe";
+      vibeTab.textContent = "VIBE";
       vibeTab.setAttribute("aria-label", "Open the Vibe magazine");
       vibeTab.setAttribute("role", "tab");
       vibeTab.setAttribute("aria-selected", "false");
       vibeTab.tabIndex = -1;
       vibeTab.addEventListener("click", () => {
+        vibeActive = true;
+        vibeTab.dataset.vibeActive = "true";
+        vibeTab.setAttribute("aria-selected", "true");
         window.dispatchEvent(new CustomEvent(VIBE_HOME_EVENT));
       });
+      vibeTab.dataset.vibeActive = String(vibeActive);
       trajectory.insertAdjacentElement("afterend", vibeTab);
     };
 
@@ -351,6 +441,15 @@ export function installVibeStreamBridge(ctx) {
     };
 
     const observer = new MutationObserver(schedule);
+    const onChat = () => {
+      vibeActive = false;
+      const tab = document.getElementById(TAB_ID);
+      if (tab instanceof HTMLButtonElement) {
+        tab.dataset.vibeActive = "false";
+        tab.setAttribute("aria-selected", "false");
+      }
+    };
+    window.addEventListener(VIBE_CHAT_EVENT, onChat);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
     removeLegacyChatPresentation();
     schedule();
@@ -358,6 +457,7 @@ export function installVibeStreamBridge(ctx) {
     return () => {
       disposed = true;
       observer.disconnect();
+      window.removeEventListener(VIBE_CHAT_EVENT, onChat);
       if (frame !== null) cancelAnimationFrame(frame);
       document.getElementById(TAB_ID)?.remove();
       removeTabStyle();

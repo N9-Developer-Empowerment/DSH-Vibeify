@@ -86,6 +86,12 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /\.vfx-chunk h2\s*\{[^}]*overflow-wrap:normal;[^}]*word-break:normal;[^}]*hyphens:none;/);
   assert.doesNotMatch(client, /\.vfx-chunk h2\s*\{[^}]*overflow-wrap:anywhere/);
   assert.match(client, /@media \(max-width:1180px\)[^{]*\{[^}]*\.vfx-chunk\.is-hero\s*\{\s*display:block;/);
+  assert.match(client, /className = "vfx-table-scroll"/);
+  assert.match(client, /data-has-table/);
+  assert.match(client, /\.vfx-chunk\[data-has-table="true"\]\.is-hero\s*\{[^}]*display:block;/);
+  assert.match(client, /\.vfx-table-scroll\s*\{[^}]*overflow-x:auto;/);
+  assert.match(client, /\.vfx-table-scroll table\s*\{[^}]*min-width:680px;/);
+  assert.match(client, /\.vfx-markdown th,\.vfx-markdown td\s*\{[^}]*overflow-wrap:normal;[^}]*word-break:normal;[^}]*hyphens:none;/);
   assert.doesNotMatch(client, /content:"MAGAZINE"/);
   assert.match(client, /dsh-vibeify\.editorial\.v1/);
   assert.doesNotMatch(client, /Open Studio/);

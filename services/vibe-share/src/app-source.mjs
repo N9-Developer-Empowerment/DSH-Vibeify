@@ -65,6 +65,60 @@ function appendInline(parent, value) {
   if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
 }
 
+function tableCells(line) {
+  const value = String(line ?? "").trim();
+  if (!value.startsWith("|") || !value.endsWith("|")) return null;
+  const cells = value.slice(1, -1).split("|").map((cell) => cell.trim());
+  return cells.length >= 2 && cells.every((cell) => cell.length > 0) ? cells : null;
+}
+
+function markdownTableAt(lines, startIndex) {
+  const headers = tableCells(lines[startIndex]);
+  const alignment = tableCells(lines[startIndex + 1]);
+  if (headers === null || alignment === null || headers.length !== alignment.length) return null;
+  if (!alignment.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+  const rows = [];
+  let nextIndex = startIndex + 2;
+  while (nextIndex < lines.length) {
+    const cells = tableCells(lines[nextIndex]);
+    if (cells === null || cells.length !== headers.length) break;
+    rows.push(cells);
+    nextIndex += 1;
+  }
+  return { headers, rows, nextIndex };
+}
+
+function renderTable(table) {
+  const scroll = document.createElement("div");
+  scroll.className = "table-scroll";
+  scroll.tabIndex = 0;
+  scroll.setAttribute("role", "region");
+  scroll.setAttribute("aria-label", "Scrollable article table");
+  const element = document.createElement("table");
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  table.headers.forEach((value) => {
+    const cell = document.createElement("th");
+    appendInline(cell, value);
+    headRow.append(cell);
+  });
+  head.append(headRow);
+  element.append(head);
+  const body = document.createElement("tbody");
+  table.rows.forEach((row) => {
+    const bodyRow = document.createElement("tr");
+    row.forEach((value) => {
+      const cell = document.createElement("td");
+      appendInline(cell, value);
+      bodyRow.append(cell);
+    });
+    body.append(bodyRow);
+  });
+  element.append(body);
+  scroll.append(element);
+  return scroll;
+}
+
 function renderMarkdown(markdown) {
   const fragment = document.createDocumentFragment();
   const lines = String(markdown ?? "").split(/\r?\n/);
@@ -78,9 +132,17 @@ function renderMarkdown(markdown) {
     paragraph = [];
   };
   const flushList = () => { if (list !== null) { fragment.append(list); list = null; } };
-  for (const raw of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const raw = lines[index];
     const line = raw.trim();
     if (line === "") { flushParagraph(); flushList(); continue; }
+    const table = markdownTableAt(lines, index);
+    if (table !== null) {
+      flushParagraph(); flushList();
+      fragment.append(renderTable(table));
+      index = table.nextIndex - 1;
+      continue;
+    }
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
     if (heading !== null) {
       flushParagraph(); flushList();

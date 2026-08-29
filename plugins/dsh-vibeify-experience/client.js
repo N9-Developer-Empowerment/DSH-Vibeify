@@ -1165,6 +1165,10 @@ window.__ModuleLoader__.load({
 			  }
 			  return { headers, rows, nextIndex };
 			}
+			function markdownHasTable(markdown) {
+			  const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
+			  return lines.some((_line, index) => markdownTableAt(lines, index) !== null);
+			}
 			function markdownFragment(markdown) {
 			  const fragment = document.createDocumentFragment();
 			  const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -1178,6 +1182,11 @@ window.__ModuleLoader__.load({
 			    }
 			    const table = markdownTableAt(lines, index);
 			    if (table !== null) {
+			      const scroll = document.createElement("div");
+			      scroll.className = "vfx-table-scroll";
+			      scroll.tabIndex = 0;
+			      scroll.setAttribute("role", "region");
+			      scroll.setAttribute("aria-label", "Scrollable article table");
 			      const element2 = document.createElement("table");
 			      const head = document.createElement("thead");
 			      const headRow = document.createElement("tr");
@@ -1199,7 +1208,8 @@ window.__ModuleLoader__.load({
 			        body.append(bodyRow);
 			      }
 			      element2.append(body);
-			      fragment.append(element2);
+			      scroll.append(element2);
+			      fragment.append(scroll);
 			      index = table.nextIndex;
 			      continue;
 			    }
@@ -3166,6 +3176,7 @@ window.__ModuleLoader__.load({
 			  const isChatResult = chunk.source === "chat-directed";
 			  const isWelcome = chunk.source === "welcome";
 			  const isHero = index === 0 && !isChatResult;
+			  const hasTable = markdownHasTable(chunk.markdown);
 			  const layout = panelLayoutForChunk(chunk, index);
 			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
 			  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
@@ -3177,6 +3188,7 @@ window.__ModuleLoader__.load({
 			      "data-kind": chunk.kind,
 			      "data-source": chunk.source,
 			      "data-layout": layout,
+			      "data-has-table": hasTable,
 			      "data-visual-kind": media?.kind,
 			      "data-visual-mode": media?.mode,
 			      "data-chunk-id": chunk.id,
@@ -3606,6 +3618,8 @@ window.__ModuleLoader__.load({
 			.vfx-chunk[data-layout="feature"] { grid-column:span 8; }
 			.vfx-chunk[data-layout="wide"] { grid-column:1/-1; }
 			.vfx-chunk.is-hero { grid-column:1/-1; display:grid; grid-template-columns:minmax(0,1.25fr) minmax(360px,.75fr); background:#100b10; }
+			.vfx-chunk[data-has-table="true"].is-hero { display:block; }
+			.vfx-chunk[data-has-table="true"].is-hero .vfx-chunk-visual,.vfx-chunk[data-has-table="true"].is-hero .vfx-chunk-visual img { min-height:300px; height:clamp(300px,34vw,460px); }
 			.vfx-chunk[data-kind="questionnaire"] { display:grid; grid-template-columns:minmax(260px,.42fr) minmax(0,1fr); background:radial-gradient(circle at 90% 0,color-mix(in srgb,var(--chunk-accent) 22%,transparent),transparent 42%),linear-gradient(145deg,#241522,#151018); }
 			.vfx-chunk[data-source="chat-directed"] { grid-column:1/-1; border-color:rgba(255,133,170,.34); background:radial-gradient(circle at 100% 0,rgba(159,140,255,.16),transparent 38%),linear-gradient(145deg,#271522,#130e15); }
 			.vfx-chunk[data-kind="music"],.vfx-chunk[data-kind="video"] { background:linear-gradient(145deg,color-mix(in srgb,var(--chunk-accent) 12%,#201720),#100c11); }
@@ -3629,8 +3643,10 @@ window.__ModuleLoader__.load({
 			.vfx-chunk.is-hero h2 { font-size:clamp(40px,3vw,60px); }
 			.vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 			.vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
-			.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre,.vfx-markdown table { display:block; max-width:100%; overflow-x:auto; }.vfx-markdown pre { white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
-			.vfx-markdown table { width:100%; margin:22px 0; border-collapse:collapse; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
+			.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre { display:block; max-width:100%; overflow-x:auto; white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
+			.vfx-table-scroll { max-width:100%; margin:22px 0; overflow-x:auto; overscroll-behavior-inline:contain; -webkit-overflow-scrolling:touch; scrollbar-color:#765466 transparent; }
+			.vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
+			.vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 			.vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
 			.vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 			.vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }

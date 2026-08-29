@@ -36,6 +36,35 @@ function inlineMarkup(value) {
   return html;
 }
 
+function tableCells(line) {
+  const value = String(line ?? "").trim();
+  if (!value.startsWith("|") || !value.endsWith("|")) return null;
+  const cells = value.slice(1, -1).split("|").map((cell) => cell.trim());
+  return cells.length >= 2 && cells.every((cell) => cell.length > 0) ? cells : null;
+}
+
+function markdownTableAt(lines, startIndex) {
+  const headers = tableCells(lines[startIndex]);
+  const alignment = tableCells(lines[startIndex + 1]);
+  if (headers === null || alignment === null || headers.length !== alignment.length) return null;
+  if (!alignment.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
+  const rows = [];
+  let nextIndex = startIndex + 2;
+  while (nextIndex < lines.length) {
+    const cells = tableCells(lines[nextIndex]);
+    if (cells === null || cells.length !== headers.length) break;
+    rows.push(cells);
+    nextIndex += 1;
+  }
+  return { headers, rows, nextIndex };
+}
+
+function tableHtml(table) {
+  const head = `<thead><tr>${table.headers.map((cell) => `<th>${inlineMarkup(cell)}</th>`).join("")}</tr></thead>`;
+  const body = `<tbody>${table.rows.map((row) => `<tr>${row.map((cell) => `<td>${inlineMarkup(cell)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+  return `<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable article table"><table>${head}${body}</table></div>`;
+}
+
 export function markdownToHtml(markdown) {
   const lines = String(markdown ?? "").replace(MARKDOWN_IMAGE, "").split(/\r?\n/);
   const output = [];
@@ -51,9 +80,17 @@ export function markdownToHtml(markdown) {
     output.push(`<${list.kind}>${list.items.map((item) => `<li>${inlineMarkup(item)}</li>`).join("")}</${list.kind}>`);
     list = null;
   };
-  for (const raw of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const raw = lines[index];
     const line = raw.trim();
     if (line === "") { flushParagraph(); flushList(); continue; }
+    const table = markdownTableAt(lines, index);
+    if (table !== null) {
+      flushParagraph(); flushList();
+      output.push(tableHtml(table));
+      index = table.nextIndex - 1;
+      continue;
+    }
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
     if (heading !== null) {
       flushParagraph(); flushList();
@@ -86,12 +123,14 @@ function visualHtml(visual, className = "lead") {
 
 const CSS = `:root{color-scheme:dark;--ink:#fffafc;--muted:#c8bbc4;--accent:#ff86ad}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 82% 0,#35182f 0,transparent 28%),#090609;color:var(--ink);font-family:Inter,system-ui,sans-serif}header{height:76px;padding:0 clamp(20px,5vw,72px);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff17;background:#090609e8}header a{color:inherit;text-decoration:none}.brand{font-weight:900;letter-spacing:.18em;background:linear-gradient(100deg,#fff,#ff88ad 58%,#9f8cff);background-clip:text;color:transparent}.brand small{display:block;margin-top:2px;color:#9f929b;font-size:9px;letter-spacing:.12em;text-transform:uppercase}.article{width:min(1040px,calc(100% - 32px));margin:clamp(28px,6vw,76px) auto 48px;overflow:hidden;border:1px solid #ffffff1c;border-radius:25px;background:linear-gradient(145deg,#261521,#110c12);box-shadow:0 30px 90px #0005}.lead{margin:0;position:relative;background:#151016}.lead img{width:100%;height:clamp(260px,48vw,560px);display:block;object-fit:cover}.lead figcaption,.gallery figcaption{padding:9px 14px;color:#a99ca5;font-size:11px}.copy{padding:clamp(27px,6vw,70px)}.kind{color:var(--accent);font-size:10px;font-weight:850;letter-spacing:.15em;text-transform:uppercase}h1,h2,h3{font-family:Iowan Old Style,Georgia,serif;font-weight:500;letter-spacing:-.04em}h1{max-width:900px;margin:10px 0 30px;font-size:clamp(42px,7vw,82px);line-height:.98;text-wrap:balance}h2{margin:38px 0 14px;font-size:clamp(28px,4vw,44px)}h3{font-size:26px}.body{color:var(--muted);font-size:clamp(16px,1.8vw,20px);line-height:1.72}.body p,.body li{max-width:790px}.body a,.source a{color:#ffc0d4;text-underline-offset:3px}.body blockquote{border-left:2px solid var(--accent);padding-left:20px}.gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:34px 0}.gallery figure{margin:0;overflow:hidden;border:1px solid #ffffff18;border-radius:14px;background:#0c090d}.gallery img{width:100%;height:300px;display:block;object-fit:cover}.source{margin-top:42px;padding-top:22px;border-top:1px solid #ffffff18;color:#a899a4;font-size:12px}.share-note{color:#9c8f98;font-size:11px}.delete{margin-top:16px}button,.cta-link{min-height:42px;padding:0 17px;border:1px solid #ffffff28;border-radius:999px;background:#ffffff0c;color:#fff;cursor:pointer;font:inherit}button.primary{border-color:#ff9aba;background:#ff9aba;color:#1a0e15;font-weight:800}button:disabled{opacity:.55;cursor:wait}.preview-shell{width:min(960px,calc(100% - 30px));margin:42px auto 28px}.preview-intro{max-width:680px;margin-bottom:30px}.preview-intro h1{font-size:clamp(38px,6vw,66px)}.preview-actions{position:sticky;z-index:3;bottom:18px;margin:28px 0;padding:14px;display:flex;align-items:center;gap:14px;border:1px solid #ffffff24;border-radius:18px;background:#171018e8;backdrop-filter:blur(18px)}.status{flex:1;color:#c9bdc5}.empty{padding:60px 0;color:#b6a9b2}.turnstile{margin:10px 0}.try-vibe{width:min(1040px,calc(100% - 32px));margin:0 auto 80px;padding:clamp(24px,5vw,48px);display:flex;align-items:center;justify-content:space-between;gap:32px;border:1px solid #ffffff1c;border-radius:24px;background:linear-gradient(120deg,#24111f,#16112d)}.try-vibe h2{margin:7px 0 10px}.try-vibe p{max-width:690px;margin:0;color:var(--muted);line-height:1.6}.try-vibe p a{color:#ffc0d4;text-underline-offset:3px}.cta-link{display:inline-flex;align-items:center;justify-content:center;min-width:180px;background:#fff;color:#1a0e15;text-decoration:none;font-weight:850;white-space:nowrap}@media(max-width:680px){header{height:66px}.article{border-radius:18px}.copy{padding:28px 21px}.gallery{grid-template-columns:1fr}.gallery img{height:230px}.preview-actions,.try-vibe{align-items:stretch;flex-direction:column}.preview-actions button,.cta-link{width:100%}}`;
 
+const TABLE_CSS = `.body{min-width:0}.table-scroll{max-width:100%;margin:28px 0;overflow-x:auto;overscroll-behavior-inline:contain;-webkit-overflow-scrolling:touch}.table-scroll:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.body table{width:100%;min-width:680px;border-collapse:collapse;table-layout:auto;font-size:14px;line-height:1.45}.body th,.body td{min-width:150px;padding:13px 15px;overflow-wrap:normal;word-break:normal;hyphens:none;border-bottom:1px solid #ffffff1c;text-align:left;vertical-align:top}.body th:first-child,.body td:first-child{min-width:120px}.body th{color:#fff;background:#ffffff0c;font-size:12px;letter-spacing:.04em;text-transform:uppercase}`;
+
 const VIBEIFY_CTA = `<aside class="try-vibe"><div><span class="kind">Open source · make it yours</span><h2>Make your own Vibe.</h2><p>Download DSH and Vibeify to turn your own AI conversations into a visual magazine—a creative tool for curiosity, expression and wellbeing. Questions? <a href="mailto:info@codingforjustice.org.uk">Email Vibeify</a>.</p></div><a class="cta-link" href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer">Download DSH + Vibeify</a></aside>`;
 
 function pageShell({ title, description, body, imageUrl = null, canonical = null, extraHead = "" }) {
   const metaImage = imageUrl === null ? "" : `<meta property="og:image" content="${escapeHtml(imageUrl)}"><meta name="twitter:card" content="summary_large_image">`;
   const canonicalTag = canonical === null ? "" : `<link rel="canonical" href="${escapeHtml(canonical)}">`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}"><meta property="og:type" content="article"><meta property="og:title" content="${escapeHtml(title)}"><meta property="og:description" content="${escapeHtml(description)}">${metaImage}${canonicalTag}${extraHead}<style>${CSS}</style></head><body><header><a href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer"><span class="brand">VIBE<small>shared from a private local magazine</small></span></a><span class="share-note">Coding for Justice</span></header>${body}${VIBEIFY_CTA}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}"><meta property="og:type" content="article"><meta property="og:title" content="${escapeHtml(title)}"><meta property="og:description" content="${escapeHtml(description)}">${metaImage}${canonicalTag}${extraHead}<style>${CSS}${TABLE_CSS}</style></head><body><header><a href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer"><span class="brand">VIBE<small>shared from a private local magazine</small></span></a><span class="share-note">Coding for Justice</span></header>${body}${VIBEIFY_CTA}</body></html>`;
 }
 
 export function articleMarkup(snapshot, { includeTitle = true } = {}) {

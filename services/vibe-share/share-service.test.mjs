@@ -81,6 +81,28 @@ test("public rendering escapes raw HTML while preserving safe article links", ()
   assert.doesNotMatch(page, /private-session|must never cross/);
 });
 
+test("private previews and public pages render pipe tables as responsive tables", () => {
+  const markdown = [
+    "A public map of circles:",
+    "",
+    "| Circle | Publicly documented people or groups | What the record establishes |",
+    "| --- | --- | --- |",
+    "| Family belief | **Giff/Gifty**, his mother | Music, persistence and practical support |",
+  ].join("\n");
+  const html = markdownToHtml(markdown);
+  assert.match(html, /<div class="table-scroll"[^>]*><table>/);
+  assert.match(html, /<th>Circle<\/th>/);
+  assert.match(html, /<td><strong>Giff\/Gifty<\/strong>, his mother<\/td>/);
+  assert.doesNotMatch(html, /\| --- \|/);
+
+  assert.match(APP_JS, /className = "table-scroll"/);
+  assert.match(APP_JS, /document\.createElement\("table"\)/);
+  const page = renderPublicArticle({ ...snapshot, markdown }, `${origin}/a/table123`);
+  assert.match(page, /\.table-scroll\{[^}]*overflow-x:auto/);
+  assert.match(page, /\.body table\{[^}]*min-width:680px/);
+  assert.match(page, /\.body th,\.body td\{[^}]*word-break:normal/);
+});
+
 test("an inline photograph becomes the lead when an older snapshot has no lead image", () => {
   const page = renderPublicArticle({
     ...snapshot,

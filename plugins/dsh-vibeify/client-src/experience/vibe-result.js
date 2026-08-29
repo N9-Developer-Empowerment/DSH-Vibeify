@@ -202,6 +202,11 @@ export function markdownTableAt(lines, startIndex) {
   return { headers, rows, nextIndex };
 }
 
+export function markdownHasTable(markdown) {
+  const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
+  return lines.some((_line, index) => markdownTableAt(lines, index) !== null);
+}
+
 export function markdownFragment(markdown) {
   const fragment = document.createDocumentFragment();
   const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
@@ -212,6 +217,11 @@ export function markdownFragment(markdown) {
     if (line.trim().length === 0) { index += 1; continue; }
     const table = markdownTableAt(lines, index);
     if (table !== null) {
+      const scroll = document.createElement("div");
+      scroll.className = "vfx-table-scroll";
+      scroll.tabIndex = 0;
+      scroll.setAttribute("role", "region");
+      scroll.setAttribute("aria-label", "Scrollable article table");
       const element = document.createElement("table");
       const head = document.createElement("thead");
       const headRow = document.createElement("tr");
@@ -233,7 +243,8 @@ export function markdownFragment(markdown) {
         body.append(bodyRow);
       }
       element.append(body);
-      fragment.append(element);
+      scroll.append(element);
+      fragment.append(scroll);
       index = table.nextIndex;
       continue;
     }

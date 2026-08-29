@@ -11,6 +11,7 @@ import {
   isAssistantAnswer,
   isNativeResultTabList,
   markdownTableAt,
+  markdownHasTable,
   stripDuplicatedLeadTitle,
   namespaceStreamChunks,
   VIBE_CHAT_RESULT_EVENT,
@@ -131,6 +132,8 @@ test("pipe tables are recognised as structured rows rather than one raw paragrap
     nextIndex: 4,
   });
   assert.equal(markdownTableAt(["Ordinary | prose"], 0), null);
+  assert.equal(markdownHasTable("Intro\n\n| Week | Focus |\n| --- | --- |\n| 1 | Voice |"), true);
+  assert.equal(markdownHasTable("Ordinary | prose"), false);
 });
 
 test("explicit user-role rows are rejected even when they contain a Copy action", () => {

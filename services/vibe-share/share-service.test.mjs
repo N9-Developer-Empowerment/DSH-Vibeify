@@ -26,7 +26,7 @@ const snapshot = Object.freeze({
 });
 
 class MemoryDb {
-  constructor() { this.rows = new Map(); }
+  constructor() { this.rows = new Map(); this.limits = new Map(); }
   prepare(sql) {
     const db = this;
     return {
@@ -49,6 +49,13 @@ class MemoryDb {
             throw new Error(`unexpected run: ${sql}`);
           },
           async first() {
+            if (sql.startsWith("INSERT INTO daily_publish_limits")) {
+              const [bucket, clientHash] = values;
+              const key = `${bucket}:${clientHash}`;
+              const count = (db.limits.get(key) ?? 0) + 1;
+              db.limits.set(key, count);
+              return { count };
+            }
             if (!sql.startsWith("SELECT")) throw new Error(`unexpected first: ${sql}`);
             return db.rows.get(values[0]) ?? null;
           },
@@ -111,4 +118,24 @@ test("a deliberate local publish stores only the cleaned snapshot and returns a 
   const removed = await handleRequest(new Request(`${origin}/api/articles/${created.slug}`, { method: "DELETE", headers: { authorization: `Bearer ${created.deleteToken}` } }), { VIBE_SHARE_DB: db });
   assert.equal(removed.status, 200);
   assert.equal(db.rows.size, 0);
+});
+
+test("managed publishing stores only a salted daily fingerprint and enforces the public contract", async () => {
+  const db = new MemoryDb();
+  const response = await handleRequest(new Request(`${origin}/api/articles`, {
+    method: "POST",
+    headers: {
+      origin,
+      "content-type": "application/json",
+      "CF-Connecting-IP": "203.0.113.44",
+    },
+    body: JSON.stringify({ snapshot, turnstileToken: "" }),
+  }), { DB: db, VIBE_SHARE_RATE_SECRET: "a".repeat(48) });
+  assert.equal(response.status, 201);
+  assert.equal(db.rows.size, 1);
+  assert.equal(db.limits.size, 2);
+  assert.doesNotMatch([...db.limits.keys()].join(" "), /203\.0\.113\.44/);
+
+  const preview = await handleRequest(new Request(`${origin}/new`), { VIBE_SHARE_RATE_SECRET: "a".repeat(48) });
+  assert.doesNotMatch(await preview.text(), /Publishing is not configured yet/);
 });

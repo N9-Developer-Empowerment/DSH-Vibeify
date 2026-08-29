@@ -110,9 +110,9 @@ export function renderPublicArticle(snapshot, canonical) {
   });
 }
 
-export function renderNewPage({ turnstileSiteKey = "", localDev = false } = {}) {
+export function renderNewPage({ turnstileSiteKey = "", localDev = false, publishingReady = false } = {}) {
   const turnstile = turnstileSiteKey === "" ? "" : `<div class="turnstile cf-turnstile" data-sitekey="${escapeHtml(turnstileSiteKey)}"></div><script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>`;
-  const unavailable = !localDev && turnstileSiteKey === "" ? `<p class="status" role="alert">Publishing is not configured yet. You can still inspect the privacy-safe preview.</p>` : "";
+  const unavailable = !localDev && !publishingReady ? `<p class="status" role="alert">Publishing is not configured yet. You can still inspect the privacy-safe preview.</p>` : "";
   return pageShell({
     title: "Preview a Vibe article",
     description: "Review one Vibe article before deliberately publishing a public link.",

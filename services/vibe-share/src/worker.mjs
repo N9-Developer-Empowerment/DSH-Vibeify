@@ -49,6 +49,44 @@ async function verifyTurnstile(token, request, env) {
   return result.success === true;
 }
 
+function database(env) {
+  return env.VIBE_SHARE_DB ?? env.DB;
+}
+
+function positiveLimit(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function incrementDailyLimit(db, bucket, clientHash, now) {
+  return db.prepare(`INSERT INTO daily_publish_limits (bucket, client_hash, count, updated_at)
+    VALUES (?, ?, 1, ?)
+    ON CONFLICT (bucket, client_hash) DO UPDATE SET count = count + 1, updated_at = excluded.updated_at
+    RETURNING count`).bind(bucket, clientHash, now).first();
+}
+
+async function verifyManagedRateLimit(request, env) {
+  const db = database(env);
+  const secret = env.VIBE_SHARE_RATE_SECRET;
+  if (db === undefined || typeof secret !== "string" || secret.length < 32) return false;
+  const address = request.headers.get("CF-Connecting-IP") ?? request.headers.get("x-real-ip") ?? "unknown";
+  const bucket = new Date().toISOString().slice(0, 10);
+  const clientHash = await sha256(`${secret}\n${bucket}\n${address}`);
+  const now = Date.now();
+  const client = await incrementDailyLimit(db, bucket, clientHash, now);
+  if (Number(client?.count ?? Infinity) > positiveLimit(env.VIBE_SHARE_CLIENT_DAILY_LIMIT, 12)) return false;
+  const global = await incrementDailyLimit(db, bucket, "global", now);
+  return Number(global?.count ?? Infinity) <= positiveLimit(env.VIBE_SHARE_GLOBAL_DAILY_LIMIT, 500);
+}
+
+async function verifyPublishProtection(token, request, env) {
+  if (env.VIBE_SHARE_LOCAL_DEV === "true") return true;
+  if (typeof env.TURNSTILE_SECRET === "string" && env.TURNSTILE_SECRET !== "") {
+    return verifyTurnstile(token, request, env);
+  }
+  return verifyManagedRateLimit(request, env);
+}
+
 function allowedRetention(env, requested) {
   const configured = Number(env.VIBE_SHARE_RETENTION_DAYS ?? 365);
   const ceiling = Number.isInteger(configured) && configured >= 30 && configured <= 365 ? configured : 365;
@@ -57,7 +95,8 @@ function allowedRetention(env, requested) {
 }
 
 async function createArticle(request, env, url) {
-  if (env.VIBE_SHARE_DB === undefined) return json({ error: "Publishing storage is not configured" }, 503);
+  const db = database(env);
+  if (db === undefined) return json({ error: "Publishing storage is not configured" }, 503);
   const requestOrigin = request.headers.get("origin");
   if (requestOrigin !== url.origin) return json({ error: "This publish request did not come from the share preview" }, 403);
   if (Number(request.headers.get("content-length") ?? 0) > 80_000) return json({ error: "Article is too large" }, 413);
@@ -65,7 +104,7 @@ async function createArticle(request, env, url) {
   try { body = await request.json(); } catch { return json({ error: "Invalid article request" }, 400); }
   const snapshot = cleanShareSnapshot(body?.snapshot);
   if (snapshot === null) return json({ error: "Article failed the public-share privacy contract" }, 400);
-  if (!await verifyTurnstile(body?.turnstileToken, request, env)) return json({ error: "Please complete the human check before publishing" }, 403);
+  if (!await verifyPublishProtection(body?.turnstileToken, request, env)) return json({ error: "Publishing protection could not approve this request. Please try again later." }, 403);
 
   const now = Date.now();
   const retentionDays = allowedRetention(env, body?.retentionDays);
@@ -76,7 +115,7 @@ async function createArticle(request, env, url) {
   for (let attempt = 0; attempt < 4; attempt += 1) {
     slug = randomToken(9);
     try {
-      await env.VIBE_SHARE_DB.prepare("INSERT INTO articles (slug, snapshot_json, created_at, expires_at, delete_token_hash) VALUES (?, ?, ?, ?, ?)")
+      await db.prepare("INSERT INTO articles (slug, snapshot_json, created_at, expires_at, delete_token_hash) VALUES (?, ?, ?, ?, ?)")
         .bind(slug, JSON.stringify(snapshot), now, expiresAt, deleteTokenHash).run();
       break;
     } catch (error) {
@@ -88,8 +127,9 @@ async function createArticle(request, env, url) {
 }
 
 async function getArticle(env, url, slug) {
-  if (env.VIBE_SHARE_DB === undefined) return html(renderNotFound(), 404);
-  const row = await env.VIBE_SHARE_DB.prepare("SELECT snapshot_json, expires_at FROM articles WHERE slug = ?").bind(slug).first();
+  const db = database(env);
+  if (db === undefined) return html(renderNotFound(), 404);
+  const row = await db.prepare("SELECT snapshot_json, expires_at FROM articles WHERE slug = ?").bind(slug).first();
   if (row === null || Number(row.expires_at) <= Date.now()) return html(renderNotFound(), 404);
   let snapshot;
   try {
@@ -101,17 +141,22 @@ async function getArticle(env, url, slug) {
 }
 
 async function deleteArticle(request, env, slug) {
-  if (env.VIBE_SHARE_DB === undefined) return json({ error: "Publishing storage is not configured" }, 503);
+  const db = database(env);
+  if (db === undefined) return json({ error: "Publishing storage is not configured" }, 503);
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   if (token === "") return json({ error: "Removal token required" }, 401);
   const tokenHash = await sha256(token);
-  const result = await env.VIBE_SHARE_DB.prepare("DELETE FROM articles WHERE slug = ? AND delete_token_hash = ?").bind(slug, tokenHash).run();
+  const result = await db.prepare("DELETE FROM articles WHERE slug = ? AND delete_token_hash = ?").bind(slug, tokenHash).run();
   return Number(result.meta?.changes ?? 0) === 1 ? json({ removed: true }) : json({ error: "Article or removal token not found" }, 404);
 }
 
 export async function handleRequest(request, env = {}) {
   const url = new URL(request.url);
-  if (request.method === "GET" && url.pathname === "/new") return html(renderNewPage({ turnstileSiteKey: env.TURNSTILE_SITE_KEY ?? "", localDev: env.VIBE_SHARE_LOCAL_DEV === "true" }));
+  if (request.method === "GET" && url.pathname === "/new") return html(renderNewPage({
+    turnstileSiteKey: env.TURNSTILE_SITE_KEY ?? "",
+    localDev: env.VIBE_SHARE_LOCAL_DEV === "true",
+    publishingReady: env.VIBE_SHARE_LOCAL_DEV === "true" || (typeof env.TURNSTILE_SECRET === "string" && env.TURNSTILE_SECRET !== "") || (typeof env.VIBE_SHARE_RATE_SECRET === "string" && env.VIBE_SHARE_RATE_SECRET.length >= 32),
+  }));
   if (request.method === "GET" && url.pathname === "/app.js") return new Response(APP_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
   if (request.method === "POST" && url.pathname === "/api/articles") return createArticle(request, env, url);
   const article = /^\/a\/([A-Za-z0-9_-]{8,24})$/.exec(url.pathname);

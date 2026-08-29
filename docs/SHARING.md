@@ -28,23 +28,23 @@ DSH communicates only with the pinned HTTPS share origin. It checks both the res
 
 ## Publishing and removal
 
-The public service requires a human check and stores the cleaned article in a small database. It generates a random public slug and a separate high-entropy removal token. The token remains in the share site's browser storage; only its hash is stored with the article. Anyone with the public URL can read the article, but the URL does not grant deletion authority.
+The public service requires either a human check or the managed host's bounded daily publishing protection and stores the cleaned article in a small database. The managed protection hashes the request address with a secret and the current date, stores only that one-day fingerprint, and applies both per-reader and whole-service limits; it never stores a raw address. The service generates a random public slug and a separate high-entropy removal token. The token remains in the share site's browser storage; only its hash is stored with the article. Anyone with the public URL can read the article, but the URL does not grant deletion authority.
 
 The operator chooses a maximum retention of 30, 90, or 365 days. The current configuration defaults to 365 days. An expiry or valid removal request makes the public URL unavailable without changing the local Vibe card.
 
 ## Operator setup
 
-The reference host is a dependency-free Cloudflare Pages Function plus D1 and Turnstile under `services/vibe-share/`. Pages is used because an externally managed DNS provider can point only the `share` subdomain at `<project>.pages.dev`; the Coding for Justice apex site, Hover nameservers, and email records can remain untouched. Before first deployment:
+The reference host is a dependency-free Cloudflare-compatible service plus D1 under `services/vibe-share/`. The managed Sites deployment supplies the runtime, database, versioning, and exact CNAME target for the `share` subdomain; the Coding for Justice apex site, Hover nameservers, and email records remain untouched. Before first deployment:
 
-1. create the D1 database and replace the placeholder database id in `wrangler.jsonc`;
-2. apply `migrations/0001_articles.sql`;
-3. create a Turnstile widget for `share.codingforjustice.org.uk`;
-4. set `TURNSTILE_SECRET` as a Pages secret and `TURNSTILE_SITE_KEY` as a non-secret variable;
-5. deploy the Pages project and associate `share.codingforjustice.org.uk` in its Custom domains screen;
-6. add a Hover CNAME from `share` to the exact `<project>.pages.dev` hostname supplied by that deployment; and
+1. build the Sites-compatible artifact with `npm run build:sites`;
+2. configure the managed D1 binding as `DB` and apply `drizzle/0001_articles.sql`;
+3. set `VIBE_SHARE_RATE_SECRET` as a managed secret and keep the default per-reader and global daily limits, or explicitly configure stricter values;
+4. optionally create a Turnstile widget and set `TURNSTILE_SECRET` plus `TURNSTILE_SITE_KEY` to replace the managed rate check with a visible human check;
+5. deploy the public Site and associate `share.codingforjustice.org.uk`;
+6. add a Hover CNAME from `share` to the exact target supplied by the managed deployment; and
 7. deploy only after the owner confirms the public domain, DNS target, and privacy wording.
 
-Production fails closed when D1 or the Turnstile configuration is absent. Local development may set `VIBE_SHARE_LOCAL_DEV=true`; that bypass is never part of the production configuration.
+Production fails closed when D1 is absent or neither publishing protection is configured. Local development may set `VIBE_SHARE_LOCAL_DEV=true`; that bypass is never part of the production configuration.
 
 Run the dependency-free checks with:
 

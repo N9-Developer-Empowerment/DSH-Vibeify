@@ -1,6 +1,6 @@
 # Distribution pack: living magazine article
 
-Public-action status: **draft only**. Replace `[CANONICAL_DISCUSSION_URL]` after the repository Discussion is created. Every destination requires a final visual check and explicit posting confirmation.
+Public-action status: **GitHub publication completed 2026-08-29**. The canonical article, official DSH update and v0.15.2 release-note addendum are live. Discord remains prepared but unpublished pending a final destination-and-copy check. Reddit remains blocked by the community-rule preflights below.
 
 ## Vibeify repository Discussion
 
@@ -44,7 +44,7 @@ Provider choice is explicit:
 
 The share boundary is deliberately separate. **Preview and share** transfers one cleaned article presentation to a private preview. Only a second **Publish public link** action creates a public page; prompts, reasoning, session identity, approvals, settings and local history are outside the schema.
 
-I wrote up what changed, the trade-offs and the real product flow here: [CANONICAL_DISCUSSION_URL]
+I wrote up what changed, the trade-offs and the real product flow here: https://github.com/N9-Developer-Empowerment/DSH-Vibeify/discussions/13
 
 Real 72-second walkthrough: https://dsh-vibeify.ezzye.chatgpt.site/#demo
 
@@ -64,7 +64,7 @@ The 72-second demo shows the real sequence: open Vibe → commission in Chat →
 
 Demo: https://dsh-vibeify.ezzye.chatgpt.site/#demo
 
-Build note: [CANONICAL_DISCUSSION_URL]
+Build note: https://github.com/N9-Developer-Empowerment/DSH-Vibeify/discussions/13
 
 Repo: https://github.com/N9-Developer-Empowerment/DSH-Vibeify
 
@@ -97,7 +97,7 @@ I recorded a 72-second real-product walkthrough showing Vibe opening with conten
 
 https://dsh-vibeify.ezzye.chatgpt.site/#demo
 
-The longer build note is here: [CANONICAL_DISCUSSION_URL]
+The longer build note is here: https://github.com/N9-Developer-Empowerment/DSH-Vibeify/discussions/13
 
 Source: https://github.com/N9-Developer-Empowerment/DSH-Vibeify
 
@@ -136,7 +136,7 @@ Public sharing is a separate service and an explicit second boundary. One select
 
 Real 72-second flow: https://dsh-vibeify.ezzye.chatgpt.site/#demo
 
-Detailed build note: [CANONICAL_DISCUSSION_URL]
+Detailed build note: https://github.com/N9-Developer-Empowerment/DSH-Vibeify/discussions/13
 
 Repository: https://github.com/N9-Developer-Empowerment/DSH-Vibeify
 
@@ -148,6 +148,6 @@ The project is macOS-first today; Windows/Linux routes are marked preview until 
 
 The first engineering note in the Vibeify public-proof series explains the product decision behind 0.15.2: replace the empty-prompt opening with a locally available visual edition, stream complete verified cards, retain explicit Update and stop conditions, and publish only one reviewed article at a time.
 
-Read the build note: [CANONICAL_DISCUSSION_URL]
+Read the build note: https://github.com/N9-Developer-Empowerment/DSH-Vibeify/discussions/13
 
 Watch the real 72-second flow: https://dsh-vibeify.ezzye.chatgpt.site/#demo

@@ -8,7 +8,7 @@ import {
 
 export const SHARE_READY_TIMEOUT_MS = 15_000;
 
-export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink }, now = Date.now()) {
+export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
   const publicPhoto = media?.episode?.photo;
   const visual = media?.externalUrl !== undefined ? {
     imageUrl: media.externalUrl,
@@ -30,6 +30,11 @@ export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, c
     visual,
     inlineVisuals,
     contentLink,
+    media: embeddedMedia === null || embeddedMedia === undefined ? null : {
+      kind: embeddedMedia.kind,
+      label: embeddedMedia.label,
+      href: embeddedMedia.href,
+    },
   }, now);
 }
 

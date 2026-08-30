@@ -5,12 +5,14 @@ Vibe is one private, browser-local magazine across all DSH threads. Sharing does
 ## What the reader experiences
 
 1. Choose **Preview and share** on a finished Vibe article.
-2. A separate Coding for Justice page opens and displays the exact article, images, credits, and source link that are eligible to leave DSH.
+2. A separate Coding for Justice page opens and displays the exact article, images, credits, supported embedded media, and source link that are eligible to leave DSH.
 3. Nothing is public yet. Read the preview and close it if it is not right.
 4. Choose **Publish public link** on the preview page.
 5. The resulting `share.codingforjustice.org.uk/a/...` link is copied to the clipboard automatically. A visible **Copy link** button remains available if the browser blocks clipboard access or the reader wants to copy it again. The recipient needs only a web browser.
 
 Every new public page must include at least one selected public image. A Vibe card backed by a bundled local photograph transfers the credited public copy of that photograph; remote editorial images keep their reviewed public URL. The first selected image becomes the responsive cover and social preview, with further images retained as an article gallery. Older text-only links remain readable. The page uses normal semantic HTML, preserves safe HTTPS article links, and presents visual provenance separately from editorial sources.
+
+If the article contains a supported YouTube, Vimeo, Spotify or SoundCloud link that Vibe presented as a player, the preview and published page retain it as a **click-to-load** media card. Playback does not start automatically. The public contract stores only the fixed provider name, media type, bounded label and validated original HTTPS link; it rejects supplied iframe URLs, embed HTML, credentials and unrelated hosts. The shared reader can always use the visible ordinary provider link if embedding is unavailable.
 
 Public article pages publish complete Open Graph and X summary-card metadata for the reviewed title, description, canonical URL, cover image, and image description. They also answer crawler `HEAD` requests and publish an explicit permissive `robots.txt`. X can cache the first preview it sees for an existing URL, so metadata corrections reliably apply to new shares but may require a new article URL or a repost before an already-published post shows the corrected image.
 
@@ -27,6 +29,7 @@ The shared contract is allow-list only:
 | Publication time | DSH session, message, thread, or local chunk identity |
 | Selected public image URLs, alt text, credits, and source pages | Attachments, private files, account data, or credentials |
 | One separate public content/source link | Tribes, settings, interactions, questionnaires, or browser history |
+| One optional YouTube, Vimeo, Spotify, or SoundCloud link and visible label | Arbitrary iframe sources, embed HTML, autoplay instructions, or unrecognised hosts |
 
 DSH communicates only with the pinned HTTPS share origin. It checks both the response origin and the exact window it opened before sending the card. The share page cannot reach back into DSH and DSH has no publishing credential.
 

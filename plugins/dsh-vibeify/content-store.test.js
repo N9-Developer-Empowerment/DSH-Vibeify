@@ -5,6 +5,7 @@ import {
   CONTENT_STORE_KEY,
   CONTENT_STORE_VERSION,
   CONTENT_TTL_MS,
+  MAX_CHAT_VIBE_RESERVE,
   MAX_STREAM_CHUNKS,
   appendCachedChunks,
   getCachedStream,
@@ -54,6 +55,27 @@ test("stream cache is bounded without changing the order of retained entries", (
   assert.equal(cached.chunks.length, MAX_STREAM_CHUNKS);
   assert.equal(cached.chunks[0].id, "run:8");
   assert.equal(cached.chunks.at(-1).id, `run:${MAX_STREAM_CHUNKS + 7}`);
+});
+
+test("editorial refills cannot evict the protected reserve of Chat-made Vibes", () => {
+  const storage = memoryStorage();
+  const base = 1_700_000_000_000;
+  const chat = Array.from({ length: MAX_CHAT_VIBE_RESERVE + 12 }, (_, index) => chunk(`chat:${index}`, "Chat-made Vibe", {
+    source: "chat-directed",
+    publishedAt: base + index,
+  }));
+  const editorial = Array.from({ length: MAX_STREAM_CHUNKS + 20 }, (_, index) => chunk(`update:${index}`, "Editorial refill", {
+    source: "fresh-stream",
+    publishedAt: base + 1_000 + index,
+  }));
+
+  appendCachedChunks(storage, [...chat, ...editorial], base + 2_000);
+  const cached = getCachedStream(storage, base + 2_001).chunks;
+  const retainedChat = cached.filter(({ source }) => source === "chat-directed");
+  assert.equal(cached.length, MAX_STREAM_CHUNKS);
+  assert.equal(retainedChat.length, MAX_CHAT_VIBE_RESERVE);
+  assert.equal(retainedChat[0].id, "chat:12");
+  assert.equal(retainedChat.at(-1).id, `chat:${MAX_CHAT_VIBE_RESERVE + 11}`);
 });
 
 test("only allow-listed content fields survive persistence", () => {

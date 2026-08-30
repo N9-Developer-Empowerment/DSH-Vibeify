@@ -70,13 +70,13 @@ The currently tested combination is:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
 - `@openai/codex` `0.147.0` inside the governed bridge;
-- DSH Vibeify `0.15.2`.
+- DSH Vibeify `0.15.3`.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.15.2&path:/plugins/dsh-vibeify-experience'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.15.3&path:/plugins/dsh-vibeify-experience'
 ```
 
 This keeps native DSH/DeepSeek in the lead. Use the friendly installer or the

@@ -116,3 +116,27 @@ test("a bundled Vibe photograph keeps a public copy when the article is shared",
   assert.equal(result.visual.imageUrl, "https://images.unsplash.com/photo-example?auto=format&fit=crop&w=1600&q=82");
   assert.equal(result.visual.sourceUrl, "https://unsplash.com/photos/example");
 });
+
+test("a card's fixed-provider player is preserved without transferring iframe source code", () => {
+  const result = shareSnapshotForChunk({
+    chunk: { title: "Listen closely", kind: "music", publishedAt: snapshot.publishedAt },
+    markdown: "A public article with a song.",
+    media: null,
+    inlineVisuals: [],
+    contentLink: null,
+    embeddedMedia: {
+      kind: "music",
+      label: "Open SoundCloud player",
+      href: "https://soundcloud.com/the-orca-band/i-know-you-better",
+      src: "https://w.soundcloud.com/player/?private-client-state=discarded",
+    },
+  }, snapshot.publishedAt);
+
+  assert.deepEqual(result.media, {
+    provider: "soundcloud",
+    kind: "music",
+    label: "Open SoundCloud player",
+    href: "https://soundcloud.com/the-orca-band/i-know-you-better",
+  });
+  assert.doesNotMatch(JSON.stringify(result), /private-client-state|w\.soundcloud/);
+});

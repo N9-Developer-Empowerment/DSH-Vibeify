@@ -49,7 +49,7 @@ Vibe renders from local material before it needs a model or network request:
 
 1. a 21-panel evergreen welcome issue re-sells the choice in plain English and supplies practical **Try it** prompts;
 2. a bundled 24-item editorial well supplies further useful cold-start depth;
-3. up to 160 reader-specific completed Vibe pages are restored from that browser's local cache;
+3. up to 160 reader-specific completed Vibe pages are restored from that browser's local cache, with room protected for up to 96 completed Chat-made Vibes;
 4. the welcome issue is placed above older saved pages without deleting them;
 5. any new completed page made during the current visit arrives above the welcome issue; and
 6. images below the fold load lazily.
@@ -208,7 +208,9 @@ Partial envelopes, raw worker reports, candidate lists, research memos, tool out
 
 ## Local storage and privacy
 
-The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, broad selected tribe ids, publication time, and up to 32 visible questionnaire choices. The separate reserve stores only public radar signals, bounded candidate/ready pages, recent-use time and a daily spend ledger. Local learning stores only explicit interaction type, bounded page id/kind, broad tribe ids, visible questionnaire label and time.
+The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, broad selected tribe ids, publication time, and up to 32 visible questionnaire choices. Reader-specific pages expire after 30 days and the cache holds at most 160 cards; up to 96 completed, non-questionnaire Chat-made Vibes have protected room within that total so a large editorial refill cannot displace all commissioned work. **Find Vibes** searches titles and article text inside that already-cleaned local cache without a network request. Completed DSH history can refill eligible answers after a relaunch without resuming their Chats.
+
+The separate reserve stores only public radar signals, bounded candidate/ready pages, recent-use time and a daily spend ledger. Local learning stores only explicit interaction type, bounded page id/kind, broad tribe ids, visible questionnaire label and time.
 
 It does not store raw prompts, DSH session ids, account information, attachments, reasoning, tool calls, approval contents, credentials, or worker packets. Vibeify does not send current images or private project material to a different provider without explicit permission.
 
@@ -218,9 +220,12 @@ It does not store raw prompts, DSH session ids, account information, attachments
 
 - title, page kind, bounded Markdown, and publication time;
 - up to four selected public image URLs with their alt text, credit, and source pages; and
-- one separate reader-facing content link when present.
+- one separate reader-facing content link when present; and
+- one optional original public YouTube, Vimeo, Spotify, or SoundCloud link when the displayed card contains that supported media.
 
-There is no field for a prompt, DSH session or message id, reasoning, approval, attachment, selected tribe, reader interaction, local catalogue id, credential, or browser history. The share page renders a private preview first and requires at least one reviewed public image for every new publication. Only its separate **Publish public link** button writes the article to public storage. On success the URL is copied to the clipboard and remains available through **Copy link**. The resulting URL is ordinary public HTML with a responsive cover and social preview metadata; its reader needs no DSH, ChatGPT, or DeepSeek account. Existing older text-only pages remain readable. See [Sharing one Vibe article](SHARING.md) for the trust boundary, removal token, retention, and operator setup.
+There is no field for a prompt, DSH session or message id, reasoning, approval, attachment, selected tribe, reader interaction, local catalogue id, credential, or browser history. Supplied iframe URLs, embed HTML, credentials, autoplay instructions and unrecognised hosts are also rejected. The share page derives a fixed-provider, sandboxed player from the original validated media link only after its reader clicks, and keeps the ordinary provider link available when playback is unavailable.
+
+The share page renders a private preview first and requires at least one reviewed public image for every new publication. Only its separate **Publish public link** button writes the article to public storage. On success the URL is copied to the clipboard and remains available through **Copy link**. The resulting URL is ordinary public HTML with a responsive cover and social preview metadata; its reader needs no DSH, ChatGPT, or DeepSeek account. Existing older text-only pages remain readable. See [Sharing one Vibe article](SHARING.md) for the trust boundary, removal token, retention, and operator setup.
 
 ## Failures remain bounded
 

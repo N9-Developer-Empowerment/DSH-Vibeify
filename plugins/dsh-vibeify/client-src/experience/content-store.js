@@ -1,7 +1,13 @@
+import {
+  MAX_CHAT_VIBE_RESERVE,
+  MAX_STREAM_CHUNKS,
+  boundReaderChunks,
+} from "./content-retention.js";
+
 export const CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
 export const CONTENT_STORE_VERSION = 6;
 export const CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-export const MAX_STREAM_CHUNKS = 160;
+export { MAX_CHAT_VIBE_RESERVE, MAX_STREAM_CHUNKS };
 export const MAX_STREAM_ANSWERS = 32;
 
 const MAX_MARKDOWN = 16_000;
@@ -100,7 +106,7 @@ function readStore(storage, now = Date.now()) {
     }
     return Object.freeze({
       version: CONTENT_STORE_VERSION,
-      chunks: Object.freeze(chunks.slice(-MAX_STREAM_CHUNKS)),
+      chunks: Object.freeze(boundReaderChunks(chunks)),
       answers: Object.freeze([...answers.values()].slice(-MAX_STREAM_ANSWERS)),
     });
   } catch {
@@ -137,7 +143,7 @@ export function appendCachedChunks(storage, candidates, now = Date.now()) {
     appended.push(chunk);
   }
   if (appended.length === 0) return Object.freeze([]);
-  const bounded = chunks.slice(-MAX_STREAM_CHUNKS);
+  const bounded = boundReaderChunks(chunks);
   writeStore(storage, { version: CONTENT_STORE_VERSION, chunks: bounded, answers: current.answers });
   return Object.freeze(appended.filter(({ id }) => bounded.some((chunk) => chunk.id === id)));
 }

@@ -639,11 +639,28 @@ window.__ModuleLoader__.load({
 			  return index % 2 === 1 ? "feature" : "compact";
 			}
 
+			// client-src/experience/content-retention.js
+			var MAX_STREAM_CHUNKS = 160;
+			var MAX_CHAT_VIBE_RESERVE = 96;
+			function protectedChatVibe(chunk) {
+			  return chunk?.source === "chat-directed" && chunk?.kind !== "questionnaire";
+			}
+			function boundReaderChunks(chunks, limit = MAX_STREAM_CHUNKS, chatReserve = MAX_CHAT_VIBE_RESERVE) {
+			  if (!Array.isArray(chunks)) throw new TypeError("reader chunks must be an array");
+			  if (!Number.isInteger(limit) || limit < 1) throw new TypeError("reader chunk limit is invalid");
+			  if (!Number.isInteger(chatReserve) || chatReserve < 0) throw new TypeError("Chat Vibe reserve is invalid");
+			  if (chunks.length <= limit) return chunks;
+			  const protectedIds = new Set(chunks.filter(protectedChatVibe).slice(-Math.min(chatReserve, limit)).map(({ id }) => id));
+			  for (let index = chunks.length - 1; index >= 0 && protectedIds.size < limit; index -= 1) {
+			    protectedIds.add(chunks[index]?.id);
+			  }
+			  return chunks.filter(({ id }) => protectedIds.has(id));
+			}
+
 			// client-src/experience/content-store.js
 			var CONTENT_STORE_KEY = "dsh-vibeify.feed.v2";
 			var CONTENT_STORE_VERSION = 6;
 			var CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
-			var MAX_STREAM_CHUNKS = 160;
 			var MAX_STREAM_ANSWERS = 32;
 			var MAX_MARKDOWN = 16e3;
 			var MAX_TITLE = 180;
@@ -720,7 +737,7 @@ window.__ModuleLoader__.load({
 			    }
 			    return Object.freeze({
 			      version: CONTENT_STORE_VERSION,
-			      chunks: Object.freeze(chunks.slice(-MAX_STREAM_CHUNKS)),
+			      chunks: Object.freeze(boundReaderChunks(chunks)),
 			      answers: Object.freeze([...answers.values()].slice(-MAX_STREAM_ANSWERS))
 			    });
 			  } catch {
@@ -753,7 +770,7 @@ window.__ModuleLoader__.load({
 			    appended.push(chunk);
 			  }
 			  if (appended.length === 0) return Object.freeze([]);
-			  const bounded = chunks.slice(-MAX_STREAM_CHUNKS);
+			  const bounded = boundReaderChunks(chunks);
 			  writeStore(storage3, { version: CONTENT_STORE_VERSION, chunks: bounded, answers: current.answers });
 			  return Object.freeze(appended.filter(({ id }) => bounded.some((chunk) => chunk.id === id)));
 			}
@@ -1064,6 +1081,40 @@ window.__ModuleLoader__.load({
 			    storage3.setItem(EXPERIENCE_STORAGE_KEY, JSON.stringify(state));
 			  } catch {
 			  }
+			}
+
+			// client-src/experience/vibe-library.js
+			var MAX_VIBE_LIBRARY_QUERY = 120;
+			var MAX_VIBE_LIBRARY_RESULTS = 160;
+			var LIBRARY_SOURCES = /* @__PURE__ */ new Set(["chat-directed", "fresh-stream", "radar-reserve"]);
+			function retainedVibe(chunk) {
+			  return chunk !== null && typeof chunk === "object" && typeof chunk.id === "string" && typeof chunk.title === "string" && typeof chunk.markdown === "string" && LIBRARY_SOURCES.has(chunk.source) && chunk.kind !== "questionnaire";
+			}
+			function searchableText(chunk) {
+			  return `${chunk.title}
+			${chunk.markdown}`.normalize("NFKC").toLocaleLowerCase().replace(/https?:\/\/\S+/g, " ").replace(/[*_`~#[\]()>|{}-]+/g, " ").replace(/\s+/g, " ").trim();
+			}
+			function searchTerms(query) {
+			  if (typeof query !== "string") return Object.freeze([]);
+			  const bounded = query.normalize("NFKC").slice(0, MAX_VIBE_LIBRARY_QUERY).toLocaleLowerCase().replace(/\s+/g, " ").trim();
+			  return Object.freeze(bounded === "" ? [] : bounded.split(" "));
+			}
+			function searchableVibeChunks(chunks, query = "") {
+			  if (!Array.isArray(chunks)) return Object.freeze([]);
+			  const terms = searchTerms(query);
+			  return Object.freeze(chunks.filter(retainedVibe).filter((chunk) => {
+			    if (terms.length === 0) return true;
+			    const haystack = searchableText(chunk);
+			    return terms.every((term) => haystack.includes(term));
+			  }).slice(0, MAX_VIBE_LIBRARY_RESULTS));
+			}
+			function vibeLibrarySummary(chunks) {
+			  const retained = searchableVibeChunks(chunks);
+			  const timestamps = retained.map(({ publishedAt }) => Number(publishedAt)).filter(Number.isFinite);
+			  return Object.freeze({
+			    count: retained.length,
+			    oldestPublishedAt: timestamps.length === 0 ? null : Math.min(...timestamps)
+			  });
 			}
 
 			// vibeify:vibeify-artwork
@@ -2658,6 +2709,35 @@ window.__ModuleLoader__.load({
 			  if (href === null || label === null) return null;
 			  return Object.freeze({ href, label });
 			}
+			function cleanShareMedia(candidate) {
+			  if (candidate === null || typeof candidate !== "object") return null;
+			  const cleanedHref = cleanHttps(candidate.href);
+			  const label = cleanText4(candidate.label, MAX_LABEL2);
+			  if (cleanedHref === null || label === null) return null;
+			  const url = new URL(cleanedHref);
+			  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+			  if (host === "youtube.com" || host === "youtu.be") {
+			    const id = host === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : url.searchParams.get("v");
+			    if (!/^[a-zA-Z0-9_-]{6,16}$/.test(id ?? "")) return null;
+			    return Object.freeze({ provider: "youtube", kind: "video", label, href: `https://www.youtube.com/watch?v=${id}` });
+			  }
+			  if (host === "vimeo.com") {
+			    const id = url.pathname.split("/").filter(Boolean)[0];
+			    if (!/^\d{4,14}$/.test(id ?? "")) return null;
+			    return Object.freeze({ provider: "vimeo", kind: "video", label, href: `https://vimeo.com/${id}` });
+			  }
+			  if (host === "open.spotify.com") {
+			    const match = /^\/(track|album|episode|show|playlist)\/([a-zA-Z0-9]+)\/?$/.exec(url.pathname);
+			    if (match === null) return null;
+			    return Object.freeze({ provider: "spotify", kind: "music", label, href: `https://open.spotify.com/${match[1]}/${match[2]}` });
+			  }
+			  if (host === "soundcloud.com") {
+			    const path = url.pathname.split("/").filter(Boolean);
+			    if (path.length < 2 || path.some((part) => !/^[a-zA-Z0-9_-]{1,100}$/.test(part))) return null;
+			    return Object.freeze({ provider: "soundcloud", kind: "music", label, href: `https://soundcloud.com/${path.join("/")}` });
+			  }
+			  return null;
+			}
 			function cleanShareSnapshot(candidate, now = Date.now()) {
 			  if (candidate === null || typeof candidate !== "object" || candidate.version !== SHARE_SNAPSHOT_VERSION) return null;
 			  const title = cleanText4(candidate.title, MAX_TITLE3);
@@ -2684,7 +2764,8 @@ window.__ModuleLoader__.load({
 			    publishedAt,
 			    visual,
 			    inlineVisuals: Object.freeze(inlineVisuals),
-			    contentLink: cleanContentLink(candidate.contentLink)
+			    contentLink: cleanContentLink(candidate.contentLink),
+			    media: cleanShareMedia(candidate.media)
 			  });
 			}
 			function createShareTransfer(snapshot) {
@@ -2698,7 +2779,7 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/share-client.js
 			var SHARE_READY_TIMEOUT_MS = 15e3;
-			function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink }, now = Date.now()) {
+			function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
 			  const publicPhoto = media?.episode?.photo;
 			  const visual = media?.externalUrl !== void 0 ? {
 			    imageUrl: media.externalUrl,
@@ -2719,7 +2800,12 @@ window.__ModuleLoader__.load({
 			    publishedAt: Number(chunk?.publishedAt) || now,
 			    visual,
 			    inlineVisuals,
-			    contentLink
+			    contentLink,
+			    media: embeddedMedia === null || embeddedMedia === void 0 ? null : {
+			      kind: embeddedMedia.kind,
+			      label: embeddedMedia.label,
+			      href: embeddedMedia.href
+			    }
 			  }, now);
 			}
 			function beginSharePreview(snapshot, {
@@ -3064,7 +3150,11 @@ window.__ModuleLoader__.load({
 			function boundMagazinePresentation(chunks, dynamicLimit = 160) {
 			  if (!Array.isArray(chunks)) throw new TypeError("magazine presentation must be an array");
 			  if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("magazine presentation limit is invalid");
-			  const retainedDynamicIds = new Set(chunks.filter((chunk) => !deterministicSource(chunk?.source)).slice(-dynamicLimit).map(({ id }) => id));
+			  const retainedDynamicIds = new Set(boundReaderChunks(
+			    chunks.filter((chunk) => !deterministicSource(chunk?.source)),
+			    dynamicLimit,
+			    Math.min(MAX_CHAT_VIBE_RESERVE, dynamicLimit)
+			  ).map(({ id }) => id));
 			  return Object.freeze(chunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
 			}
 			function composeOpeningStream({ cached, bundle, welcome, now = Date.now(), dynamicLimit = 160 }) {
@@ -3120,6 +3210,7 @@ window.__ModuleLoader__.load({
 			    chat: "M4 5h16v11H8l-4 4V5zm4 5h8M8 7h8M8 13h5",
 			    save: "M6 3h12v18l-6-4-6 4V3z",
 			    share: "M12 3v12m-4-8 4-4 4 4M5 11v9h14v-9",
+			    search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm5 12 4 4",
 			    check: "M5 12l4 4L19 6",
 			    arrow: "M5 12h14m-5-5 5 5-5 5"
 			  };
@@ -3135,9 +3226,9 @@ window.__ModuleLoader__.load({
 			    if (link !== null) onLink?.(link.href);
 			  } });
 			}
-			function Header({ editorialLabel, updateState, onChat, onHome, onUpdate, onStop }) {
+			function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
 			  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
-			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react.default.createElement(
 			    "button",
 			    {
 			      type: "button",
@@ -3219,7 +3310,7 @@ window.__ModuleLoader__.load({
 			        type: "button",
 			        className: "vfx-share",
 			        disabled: shareStatus === "opening",
-			        onClick: () => onShare(chunk, { media, inlineVisuals, contentLink })
+			        onClick: () => onShare(chunk, { media, inlineVisuals, contentLink, embeddedMedia: player })
 			      },
 			      /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }),
 			      { opening: "Opening preview\u2026", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"
@@ -3234,6 +3325,8 @@ window.__ModuleLoader__.load({
 			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
 			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [libraryOpen, setLibraryOpen] = import_react.default.useState(false);
+			  const [libraryQuery, setLibraryQuery] = import_react.default.useState("");
 			  const [answers, setAnswers] = import_react.default.useState(() => {
 			    const store = getCachedStream(browserStorage());
 			    return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
@@ -3396,6 +3489,8 @@ window.__ModuleLoader__.load({
 			      });
 			    };
 			    const onVibeHome = () => {
+			      setLibraryOpen(false);
+			      setLibraryQuery("");
 			      dispatch({ type: "home" });
 			      window.requestAnimationFrame(() => window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" })));
 			    };
@@ -3509,13 +3604,14 @@ window.__ModuleLoader__.load({
 			    appendLearningEvent(browserStorage(), { event: "skipped", chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
 			    setSkipped((current) => /* @__PURE__ */ new Set([...current, chunk.id]));
 			  }, []);
-			  const onShare = import_react.default.useCallback((chunk, { media, inlineVisuals, contentLink }) => {
+			  const onShare = import_react.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
 			    const snapshot = shareSnapshotForChunk({
 			      chunk,
 			      markdown: markdownWithoutLeadVisual(chunk.markdown),
 			      media,
 			      inlineVisuals,
-			      contentLink
+			      contentLink,
+			      embeddedMedia
 			    });
 			    if (snapshot === null) {
 			      setShareState({ chunkId: chunk.id, status: "invalid" });
@@ -3528,8 +3624,18 @@ window.__ModuleLoader__.load({
 			      }
 			    });
 			  }, []);
-			  const displayChunks = newestFirst(chunks);
-			  const goHome = import_react.default.useCallback(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }), []);
+			  const newestChunks = newestFirst(chunks);
+			  const librarySummary = vibeLibrarySummary(newestChunks);
+			  const displayChunks = libraryOpen ? searchableVibeChunks(newestChunks, libraryQuery) : newestChunks;
+			  const goHome = import_react.default.useCallback(() => {
+			    setLibraryOpen(false);
+			    setLibraryQuery("");
+			    streamRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+			  }, []);
+			  const openLibrary = import_react.default.useCallback(() => {
+			    setLibraryOpen(true);
+			    window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+			  }, []);
 			  const enterChat = import_react.default.useCallback(() => {
 			    dispatch({ type: "enter-chat" });
 			    window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
@@ -3556,14 +3662,17 @@ window.__ModuleLoader__.load({
 			      {
 			        editorialLabel: editorialProfile.label,
 			        updateState,
+			        libraryOpen,
 			        onHome: goHome,
+			        onFind: openLibrary,
 			        onUpdate: startRun,
 			        onStop: stopRun,
 			        onChat: enterChat
 			      }
 			    ),
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
-			    /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
+			    libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
+			    libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null,
 			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
 			      StreamChunk,
 			      {
@@ -3583,7 +3692,7 @@ window.__ModuleLoader__.load({
 			        onChat: enterChat
 			      }
 			    ))),
-			    /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 external actions stay in Chat"))
+			    /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 external actions stay in Chat"))
 			  ) : null);
 			}
 			var CSS = `
@@ -3603,6 +3712,8 @@ window.__ModuleLoader__.load({
 			.vfx-edition { margin-left:auto; color:#94858f; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 			.vfx-update { min-height:39px; padding:0 16px; border:1px solid rgba(255,255,255,.19); border-radius:999px; background:rgba(255,255,255,.04); cursor:pointer; font-size:12px; font-weight:760; }
 			.vfx-update:hover { background:rgba(255,255,255,.12); }.vfx-update.is-active { color:#190d13; border-color:#ff9aba; background:#ff9aba; }
+			.vfx-find { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
+			.vfx-find:hover,.vfx-find[aria-pressed="true"] { border-color:rgba(255,154,186,.68); background:rgba(255,117,159,.14); }
 			.vfx-chat { min-height:39px; padding:0 16px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.25); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:13px; font-weight:700; }
 			.vfx-chat:hover { background:rgba(255,255,255,.14); }
 			.vfx-pull { height:0; overflow:hidden; display:grid; place-items:end center; color:#9d8f99; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; transition:height .18s ease; }.vfx-pull span { padding:0 0 12px; }.vfx-pull.is-armed { color:#ff8db1; }
@@ -3612,6 +3723,18 @@ window.__ModuleLoader__.load({
 			.vfx-edition-intro p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.35vw,18px); line-height:1.5; }
 			.vfx-edition-intro .vfx-update-note { margin-top:14px; color:#ffb3cb; font-size:12px; font-weight:700; }
 			.vfx-intro-cta { min-height:44px; margin-top:22px; padding:0 18px; display:inline-flex; align-items:center; gap:9px; border:1px solid #ff9aba; border-radius:999px; background:#ff9aba; color:#190d13!important; cursor:pointer; font-size:13px!important; font-weight:850; }
+			.vfx-library { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:clamp(34px,5vw,64px) 0 clamp(28px,4vw,44px); display:grid; grid-template-columns:minmax(0,1fr) minmax(300px,.62fr); align-items:end; gap:24px clamp(30px,5vw,70px); }
+			.vfx-library-heading>span { color:#ff85aa; font-size:10px; font-weight:850; letter-spacing:.16em; text-transform:uppercase; }
+			.vfx-library h1 { max-width:720px; margin:9px 0 13px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(36px,5vw,66px); font-weight:500; line-height:.95; letter-spacing:-.055em; text-wrap:balance; }
+			.vfx-library p { max-width:720px; margin:0; color:#c7bac4; font-size:clamp(14px,1.25vw,17px); line-height:1.55; }
+			.vfx-library-search { display:grid; gap:9px; color:#a99aa5; font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+			.vfx-library-search>div { min-height:52px; padding:0 16px; display:flex; align-items:center; gap:11px; border:1px solid rgba(255,255,255,.19); border-radius:16px; background:rgba(255,255,255,.055); }
+			.vfx-library-search>div:focus-within { border-color:#ff9aba; box-shadow:0 0 0 3px rgba(255,117,159,.13); }
+			.vfx-library-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:#fff; font:600 15px/1.3 Inter,"SF Pro Display","Helvetica Neue",sans-serif; letter-spacing:0; text-transform:none; }
+			.vfx-library-search input::placeholder { color:#7e717b; }
+			.vfx-library-status { grid-column:1/-1; padding-top:18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid rgba(255,255,255,.08); color:#978992; font-size:11px; }
+			.vfx-library-status button { min-height:36px; padding:0 14px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.04); cursor:pointer; font-size:11px; font-weight:760; }
+			.vfx-library-empty { width:min(1180px,calc(100% - 40px)); margin:0 auto 36px; padding:42px 24px; border:1px dashed rgba(255,255,255,.14); border-radius:18px; color:#a99aa5; text-align:center; }
 			.vfx-chunks { width:min(1240px,calc(100% - 40px)); min-width:0; margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
 			.vfx-chunk { grid-column:span 6; min-width:0; max-width:100%; align-self:start; overflow:hidden; contain:inline-size; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
 			.vfx-chunk[data-layout="compact"] { grid-column:span 4; }
@@ -3658,8 +3781,8 @@ window.__ModuleLoader__.load({
 			.vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
-			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
-			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-update,.vfx-chat { min-height:36px; padding:0 11px; }.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro { padding-top:34px; }.vfx-edition-intro h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
+			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
+			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-update,.vfx-chat { min-height:36px; padding:0 10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 			@media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 			`;
 			function installStyles(ctx) {

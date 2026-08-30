@@ -22,8 +22,21 @@ const snapshot = Object.freeze({
   },
   inlineVisuals: [],
   contentLink: { href: "https://blog.luanti.org/2026/08/27/dmca.html", label: "Luanti's account" },
+  media: null,
   prompt: "must never cross the boundary",
   sessionId: "private-session",
+});
+
+const mediaSnapshot = Object.freeze({
+  ...snapshot,
+  title: "A song inside the article",
+  kind: "music",
+  media: Object.freeze({
+    provider: "soundcloud",
+    kind: "music",
+    label: "Open SoundCloud player",
+    href: "https://soundcloud.com/the-orca-band/i-know-you-better",
+  }),
 });
 
 class MemoryDb {
@@ -127,6 +140,34 @@ test("publishing copies the final link and keeps an explicit copy control", () =
   assert.match(APP_JS, /await copyPublicLink\(result\.url\)/);
   assert.match(APP_JS, /Copied to clipboard/);
   assert.match(APP_JS, /Copy link/);
+});
+
+test("private previews and public articles preserve fixed-provider media as click-to-load embeds", async () => {
+  const page = renderPublicArticle(mediaSnapshot, `${origin}/a/media123`);
+  assert.match(page, /class="media-card"/);
+  assert.match(page, /data-media-provider="soundcloud"/);
+  assert.match(page, /data-media-href="https:\/\/soundcloud\.com\/the-orca-band\/i-know-you-better"/);
+  assert.match(page, /Open on SoundCloud/);
+  assert.match(page, /<script type="module" src="\/app\.js"><\/script>/);
+  assert.doesNotMatch(page, /autoplay|auto_play=true/);
+
+  assert.match(APP_JS, /function mediaEmbedSource/);
+  assert.match(APP_JS, /youtube-nocookie\.com\/embed/);
+  assert.match(APP_JS, /auto_play=false/);
+  assert.match(APP_JS, /querySelectorAll\("\[data-media-provider\]"\)/);
+
+  const preview = await handleRequest(new Request(`${origin}/new`), {});
+  assert.match(await preview.text(), /selected public images, embedded media, and its source link/);
+});
+
+test("the response policy admits only the four fixed media player hosts", async () => {
+  const response = await handleRequest(new Request(`${origin}/new`), {});
+  const policy = response.headers.get("content-security-policy");
+  assert.match(policy, /frame-src[^;]*youtube-nocookie\.com/);
+  assert.match(policy, /frame-src[^;]*player\.vimeo\.com/);
+  assert.match(policy, /frame-src[^;]*open\.spotify\.com/);
+  assert.match(policy, /frame-src[^;]*w\.soundcloud\.com/);
+  assert.doesNotMatch(policy, /frame-src[^;]*\*/);
 });
 
 test("preview describes the privacy boundary and production publishing fails closed", async () => {

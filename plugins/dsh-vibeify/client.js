@@ -938,7 +938,7 @@ window.__ModuleLoader__.load({
 			- Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
 			- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
 			- Every non-questionnaire chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
-			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator](https://source-page)". An AI-assisted graphic is allowed only when the story itself is conceptual or visual and the graphic is explicitly labelled; use no more than one in the batch and never substitute one for available documentary photography. Never reuse a recent image URL, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
+			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, or cdn.pixabay.com; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator](https://source-page)". When no exact documentary image is available and image generation is already available and authorised, prefer a unique story-specific generated image, labelled Generated image, over recycled stock. Otherwise make the story's words visual with a unique typographic editorial cover, or use a unique labelled AI-assisted graphic as the last choice. Never reuse a recent image URL. Never present generated imagery as a real photograph, imitate a named artist or sacred visual tradition, invent a credit, use a tracker, or publish the candidate list: publish only the best relevant selection.
 			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 			- A later deeper chunk may begin with natural editorial continuity such as \u201CI dug further into this\u2026\u201D or \u201CA few pages later, the stronger route is\u2026\u201D. It must add knowledge rather than revise or silently replace an earlier chunk.
@@ -2683,6 +2683,7 @@ window.__ModuleLoader__.load({
 			var MAX_LABEL2 = 160;
 			var MAX_ALT = 240;
 			var ARTICLE_KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
+			var VISUAL_KINDS = /* @__PURE__ */ new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
 			var TRACKING_QUERY_KEY2 = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 			function cleanText4(value, limit, multiline = false) {
 			  if (typeof value !== "string") return null;
@@ -2710,7 +2711,9 @@ window.__ModuleLoader__.load({
 			  const alt = cleanText4(candidate.alt, MAX_ALT);
 			  const credit = cleanText4(candidate.credit, MAX_LABEL2);
 			  if (imageUrl === null || sourceUrl === null || alt === null || credit === null) return null;
-			  return Object.freeze({ imageUrl, sourceUrl, alt, credit });
+			  const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
+			  const inferredKind = /\bphotograph|\bphoto\b/i.test(credit) ? "photograph" : /\bgenerated image|\bai-generated|\bphotorealistic/i.test(credit) ? "ai-generated" : /\btypograph|\bcalligraph/i.test(credit) ? "typography" : /\bai-assisted graphic|\bai graphic/i.test(credit) ? "ai-graphic" : "editorial-image";
+			  return Object.freeze({ imageUrl, sourceUrl, alt, credit, kind: declaredKind ?? inferredKind });
 			}
 			function cleanContentLink(candidate) {
 			  if (candidate === null || typeof candidate !== "object") return null;
@@ -2795,12 +2798,14 @@ window.__ModuleLoader__.load({
 			    imageUrl: media.externalUrl,
 			    sourceUrl: media.href,
 			    alt: media.alt,
-			    credit: media.label
+			    credit: media.label,
+			    kind: media.kind ?? (/\bphotograph|\bphoto\b/i.test(media.label ?? "") ? "photograph" : void 0)
 			  } : typeof publicPhoto?.publicImageUrl === "string" ? {
 			    imageUrl: publicPhoto.publicImageUrl,
 			    sourceUrl: publicPhoto.sourceUrl ?? media.href,
 			    alt: publicPhoto.alt ?? media.alt,
-			    credit: typeof publicPhoto.photographer === "string" ? `Photograph \xB7 ${publicPhoto.photographer}` : media.label
+			    credit: typeof publicPhoto.photographer === "string" ? `Photograph \xB7 ${publicPhoto.photographer}` : media.label,
+			    kind: "photograph"
 			  } : null;
 			  return cleanShareSnapshot({
 			    version: SHARE_SNAPSHOT_VERSION,

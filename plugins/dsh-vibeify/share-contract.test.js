@@ -24,6 +24,7 @@ test("an article share contains presentation fields but no local session identit
       sourceUrl: "https://images.example.org/portrait",
       alt: "Jason Arday speaking at a university",
       credit: "Photograph · Example University",
+      kind: "photograph",
     },
     inlineVisuals: [{
       imageUrl: "https://images.example.org/library.webp",
@@ -44,9 +45,37 @@ test("an article share contains presentation fields but no local session identit
   ]);
   assert.equal(snapshot.title, "What Jason Arday studied");
   assert.equal(snapshot.visual.imageUrl, "https://images.example.org/jason.webp");
+  assert.equal(snapshot.visual.kind, "photograph");
   assert.equal(snapshot.inlineVisuals.length, 1);
   assert.equal(snapshot.contentLink.href, "https://example.org/story");
   assert.doesNotMatch(JSON.stringify(snapshot), /session-secret|private prompt|private reasoning|builders-nerds|private-session/);
+});
+
+test("public visuals keep a bounded provenance kind and infer legacy credits", () => {
+  const cleaned = cleanShareSnapshot({
+    version: SHARE_SNAPSHOT_VERSION,
+    title: "A visual article",
+    kind: "image",
+    markdown: "Finished public copy.",
+    publishedAt: NOW,
+    visual: {
+      imageUrl: "https://images.example.org/generated.jpg",
+      sourceUrl: "https://example.org/story",
+      alt: "A story-specific generated portrait",
+      credit: "Generated image · Vibe editor",
+      kind: "ai-generated",
+    },
+    inlineVisuals: [{
+      imageUrl: "https://images.example.org/legacy.jpg",
+      sourceUrl: "https://example.org/legacy",
+      alt: "A documentary image",
+      credit: "Photograph · Archive",
+    }],
+  }, NOW);
+
+  assert.equal(cleaned.visual.kind, "ai-generated");
+  assert.equal(cleaned.inlineVisuals[0].kind, "photograph");
+  assert.doesNotMatch(JSON.stringify(cleaned), /made-up-kind/);
 });
 
 test("the public contract preserves only fixed-provider click-to-load media", () => {

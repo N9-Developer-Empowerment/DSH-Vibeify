@@ -19,6 +19,7 @@ const snapshot = Object.freeze({
     sourceUrl: "https://blog.luanti.org/2026/08/27/dmca.html",
     alt: "Luanti artwork",
     credit: "Artwork · Luanti",
+    kind: "editorial-image",
   },
   inlineVisuals: [],
   contentLink: { href: "https://blog.luanti.org/2026/08/27/dmca.html", label: "Luanti's account" },
@@ -40,22 +41,39 @@ const mediaSnapshot = Object.freeze({
 });
 
 class MemoryDb {
-  constructor() { this.rows = new Map(); this.limits = new Map(); }
+  constructor() { this.rows = new Map(); this.limits = new Map(); this.visuals = new Map(); }
   prepare(sql) {
     const db = this;
     return {
       bind(...values) {
         return {
           async run() {
-            if (sql.startsWith("INSERT")) {
+            if (sql.startsWith("INSERT OR IGNORE INTO published_visuals")) {
+              const [visualKey, articleSlug, visualKind, createdAt] = values;
+              if (db.visuals.has(visualKey)) return { meta: { changes: 0 } };
+              db.visuals.set(visualKey, { article_slug: articleSlug, visual_kind: visualKind, created_at: createdAt });
+              return { meta: { changes: 1 } };
+            }
+            if (sql.startsWith("INSERT INTO articles")) {
               const [slug, snapshotJson, createdAt, expiresAt, deleteTokenHash] = values;
               if (db.rows.has(slug)) throw new Error("duplicate");
               db.rows.set(slug, { snapshot_json: snapshotJson, created_at: createdAt, expires_at: expiresAt, delete_token_hash: deleteTokenHash });
               return { meta: { changes: 1 } };
             }
+            if (sql.startsWith("UPDATE articles")) {
+              const [snapshotJson, slug] = values;
+              const row = db.rows.get(slug);
+              if (row === undefined) return { meta: { changes: 0 } };
+              row.snapshot_json = snapshotJson;
+              return { meta: { changes: 1 } };
+            }
             if (sql.startsWith("DELETE")) {
               const [slug, tokenHash] = values;
               const row = db.rows.get(slug);
+              if (values.length === 1) {
+                const removed = db.rows.delete(slug);
+                return { meta: { changes: removed ? 1 : 0 } };
+              }
               if (row?.delete_token_hash !== tokenHash) return { meta: { changes: 0 } };
               db.rows.delete(slug);
               return { meta: { changes: 1 } };
@@ -70,6 +88,9 @@ class MemoryDb {
               db.limits.set(key, count);
               return { count };
             }
+            if (sql.startsWith("SELECT visual_key")) {
+              return db.visuals.has(values[0]) ? { visual_key: values[0] } : null;
+            }
             if (!sql.startsWith("SELECT")) throw new Error(`unexpected first: ${sql}`);
             return db.rows.get(values[0]) ?? null;
           },
@@ -78,6 +99,19 @@ class MemoryDb {
     };
   }
 }
+
+class MemoryCovers {
+  constructor() { this.rows = new Map(); }
+  async put(key, value, options) { this.rows.set(key, { value: new Uint8Array(value), ...options }); }
+  async get(key) {
+    const row = this.rows.get(key);
+    if (row === undefined) return null;
+    return { arrayBuffer: async () => row.value.buffer.slice(row.value.byteOffset, row.value.byteOffset + row.value.byteLength), httpMetadata: row.httpMetadata };
+  }
+  async delete(key) { this.rows.delete(key); }
+}
+
+const generatedCover = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, ...new Array(2_100).fill(0), 0xff, 0xd9]).toString("base64")}`;
 
 test("public rendering escapes raw HTML while preserving safe article links", () => {
   const html = markdownToHtml('<script>alert("private")</script>\n\n[Safe](https://example.org/story)');
@@ -231,17 +265,107 @@ test("social crawlers are explicitly allowed to inspect shared articles", async 
   assert.equal(await robotsHead.text(), "");
 });
 
-test("new public pages require at least one image", async () => {
+test("the preview checks public visual reuse and prepares a one-off JPEG fallback", () => {
+  assert.match(APP_JS, /\/api\/visuals\/check/);
+  assert.match(APP_JS, /toDataURL\("image\/jpeg"/);
+  assert.match(APP_JS, /generatedCover/);
+  assert.match(APP_JS, /public cover is unique/i);
+});
+
+test("a text-only public page uses its unique generated editorial cover", async () => {
   const db = new MemoryDb();
+  const covers = new MemoryCovers();
   const response = await handleRequest(new Request(`${origin}/api/articles`, {
     method: "POST",
     headers: { origin, "content-type": "application/json" },
-    body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, turnstileToken: "local-test" }),
-  }), { VIBE_SHARE_DB: db, VIBE_SHARE_LOCAL_DEV: "true" });
+    body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, generatedCover, turnstileToken: "local-test" }),
+  }), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" });
 
-  assert.equal(response.status, 400);
-  assert.match((await response.json()).error, /image/i);
-  assert.equal(db.rows.size, 0);
+  const created = await response.json();
+  assert.equal(response.status, 201);
+  const stored = JSON.parse([...db.rows.values()][0].snapshot_json);
+  assert.equal(stored.visual.kind, "typography");
+  assert.equal(stored.visual.imageUrl, `${origin}/i/${created.slug}.jpg`);
+  assert.equal(covers.rows.size, 1);
+
+  const image = await handleRequest(new Request(stored.visual.imageUrl), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
+  assert.equal(image.status, 200);
+  assert.equal(image.headers.get("content-type"), "image/jpeg");
+  assert.deepEqual([...new Uint8Array(await image.arrayBuffer()).slice(0, 3)], [0xff, 0xd8, 0xff]);
+
+  const page = await handleRequest(new Request(created.url), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
+  assert.match(await page.text(), new RegExp(`<meta property="og:image" content="${origin.replaceAll(".", "\\.")}\\/i\\/${created.slug}\\.jpg">`));
+
+  const repeated = await handleRequest(new Request(`${origin}/api/articles`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, generatedCover, turnstileToken: "local-test" }),
+  }), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" });
+  assert.equal(repeated.status, 409);
+  assert.match((await repeated.json()).error, /new preview/i);
+
+  const removed = await handleRequest(new Request(`${origin}/api/articles/${created.slug}`, {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${created.deleteToken}` },
+  }), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
+  assert.equal(removed.status, 200);
+  assert.equal(covers.rows.size, 0);
+  const removedImage = await handleRequest(new Request(stored.visual.imageUrl), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
+  assert.equal(removedImage.status, 404);
+});
+
+test("a photograph cannot be reused after deletion and the checked preview uses a unique cover", async () => {
+  const db = new MemoryDb();
+  const covers = new MemoryCovers();
+  const env = { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" };
+  const publishArticle = () => handleRequest(new Request(`${origin}/api/articles`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ snapshot, generatedCover, turnstileToken: "local-test" }),
+  }), env);
+
+  const firstResponse = await publishArticle();
+  const first = await firstResponse.json();
+  assert.equal(firstResponse.status, 201);
+  assert.equal(JSON.parse(db.rows.get(first.slug).snapshot_json).visual.imageUrl, snapshot.visual.imageUrl);
+
+  const removed = await handleRequest(new Request(`${origin}/api/articles/${first.slug}`, { method: "DELETE", headers: { authorization: `Bearer ${first.deleteToken}` } }), env);
+  assert.equal(removed.status, 200);
+
+  const check = await handleRequest(new Request(`${origin}/api/visuals/check`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ imageUrls: [snapshot.visual.imageUrl] }),
+  }), env);
+  assert.deepEqual(await check.json(), { used: [snapshot.visual.imageUrl] });
+
+  const secondResponse = await handleRequest(new Request(`${origin}/api/articles`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, generatedCover, turnstileToken: "local-test" }),
+  }), env);
+  const second = await secondResponse.json();
+  assert.equal(secondResponse.status, 201);
+  const secondSnapshot = JSON.parse(db.rows.get(second.slug).snapshot_json);
+  assert.equal(secondSnapshot.visual.kind, "typography");
+  assert.equal(secondSnapshot.visual.imageUrl, `${origin}/i/${second.slug}.jpg`);
+  assert.equal(db.visuals.has("https://blog.luanti.org/static/blog/2026_dmca/cover.webp"), true);
+
+  const racedResponse = await publishArticle();
+  assert.equal(racedResponse.status, 409);
+  assert.match((await racedResponse.json()).error, /preview and share again/i);
+});
+
+test("the visual check reports the same published image despite crop query changes", async () => {
+  const db = new MemoryDb();
+  db.visuals.set("https://images.example.org/photo.jpg", { article_slug: "old" });
+  const response = await handleRequest(new Request(`${origin}/api/visuals/check`, {
+    method: "POST",
+    headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ imageUrls: ["https://images.example.org/photo.jpg?crop=faces&w=1200"] }),
+  }), { VIBE_SHARE_DB: db, VIBE_SHARE_LOCAL_DEV: "true" });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { used: ["https://images.example.org/photo.jpg?crop=faces&w=1200"] });
 });
 
 test("managed publishing stores only a salted daily fingerprint and enforces the public contract", async () => {

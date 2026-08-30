@@ -15,11 +15,13 @@ export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, c
     sourceUrl: media.href,
     alt: media.alt,
     credit: media.label,
+    kind: media.kind ?? (/\bphotograph|\bphoto\b/i.test(media.label ?? "") ? "photograph" : undefined),
   } : typeof publicPhoto?.publicImageUrl === "string" ? {
     imageUrl: publicPhoto.publicImageUrl,
     sourceUrl: publicPhoto.sourceUrl ?? media.href,
     alt: publicPhoto.alt ?? media.alt,
     credit: typeof publicPhoto.photographer === "string" ? `Photograph · ${publicPhoto.photographer}` : media.label,
+    kind: "photograph",
   } : null;
   return cleanShareSnapshot({
     version: SHARE_SNAPSHOT_VERSION,

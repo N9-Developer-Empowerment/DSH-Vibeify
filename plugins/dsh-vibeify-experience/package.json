@@ -1,6 +1,6 @@
 {
   "name": "dsh-vibeify-experience",
-  "version": "0.15.4",
+  "version": "0.15.5",
   "description": "The provider-neutral Vibeify editorial experience for DeepSeek Harness.",
   "type": "module",
   "main": "index.js",

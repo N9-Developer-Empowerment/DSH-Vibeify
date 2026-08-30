@@ -158,6 +158,8 @@ The browser never publishes half a paragraph or a stream of raw tokens. It waits
 
 For visual pages, the editor considers at least 18 potential images from three or more credible source families, then selects for exact subject or named-entity relevance, informative value, clear credit, usable composition, freshness and non-repetition. The displayed image keeps its own creator/source link in the caption. Separately, every generated non-questionnaire page includes a reader-facing content link in the prose; the compact **Read source** action points to that story, work, creator, paper, video, music or useful service—not to the image file or its credit page.
 
+Private reading and public publishing deliberately use different image rules. A local card may reuse one of the bundled offline images. **Preview and share** may not: it checks a permanent public-image register, keeps only unused relevant images, and creates a unique text-led cover from the reviewed article if none remains. The generated cover is labelled as editorial typography rather than photography and becomes the public page's responsive and social image.
+
 ## What runs, and what does not
 
 | Reader action or event | Model work? | Visible result | Stop condition |

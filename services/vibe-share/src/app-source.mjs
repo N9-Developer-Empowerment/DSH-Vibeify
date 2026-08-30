@@ -6,6 +6,111 @@ const preview = document.getElementById("preview");
 const publish = document.getElementById("publish");
 const status = document.getElementById("status");
 let snapshot = null;
+let generatedCover = null;
+
+const VISUAL_PRIORITY = Object.freeze({ photograph: 0, "editorial-image": 1, "ai-generated": 2, "ai-graphic": 3, typography: 4 });
+
+function articleVisuals(value) {
+  const rows = [value.visual, ...(value.inlineVisuals ?? [])].filter((row) => row !== null && typeof row?.imageUrl === "string");
+  return rows.map((visual, index) => ({ visual, index }))
+    .sort((left, right) => (VISUAL_PRIORITY[left.visual.kind] ?? 9) - (VISUAL_PRIORITY[right.visual.kind] ?? 9) || left.index - right.index)
+    .map(({ visual }) => visual);
+}
+
+function wrapCoverText(context, text, x, y, maxWidth, lineHeight, maxLines) {
+  const words = String(text ?? "").split(/\s+/).filter(Boolean);
+  let line = "";
+  let lineIndex = 0;
+  for (const word of words) {
+    const candidate = line === "" ? word : line + " " + word;
+    if (context.measureText(candidate).width <= maxWidth || line === "") {
+      line = candidate;
+      continue;
+    }
+    context.fillText(line, x, y + lineIndex * lineHeight);
+    lineIndex += 1;
+    if (lineIndex >= maxLines) return;
+    line = word;
+  }
+  if (line !== "" && lineIndex < maxLines) context.fillText(line, x, y + lineIndex * lineHeight);
+}
+
+function createTypographicCover(value) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 1200;
+  canvas.height = 630;
+  const context = canvas.getContext("2d");
+  const entropy = new Uint32Array(1);
+  crypto.getRandomValues(entropy);
+  const seed = [...String(value.title ?? "Vibe")].reduce((sum, character) => (sum * 31 + character.codePointAt(0)) >>> 0, entropy[0]);
+  const hue = seed % 360;
+  const gradient = context.createLinearGradient(0, 0, 1200, 630);
+  gradient.addColorStop(0, "hsl(" + hue + " 42% 13%)");
+  gradient.addColorStop(1, "hsl(" + ((hue + 54) % 360) + " 48% 22%)");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, 1200, 630);
+  context.globalAlpha = 0.22;
+  context.strokeStyle = "hsl(" + ((hue + 142) % 360) + " 82% 76%)";
+  context.lineWidth = 3;
+  for (let index = 0; index < 5; index += 1) {
+    context.beginPath();
+    context.arc(1040 - index * 43, 80 + index * 92, 105 + index * 24, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.globalAlpha = 1;
+  context.fillStyle = "hsl(" + ((hue + 145) % 360) + " 88% 78%)";
+  context.font = "800 25px system-ui, sans-serif";
+  context.letterSpacing = "5px";
+  context.fillText("VIBE · ONE ARTICLE", 72, 74);
+  context.letterSpacing = "0px";
+  context.fillStyle = "#fffafc";
+  context.font = "500 68px Georgia, serif";
+  wrapCoverText(context, value.title, 72, 176, 940, 78, 4);
+  const excerpt = String(value.markdown ?? "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[*_#>|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  context.fillStyle = "#d7cbd2";
+  context.font = "400 27px system-ui, sans-serif";
+  wrapCoverText(context, excerpt, 74, 515, 980, 36, 2);
+  return canvas.toDataURL("image/jpeg", 0.9);
+}
+
+async function prepareUniquePreview(value) {
+  generatedCover = createTypographicCover(value);
+  const visuals = articleVisuals(value);
+  const response = await fetch("/api/visuals/check", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageUrls: visuals.map((visual) => visual.imageUrl) }),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error ?? "The public-image check is unavailable");
+  const used = new Set(result.used ?? []);
+  const fresh = visuals.filter((visual) => !used.has(visual.imageUrl));
+  if (fresh.length > 0) {
+    snapshot = { ...value, visual: fresh[0], inlineVisuals: fresh.slice(1, 4) };
+  } else {
+    snapshot = {
+      ...value,
+      visual: {
+        imageUrl: generatedCover,
+        sourceUrl: "https://dsh-vibeify.ezzye.chatgpt.site/",
+        alt: "Unique editorial typographic cover for " + value.title,
+        credit: "Editorial typography · created uniquely for this article",
+        kind: "typography",
+      },
+      inlineVisuals: [],
+    };
+  }
+  renderSnapshot(snapshot);
+  publish.disabled = false;
+  status.textContent = fresh.length > 0
+    ? "Private preview ready. This public image has not been used before."
+    : "Private preview ready. This public cover is unique to the article.";
+}
 
 async function copyPublicLink(value) {
   try {
@@ -294,14 +399,19 @@ function renderSnapshot(value) {
 
 installMediaPlayers(document);
 
-window.addEventListener("message", (event) => {
+window.addEventListener("message", async (event) => {
   if (preview === null || publish === null || status === null) return;
   if (event.source !== window.opener || !ALLOWED_OPENERS.has(event.origin)) return;
   if (event.data?.type !== SNAPSHOT || event.data?.version !== VERSION || typeof event.data?.snapshot !== "object") return;
-  snapshot = event.data.snapshot;
-  renderSnapshot(snapshot);
-  publish.disabled = false;
-  status.textContent = "Private preview ready. Check it before publishing.";
+  status.textContent = "Checking the public image…";
+  try {
+    await prepareUniquePreview(event.data.snapshot);
+  } catch (error) {
+    snapshot = null;
+    generatedCover = null;
+    publish.disabled = true;
+    status.textContent = error instanceof Error ? error.message : "The public-image check failed";
+  }
 }, { once: true });
 
 if (window.opener !== null) {
@@ -319,7 +429,7 @@ publish?.addEventListener("click", async () => {
     const response = await fetch("/api/articles", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ snapshot, turnstileToken }),
+      body: JSON.stringify({ snapshot, generatedCover, turnstileToken }),
     });
     const result = await response.json();
     if (!response.ok) throw new Error(result.error ?? "Publishing failed");

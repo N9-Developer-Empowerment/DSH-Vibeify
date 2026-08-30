@@ -87,6 +87,7 @@ test("a Vibe card maps only its public rendering into the share snapshot", () =>
 
   assert.equal(result.title, "A public article");
   assert.equal(result.visual.imageUrl, "https://images.example.org/lead.webp");
+  assert.equal(result.visual.kind, "photograph");
   assert.doesNotMatch(JSON.stringify(result), /private-local-id|private-local-lens|private-catalogue-id|fresh-stream/);
 });
 
@@ -115,6 +116,7 @@ test("a bundled Vibe photograph keeps a public copy when the article is shared",
 
   assert.equal(result.visual.imageUrl, "https://images.unsplash.com/photo-example?auto=format&fit=crop&w=1600&q=82");
   assert.equal(result.visual.sourceUrl, "https://unsplash.com/photos/example");
+  assert.equal(result.visual.kind, "photograph");
 });
 
 test("a card's fixed-provider player is preserved without transferring iframe source code", () => {

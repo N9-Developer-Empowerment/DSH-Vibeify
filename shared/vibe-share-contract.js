@@ -8,6 +8,7 @@ const MAX_MARKDOWN = 16_000;
 const MAX_LABEL = 160;
 const MAX_ALT = 240;
 const ARTICLE_KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
+const VISUAL_KINDS = new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 
 function cleanText(value, limit, multiline = false) {
@@ -41,7 +42,17 @@ function cleanVisual(candidate) {
   const alt = cleanText(candidate.alt, MAX_ALT);
   const credit = cleanText(candidate.credit, MAX_LABEL);
   if (imageUrl === null || sourceUrl === null || alt === null || credit === null) return null;
-  return Object.freeze({ imageUrl, sourceUrl, alt, credit });
+  const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
+  const inferredKind = /\bphotograph|\bphoto\b/i.test(credit)
+    ? "photograph"
+    : /\bgenerated image|\bai-generated|\bphotorealistic/i.test(credit)
+      ? "ai-generated"
+      : /\btypograph|\bcalligraph/i.test(credit)
+        ? "typography"
+        : /\bai-assisted graphic|\bai graphic/i.test(credit)
+          ? "ai-graphic"
+          : "editorial-image";
+  return Object.freeze({ imageUrl, sourceUrl, alt, credit, kind: declaredKind ?? inferredKind });
 }
 
 function cleanContentLink(candidate) {

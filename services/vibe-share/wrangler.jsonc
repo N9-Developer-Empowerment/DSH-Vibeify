@@ -10,6 +10,12 @@
       "database_id": "SET_DURING_FIRST_DEPLOYMENT"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "VIBE_SHARE_COVERS",
+      "bucket_name": "dsh-vibeify-share-covers"
+    }
+  ],
   "vars": {
     "VIBE_SHARE_RETENTION_DAYS": "365"
   }

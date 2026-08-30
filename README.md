@@ -6,7 +6,7 @@ DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://git
 
 ![The real DSH Vibeify welcome edition, with visual articles already on screen](docs/assets/dsh-vibeify-magazine-social.png)
 
-[Download Vibeify 0.15.3](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.3) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
+[Download Vibeify 0.15.4](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.4) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
 
 [![Watch DSH Vibeify turn online-agent work into a living magazine](docs/assets/dsh-vibeify-magazine-social.png)](https://youtu.be/jda4uplWsiI)
 
@@ -193,7 +193,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.15.3`
+- DSH Vibeify `0.15.4`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

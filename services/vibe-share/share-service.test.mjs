@@ -145,16 +145,19 @@ test("publishing copies the final link and keeps an explicit copy control", () =
 test("private previews and public articles preserve fixed-provider media as click-to-load embeds", async () => {
   const page = renderPublicArticle(mediaSnapshot, `${origin}/a/media123`);
   assert.match(page, /class="media-card"/);
+  assert.match(page, /data-media-kind="music" data-media-provider="soundcloud"/);
   assert.match(page, /data-media-provider="soundcloud"/);
   assert.match(page, /data-media-href="https:\/\/soundcloud\.com\/the-orca-band\/i-know-you-better"/);
   assert.match(page, /Open on SoundCloud/);
   assert.match(page, /<script type="module" src="\/app\.js"><\/script>/);
   assert.doesNotMatch(page, /autoplay|auto_play=true/);
+  assert.match(page, /data-media-provider="soundcloud"[^}]*\.media-frame iframe\{height:166px/);
 
   assert.match(APP_JS, /function mediaEmbedSource/);
   assert.match(APP_JS, /youtube-nocookie\.com\/embed/);
   assert.match(APP_JS, /auto_play=false/);
   assert.match(APP_JS, /querySelectorAll\("\[data-media-provider\]"\)/);
+  assert.match(APP_JS, /card\.dataset\.mediaProvider = media\.provider/);
 
   const preview = await handleRequest(new Request(`${origin}/new`), {});
   assert.match(await preview.text(), /selected public images, embedded media, and its source link/);

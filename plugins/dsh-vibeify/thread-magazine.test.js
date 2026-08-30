@@ -84,6 +84,32 @@ test("closed Vibe chunks from one completed update are published without its sum
   assert.doesNotMatch(chunks[0].markdown, /update is complete/);
 });
 
+test("completed Chat reasoning restores every closed music Vibe instead of only the short final answer", () => {
+  const entries = [
+    message({
+      seq: 20,
+      time: 700,
+      id: "music-stream",
+      content: [{
+        type: "reasoning",
+        text: [
+          '<vibe-chunk id="chat-music-first" kind="music" title="First song">Play [the first song](https://soundcloud.com/example/first).</vibe-chunk>',
+          '<vibe-chunk id="chat-music-second" kind="music" title="Second song">Play [the second song](https://soundcloud.com/example/second).</vibe-chunk>',
+        ].join("\n"),
+      }],
+    }),
+    message({ seq: 21, time: 710, step: 2, id: "music-final", content: [{ type: "text", text: "Both music cards are now in Vibe." }] }),
+    turnEnd({ seq: 22, time: 711 }),
+  ];
+  const chunks = completedHistoryMagazineChunks("reader-session", entries);
+  assert.deepEqual(chunks.map(({ id, kind, title }) => ({ id, kind, title })), [
+    { id: "stream:chat-music-first", kind: "music", title: "First song" },
+    { id: "stream:chat-music-second", kind: "music", title: "Second song" },
+  ]);
+  assert.match(chunks[0].markdown, /https:\/\/soundcloud\.com\/example\/first/);
+  assert.doesNotMatch(JSON.stringify(chunks), /Both music cards/);
+});
+
 test("a dedicated update without a closed chunk never becomes a raw Chat article", () => {
   const entries = [
     message({ seq: 11, time: 510, id: "update-final", content: [{ type: "text", text: "Update `refill-one` completed with worker evidence." }] }),

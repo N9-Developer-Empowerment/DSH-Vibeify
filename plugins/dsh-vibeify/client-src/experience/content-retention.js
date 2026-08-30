@@ -2,7 +2,26 @@ export const MAX_STREAM_CHUNKS = 160;
 export const MAX_CHAT_VIBE_RESERVE = 96;
 
 function protectedChatVibe(chunk) {
-  return chunk?.source === "chat-directed" && chunk?.kind !== "questionnaire";
+  if (chunk?.kind === "questionnaire") return false;
+  if (chunk?.source === "chat-directed") return true;
+  // A semantic `chat-` envelope is emitted progressively with the generic
+  // fresh-stream source, then rebuilt from the same durable envelope after a
+  // relaunch. It is still reader-requested Chat material and must receive the
+  // same reserve as a non-streamed completed answer.
+  return chunk?.source === "fresh-stream" && String(chunk?.id ?? "").startsWith("stream:chat-");
+}
+
+function newestIds(chunks, count, predicate = () => true) {
+  return chunks
+    .map((chunk, index) => ({ chunk, index }))
+    .filter(({ chunk }) => predicate(chunk))
+    .sort((left, right) => {
+      const leftTime = Number.isFinite(left.chunk?.publishedAt) ? left.chunk.publishedAt : Number.NEGATIVE_INFINITY;
+      const rightTime = Number.isFinite(right.chunk?.publishedAt) ? right.chunk.publishedAt : Number.NEGATIVE_INFINITY;
+      return rightTime - leftTime || right.index - left.index;
+    })
+    .slice(0, count)
+    .map(({ chunk }) => chunk?.id);
 }
 
 /**
@@ -15,12 +34,10 @@ export function boundReaderChunks(chunks, limit = MAX_STREAM_CHUNKS, chatReserve
   if (!Number.isInteger(chatReserve) || chatReserve < 0) throw new TypeError("Chat Vibe reserve is invalid");
   if (chunks.length <= limit) return chunks;
 
-  const protectedIds = new Set(chunks
-    .filter(protectedChatVibe)
-    .slice(-Math.min(chatReserve, limit))
-    .map(({ id }) => id));
-  for (let index = chunks.length - 1; index >= 0 && protectedIds.size < limit; index -= 1) {
-    protectedIds.add(chunks[index]?.id);
+  const protectedIds = new Set(newestIds(chunks, Math.min(chatReserve, limit), protectedChatVibe));
+  for (const id of newestIds(chunks, limit)) {
+    if (protectedIds.size >= limit) break;
+    protectedIds.add(id);
   }
   return chunks.filter(({ id }) => protectedIds.has(id));
 }

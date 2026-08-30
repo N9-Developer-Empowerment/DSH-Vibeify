@@ -78,6 +78,56 @@ test("editorial refills cannot evict the protected reserve of Chat-made Vibes", 
   assert.equal(retainedChat.at(-1).id, `chat:${MAX_CHAT_VIBE_RESERVE + 11}`);
 });
 
+test("closed Chat Vibe envelopes restored from history share the protected Chat reserve", () => {
+  const storage = memoryStorage();
+  const base = 1_700_000_000_000;
+  const musicVibes = Array.from({ length: 20 }, (_, index) => chunk(`stream:chat-music-${index}`, `Listen on [SoundCloud](https://soundcloud.com/example/track-${index}).`, {
+    kind: "music",
+    source: "fresh-stream",
+    publishedAt: base + index,
+  }));
+  const editorial = Array.from({ length: MAX_STREAM_CHUNKS + 20 }, (_, index) => chunk(`stream:refill-${index}`, "Editorial refill", {
+    source: "fresh-stream",
+    publishedAt: base + 1_000 + index,
+  }));
+
+  appendCachedChunks(storage, [...musicVibes, ...editorial], base + 2_000);
+  const cached = getCachedStream(storage, base + 2_001).chunks;
+  assert.equal(cached.length, MAX_STREAM_CHUNKS);
+  assert.deepEqual(
+    cached.filter(({ id }) => id.startsWith("stream:chat-music-")).map(({ id }) => id),
+    musicVibes.map(({ id }) => id),
+  );
+  assert.match(cached.find(({ id }) => id === "stream:chat-music-19").markdown, /soundcloud\.com/);
+});
+
+test("cold history scans retain the newest Chat Vibes even when older sessions finish scanning later", () => {
+  const storage = memoryStorage();
+  const base = 1_700_000_000_000;
+  const recentMusic = Array.from({ length: 20 }, (_, index) => chunk(`stream:chat-recent-music-${index}`, "A recent song.", {
+    kind: "music",
+    source: "fresh-stream",
+    publishedAt: base + 10_000 + index,
+  }));
+  const olderChat = Array.from({ length: MAX_CHAT_VIBE_RESERVE }, (_, index) => chunk(`stream:chat-older-${index}`, "An older Chat Vibe.", {
+    source: "fresh-stream",
+    publishedAt: base + index,
+  }));
+  const editorial = Array.from({ length: MAX_STREAM_CHUNKS }, (_, index) => chunk(`stream:refill-cold-${index}`, "Editorial refill", {
+    source: "fresh-stream",
+    publishedAt: base + 20_000 + index,
+  }));
+
+  // Session history reads complete concurrently, so append order cannot be
+  // treated as publication order after a relaunch.
+  appendCachedChunks(storage, [...recentMusic, ...editorial, ...olderChat], base + 30_000);
+  const cached = getCachedStream(storage, base + 30_001).chunks;
+  assert.deepEqual(
+    cached.filter(({ id }) => id.startsWith("stream:chat-recent-music-")).map(({ id }) => id),
+    recentMusic.map(({ id }) => id),
+  );
+});
+
 test("only allow-listed content fields survive persistence", () => {
   const storage = memoryStorage();
   const now = 1_700_000_000_000;

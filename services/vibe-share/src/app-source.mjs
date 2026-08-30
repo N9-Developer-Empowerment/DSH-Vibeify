@@ -39,6 +39,82 @@ function renderVisual(visual, className = "lead") {
   return figure;
 }
 
+function mediaEmbedSource(provider, href) {
+  try {
+    const url = new URL(href);
+    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+    const host = url.hostname.replace(/^www\./, "").toLowerCase();
+    if (provider === "youtube" && (host === "youtube.com" || host === "youtu.be")) {
+      const id = host === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : url.searchParams.get("v");
+      return /^[a-zA-Z0-9_-]{6,16}$/.test(id ?? "") ? "https://www.youtube-nocookie.com/embed/" + id : null;
+    }
+    if (provider === "vimeo" && host === "vimeo.com") {
+      const id = url.pathname.split("/").filter(Boolean)[0];
+      return /^\d{4,14}$/.test(id ?? "") ? "https://player.vimeo.com/video/" + id : null;
+    }
+    if (provider === "spotify" && host === "open.spotify.com" && /^\/(track|album|episode|show|playlist)\/[a-zA-Z0-9]+\/?$/.test(url.pathname)) {
+      return "https://open.spotify.com/embed" + url.pathname.replace(/\/$/, "");
+    }
+    if (provider === "soundcloud" && host === "soundcloud.com" && url.pathname.split("/").filter(Boolean).length >= 2) {
+      return "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url.href) + "&auto_play=false";
+    }
+  } catch {}
+  return null;
+}
+
+function renderMedia(media) {
+  if (media === null || typeof media !== "object") return null;
+  const providerName = { youtube: "YouTube", vimeo: "Vimeo", spotify: "Spotify", soundcloud: "SoundCloud" }[media.provider];
+  if (providerName === undefined || mediaEmbedSource(media.provider, media.href) === null) return null;
+  const card = document.createElement("section");
+  card.className = "media-card";
+  card.dataset.mediaKind = media.kind;
+  const kind = document.createElement("span");
+  kind.className = "kind";
+  kind.textContent = media.kind + " · click to load";
+  const actions = document.createElement("div");
+  actions.className = "media-actions";
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "media-load";
+  button.dataset.mediaProvider = media.provider;
+  button.dataset.mediaHref = media.href;
+  button.textContent = media.label;
+  const link = document.createElement("a");
+  link.href = media.href;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "Open on " + providerName;
+  const frame = document.createElement("div");
+  frame.className = "media-frame";
+  frame.setAttribute("aria-live", "polite");
+  actions.append(button, link);
+  card.append(kind, actions, frame);
+  return card;
+}
+
+function installMediaPlayers(root = document) {
+  root.querySelectorAll("[data-media-provider]").forEach((button) => {
+    if (button.dataset.mediaReady === "true") return;
+    button.dataset.mediaReady = "true";
+    button.addEventListener("click", () => {
+      const source = mediaEmbedSource(button.dataset.mediaProvider, button.dataset.mediaHref);
+      const frame = button.closest(".media-card")?.querySelector(".media-frame");
+      if (source === null || frame === null) return;
+      const iframe = document.createElement("iframe");
+      iframe.src = source;
+      iframe.title = button.textContent;
+      iframe.loading = "lazy";
+      iframe.allow = "encrypted-media; fullscreen; picture-in-picture";
+      iframe.referrerPolicy = "strict-origin-when-cross-origin";
+      iframe.sandbox = "allow-scripts allow-same-origin allow-presentation";
+      frame.replaceChildren(iframe);
+      button.disabled = true;
+      button.textContent = "Loaded";
+    }, { once: true });
+  });
+}
+
 function appendInline(parent, value) {
   const text = String(value ?? "").replace(/!\[[^\]\n]*\]\([^\s)]+\)/g, "");
   const pattern = /(\[[^\]\n]{1,240}\]\(https:\/\/[^\s)]+\)|\*\*[^*\n]{1,300}\*\*|\*[^*\n]{1,300}\*)/g;
@@ -189,6 +265,8 @@ function renderSnapshot(value) {
   body.className = "body";
   body.append(renderMarkdown(value.markdown));
   copy.append(kind, title, body);
+  const media = renderMedia(value.media);
+  if (media !== null) copy.append(media);
   if (galleryVisuals.length > 0) {
     const gallery = document.createElement("div");
     gallery.className = "gallery";
@@ -210,9 +288,13 @@ function renderSnapshot(value) {
   article.append(copy);
   preview.className = "";
   preview.append(article);
+  installMediaPlayers(article);
 }
 
+installMediaPlayers(document);
+
 window.addEventListener("message", (event) => {
+  if (preview === null || publish === null || status === null) return;
   if (event.source !== window.opener || !ALLOWED_OPENERS.has(event.origin)) return;
   if (event.data?.type !== SNAPSHOT || event.data?.version !== VERSION || typeof event.data?.snapshot !== "object") return;
   snapshot = event.data.snapshot;
@@ -223,11 +305,11 @@ window.addEventListener("message", (event) => {
 
 if (window.opener !== null) {
   for (const origin of ALLOWED_OPENERS) window.opener.postMessage({ type: READY, version: VERSION }, origin);
-} else {
+} else if (status !== null) {
   status.textContent = "Open Share from a Vibe article to prepare a preview.";
 }
 
-publish.addEventListener("click", async () => {
+publish?.addEventListener("click", async () => {
   if (snapshot === null) return;
   publish.disabled = true;
   status.textContent = "Publishing…";

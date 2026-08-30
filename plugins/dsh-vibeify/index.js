@@ -36,7 +36,7 @@ import {
 
 const PROVIDER = "codex-chatgpt";
 const MODEL = "chatgpt-account-default";
-const BRIDGE_VERSION = "0.15.2";
+const BRIDGE_VERSION = "0.15.3";
 const DSH_DELEGATION_TIMEOUT_MS = 5 * 60 * 1000;
 const MODEL_CATALOG_TOOL_NAME = "dsh_model_catalog";
 const DSH_DELEGATE_TOOL_NAME = "delegate_to_dsh_model";

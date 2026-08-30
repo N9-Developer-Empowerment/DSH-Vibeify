@@ -5,7 +5,7 @@ import { APP_JS } from "./app-source.mjs";
 const JSON_HEADERS = Object.freeze({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
 const HTML_HEADERS = Object.freeze({
   "content-type": "text/html; charset=utf-8",
-  "content-security-policy": "default-src 'none'; img-src https:; style-src 'unsafe-inline'; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  "content-security-policy": "default-src 'none'; img-src https:; style-src 'unsafe-inline'; script-src 'self' https://challenges.cloudflare.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",

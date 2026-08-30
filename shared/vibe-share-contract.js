@@ -52,6 +52,37 @@ function cleanContentLink(candidate) {
   return Object.freeze({ href, label });
 }
 
+function cleanShareMedia(candidate) {
+  if (candidate === null || typeof candidate !== "object") return null;
+  const cleanedHref = cleanHttps(candidate.href);
+  const label = cleanText(candidate.label, MAX_LABEL);
+  if (cleanedHref === null || label === null) return null;
+  const url = new URL(cleanedHref);
+  const host = url.hostname.replace(/^www\./, "").toLowerCase();
+
+  if (host === "youtube.com" || host === "youtu.be") {
+    const id = host === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : url.searchParams.get("v");
+    if (!/^[a-zA-Z0-9_-]{6,16}$/.test(id ?? "")) return null;
+    return Object.freeze({ provider: "youtube", kind: "video", label, href: `https://www.youtube.com/watch?v=${id}` });
+  }
+  if (host === "vimeo.com") {
+    const id = url.pathname.split("/").filter(Boolean)[0];
+    if (!/^\d{4,14}$/.test(id ?? "")) return null;
+    return Object.freeze({ provider: "vimeo", kind: "video", label, href: `https://vimeo.com/${id}` });
+  }
+  if (host === "open.spotify.com") {
+    const match = /^\/(track|album|episode|show|playlist)\/([a-zA-Z0-9]+)\/?$/.exec(url.pathname);
+    if (match === null) return null;
+    return Object.freeze({ provider: "spotify", kind: "music", label, href: `https://open.spotify.com/${match[1]}/${match[2]}` });
+  }
+  if (host === "soundcloud.com") {
+    const path = url.pathname.split("/").filter(Boolean);
+    if (path.length < 2 || path.some((part) => !/^[a-zA-Z0-9_-]{1,100}$/.test(part))) return null;
+    return Object.freeze({ provider: "soundcloud", kind: "music", label, href: `https://soundcloud.com/${path.join("/")}` });
+  }
+  return null;
+}
+
 /**
  * The public boundary is allow-list only. It deliberately has no slot for a
  * DSH session id, prompt, thread title, reasoning, approval, reader setting or
@@ -85,6 +116,7 @@ export function cleanShareSnapshot(candidate, now = Date.now()) {
     visual,
     inlineVisuals: Object.freeze(inlineVisuals),
     contentLink: cleanContentLink(candidate.contentLink),
+    media: cleanShareMedia(candidate.media),
   });
 }
 

@@ -1,3 +1,5 @@
+import { MAX_CHAT_VIBE_RESERVE, boundReaderChunks } from "./content-retention.js";
+
 const VIBEIFY_SITE = "https://dsh-vibeify.ezzye.chatgpt.site/";
 const VIBEIFY_REPOSITORY = "https://github.com/N9-Developer-Empowerment/DSH-Vibeify";
 const DSH_REPOSITORY = "https://github.com/deepseek-ai/deepseek-harness";
@@ -307,9 +309,11 @@ function deterministicSource(source) {
 export function boundMagazinePresentation(chunks, dynamicLimit = 160) {
   if (!Array.isArray(chunks)) throw new TypeError("magazine presentation must be an array");
   if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("magazine presentation limit is invalid");
-  const retainedDynamicIds = new Set(chunks
-    .filter((chunk) => !deterministicSource(chunk?.source))
-    .slice(-dynamicLimit)
+  const retainedDynamicIds = new Set(boundReaderChunks(
+    chunks.filter((chunk) => !deterministicSource(chunk?.source)),
+    dynamicLimit,
+    Math.min(MAX_CHAT_VIBE_RESERVE, dynamicLimit),
+  )
     .map(({ id }) => id));
   return Object.freeze(chunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
 }

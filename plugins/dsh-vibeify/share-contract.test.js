@@ -40,13 +40,42 @@ test("an article share contains presentation fields but no local session identit
   }, NOW);
 
   assert.deepEqual(Object.keys(snapshot), [
-    "version", "title", "kind", "markdown", "publishedAt", "visual", "inlineVisuals", "contentLink",
+    "version", "title", "kind", "markdown", "publishedAt", "visual", "inlineVisuals", "contentLink", "media",
   ]);
   assert.equal(snapshot.title, "What Jason Arday studied");
   assert.equal(snapshot.visual.imageUrl, "https://images.example.org/jason.webp");
   assert.equal(snapshot.inlineVisuals.length, 1);
   assert.equal(snapshot.contentLink.href, "https://example.org/story");
   assert.doesNotMatch(JSON.stringify(snapshot), /session-secret|private prompt|private reasoning|builders-nerds|private-session/);
+});
+
+test("the public contract preserves only fixed-provider click-to-load media", () => {
+  const youtube = cleanShareSnapshot({
+    version: SHARE_SNAPSHOT_VERSION,
+    title: "A filmed conversation",
+    kind: "video",
+    markdown: "Watch and read.",
+    publishedAt: NOW,
+    media: {
+      href: "https://www.youtube.com/watch?v=dQw4w9WgXcQ&utm_source=vibe",
+      label: "Play the conversation",
+      src: "https://attacker.example/iframe",
+      arbitraryEmbedHtml: "<iframe src='file:///private'></iframe>",
+    },
+  }, NOW);
+  assert.deepEqual(youtube.media, {
+    provider: "youtube",
+    kind: "video",
+    label: "Play the conversation",
+    href: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+  });
+  assert.doesNotMatch(JSON.stringify(youtube), /attacker|iframe|private/);
+
+  const unsafe = cleanShareSnapshot({
+    ...youtube,
+    media: { href: "https://video.example/embed/123", label: "Play" },
+  }, NOW);
+  assert.equal(unsafe.media, null);
 });
 
 test("the public-share contract rejects unsafe URLs and non-article material", () => {

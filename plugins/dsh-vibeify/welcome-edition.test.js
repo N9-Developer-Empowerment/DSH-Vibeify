@@ -104,3 +104,28 @@ test("welcome and bundled pages never consume the bounded reader-content allowan
   assert.equal(next.filter(({ source }) => source === "welcome").length, welcome.length);
   assert.equal(next.filter(({ source }) => source === "bundle").length, bundle.length);
 });
+
+test("presentation refills keep a protected reserve of completed Chat Vibes", () => {
+  const chat = Array.from({ length: 108 }, (_, index) => ({
+    id: `chat-${index}`,
+    source: "chat-directed",
+    kind: "article",
+    title: `Chat ${index}`,
+    markdown: "Reader-requested Vibe.",
+    publishedAt: index + 1,
+  }));
+  const editorial = Array.from({ length: 180 }, (_, index) => ({
+    id: `editorial-${index}`,
+    source: "fresh-stream",
+    kind: "article",
+    title: `Editorial ${index}`,
+    markdown: "Editorial refill.",
+    publishedAt: 1_000 + index,
+  }));
+  const visible = boundMagazinePresentation([...chat, ...editorial], 160);
+  const retainedChat = visible.filter(({ source }) => source === "chat-directed");
+  assert.equal(visible.length, 160);
+  assert.equal(retainedChat.length, 96);
+  assert.equal(retainedChat[0].id, "chat-12");
+  assert.equal(retainedChat.at(-1).id, "chat-107");
+});

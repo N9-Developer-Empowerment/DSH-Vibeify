@@ -73,7 +73,15 @@ test("public rendering escapes raw HTML while preserving safe article links", ()
   assert.match(html, /href="https:\/\/example\.org\/story"/);
 
   const page = renderPublicArticle({ ...snapshot, inlineVisuals: [] }, `${origin}/a/example123`);
-  assert.match(page, /og:image/);
+  assert.match(page, /<link rel="canonical" href="https:\/\/share\.codingforjustice\.org\.uk\/a\/example123">/);
+  assert.match(page, /<meta property="og:url" content="https:\/\/share\.codingforjustice\.org\.uk\/a\/example123">/);
+  assert.match(page, /<meta property="og:image" content="https:\/\/blog\.luanti\.org\/static\/blog\/2026_dmca\/cover\.webp">/);
+  assert.match(page, /<meta property="og:image:alt" content="Luanti artwork">/);
+  assert.match(page, /<meta name="twitter:card" content="summary_large_image">/);
+  assert.match(page, /<meta name="twitter:title" content="The copyright robot has found cubes · Vibe">/);
+  assert.match(page, /<meta name="twitter:description" content="A useful public article\./);
+  assert.match(page, /<meta name="twitter:image" content="https:\/\/blog\.luanti\.org\/static\/blog\/2026_dmca\/cover\.webp">/);
+  assert.match(page, /<meta name="twitter:image:alt" content="Luanti artwork">/);
   assert.match(page, /cover\.webp/);
   assert.match(page, /The copyright robot has found cubes/);
   assert.match(page, /https:\/\/dsh-vibeify\.ezzye\.chatgpt\.site\//);
@@ -157,11 +165,26 @@ test("a deliberate local publish stores only the cleaned snapshot and returns a 
   assert.equal(publicPage.status, 200);
   assert.match(await publicPage.text(), /Luanti&#39;s account/);
 
+  const publicHead = await handleRequest(new Request(created.url, { method: "HEAD" }), { VIBE_SHARE_DB: db });
+  assert.equal(publicHead.status, 200);
+  assert.equal(publicHead.headers.get("content-type"), "text/html; charset=utf-8");
+  assert.equal(await publicHead.text(), "");
+
   const wrongDelete = await handleRequest(new Request(`${origin}/api/articles/${created.slug}`, { method: "DELETE", headers: { authorization: "Bearer wrong" } }), { VIBE_SHARE_DB: db });
   assert.equal(wrongDelete.status, 404);
   const removed = await handleRequest(new Request(`${origin}/api/articles/${created.slug}`, { method: "DELETE", headers: { authorization: `Bearer ${created.deleteToken}` } }), { VIBE_SHARE_DB: db });
   assert.equal(removed.status, 200);
   assert.equal(db.rows.size, 0);
+});
+
+test("social crawlers are explicitly allowed to inspect shared articles", async () => {
+  const robots = await handleRequest(new Request(`${origin}/robots.txt`), {});
+  assert.equal(robots.status, 200);
+  assert.equal(await robots.text(), "User-agent: *\nAllow: /\n");
+
+  const robotsHead = await handleRequest(new Request(`${origin}/robots.txt`, { method: "HEAD" }), {});
+  assert.equal(robotsHead.status, 200);
+  assert.equal(await robotsHead.text(), "");
 });
 
 test("new public pages require at least one image", async () => {

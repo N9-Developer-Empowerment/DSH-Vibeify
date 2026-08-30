@@ -20,6 +20,10 @@ function html(value, status = 200, cacheControl = "no-store") {
   return new Response(value, { status, headers: { ...HTML_HEADERS, "cache-control": cacheControl } });
 }
 
+function head(response) {
+  return new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
 function bytesToBase64Url(bytes) {
   return btoa(String.fromCharCode(...bytes)).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
@@ -153,6 +157,12 @@ async function deleteArticle(request, env, slug) {
 
 export async function handleRequest(request, env = {}) {
   const url = new URL(request.url);
+  if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
+    const response = new Response("User-agent: *\nAllow: /\n", {
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" },
+    });
+    return request.method === "HEAD" ? head(response) : response;
+  }
   if (request.method === "GET" && url.pathname === "/new") return html(renderNewPage({
     turnstileSiteKey: env.TURNSTILE_SITE_KEY ?? "",
     localDev: env.VIBE_SHARE_LOCAL_DEV === "true",
@@ -162,6 +172,7 @@ export async function handleRequest(request, env = {}) {
   if (request.method === "POST" && url.pathname === "/api/articles") return createArticle(request, env, url);
   const article = /^\/a\/([A-Za-z0-9_-]{8,24})$/.exec(url.pathname);
   if (request.method === "GET" && article !== null) return getArticle(env, url, article[1]);
+  if (request.method === "HEAD" && article !== null) return head(await getArticle(env, url, article[1]));
   const deletion = /^\/api\/articles\/([A-Za-z0-9_-]{8,24})$/.exec(url.pathname);
   if (request.method === "DELETE" && deletion !== null) return deleteArticle(request, env, deletion[1]);
   if (request.method === "GET" && url.pathname === "/") return Response.redirect(`${url.origin}/new`, 302);

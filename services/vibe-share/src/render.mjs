@@ -127,10 +127,13 @@ const TABLE_CSS = `.body{min-width:0}.table-scroll{max-width:100%;margin:28px 0;
 
 const VIBEIFY_CTA = `<aside class="try-vibe"><div><span class="kind">Open source · make it yours</span><h2>Make your own Vibe.</h2><p>Download DSH and Vibeify to turn your own AI conversations into a visual magazine—a creative tool for curiosity, expression and wellbeing. Questions? <a href="mailto:info@codingforjustice.org.uk">Email Vibeify</a>.</p></div><a class="cta-link" href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer">Download DSH + Vibeify</a></aside>`;
 
-function pageShell({ title, description, body, imageUrl = null, canonical = null, extraHead = "" }) {
-  const metaImage = imageUrl === null ? "" : `<meta property="og:image" content="${escapeHtml(imageUrl)}"><meta name="twitter:card" content="summary_large_image">`;
-  const canonicalTag = canonical === null ? "" : `<link rel="canonical" href="${escapeHtml(canonical)}">`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}"><meta property="og:type" content="article"><meta property="og:title" content="${escapeHtml(title)}"><meta property="og:description" content="${escapeHtml(description)}">${metaImage}${canonicalTag}${extraHead}<style>${CSS}${TABLE_CSS}</style></head><body><header><a href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer"><span class="brand">VIBE<small>shared from a private local magazine</small></span></a><span class="share-note">Coding for Justice</span></header>${body}${VIBEIFY_CTA}</body></html>`;
+function pageShell({ title, description, body, imageUrl = null, imageAlt = null, canonical = null, extraHead = "" }) {
+  const safeTitle = escapeHtml(title);
+  const safeDescription = escapeHtml(description);
+  const safeCanonical = canonical === null ? null : escapeHtml(canonical);
+  const canonicalMeta = safeCanonical === null ? "" : `<link rel="canonical" href="${safeCanonical}"><meta property="og:url" content="${safeCanonical}">`;
+  const imageMeta = imageUrl === null ? "" : `<meta property="og:image" content="${escapeHtml(imageUrl)}"><meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}"><meta property="og:image:alt" content="${escapeHtml(imageAlt ?? title)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:site" content="@ezzye"><meta name="twitter:creator" content="@ezzye"><meta name="twitter:title" content="${safeTitle}"><meta name="twitter:description" content="${safeDescription}"><meta name="twitter:image" content="${escapeHtml(imageUrl)}"><meta name="twitter:image:alt" content="${escapeHtml(imageAlt ?? title)}">`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><meta name="description" content="${safeDescription}"><meta property="og:type" content="article"><meta property="og:site_name" content="Vibeify"><meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">${canonicalMeta}${imageMeta}${extraHead}<style>${CSS}${TABLE_CSS}</style></head><body><header><a href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer"><span class="brand">VIBE<small>shared from a private local magazine</small></span></a><span class="share-note">Coding for Justice</span></header>${body}${VIBEIFY_CTA}</body></html>`;
 }
 
 export function articleMarkup(snapshot, { includeTitle = true } = {}) {
@@ -144,11 +147,13 @@ export function articleMarkup(snapshot, { includeTitle = true } = {}) {
 export function renderPublicArticle(snapshot, canonical) {
   const plain = snapshot.markdown.replace(/[#*_`\[\]()!>-]/g, " ").replace(/\s+/g, " ").trim();
   const description = plain.slice(0, 180) || "A Vibe article shared from DSH Vibeify.";
+  const socialVisual = snapshot.visual ?? snapshot.inlineVisuals[0] ?? null;
   return pageShell({
     title: `${snapshot.title} · Vibe`,
     description,
     body: articleMarkup(snapshot),
-    imageUrl: snapshot.visual?.imageUrl ?? snapshot.inlineVisuals[0]?.imageUrl ?? null,
+    imageUrl: socialVisual?.imageUrl ?? null,
+    imageAlt: socialVisual?.alt ?? null,
     canonical,
   });
 }

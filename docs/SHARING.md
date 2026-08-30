@@ -12,6 +12,8 @@ Vibe is one private, browser-local magazine across all DSH threads. Sharing does
 
 Every new public page must include at least one selected public image. A Vibe card backed by a bundled local photograph transfers the credited public copy of that photograph; remote editorial images keep their reviewed public URL. The first selected image becomes the responsive cover and social preview, with further images retained as an article gallery. Older text-only links remain readable. The page uses normal semantic HTML, preserves safe HTTPS article links, and presents visual provenance separately from editorial sources.
 
+Public article pages publish complete Open Graph and X summary-card metadata for the reviewed title, description, canonical URL, cover image, and image description. They also answer crawler `HEAD` requests and publish an explicit permissive `robots.txt`. X can cache the first preview it sees for an existing URL, so metadata corrections reliably apply to new shares but may require a new article URL or a repost before an already-published post shows the corrected image.
+
 Every preview and shared page also links to the public DSH Vibeify site with an invitation to download the open-source tools and make a personal Vibe for creativity, curiosity, expression and wellbeing. That call to action is separate from the article and never changes its copy or source links.
 
 ## What crosses the boundary

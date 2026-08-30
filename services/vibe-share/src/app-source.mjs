@@ -69,6 +69,7 @@ function renderMedia(media) {
   const card = document.createElement("section");
   card.className = "media-card";
   card.dataset.mediaKind = media.kind;
+  card.dataset.mediaProvider = media.provider;
   const kind = document.createElement("span");
   kind.className = "kind";
   kind.textContent = media.kind + " · click to load";

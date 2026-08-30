@@ -9,7 +9,9 @@ test("extracts bounded HTTPS markdown links", () => {
 
 test("creates privacy-aware players without autoplay", () => {
   assert.deepEqual(clickToLoadMedia("[watch](https://www.youtube.com/watch?v=dQw4w9WgXcQ)"), {
-    kind: "video", label: "Play video", src: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ", href: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    provider: "youtube", kind: "video", label: "Play video", src: "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ", href: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
   });
-  assert.match(clickToLoadMedia("[listen](https://soundcloud.com/example/song)").src, /auto_play=false/);
+  const soundcloud = clickToLoadMedia("[listen](https://soundcloud.com/example/song)");
+  assert.equal(soundcloud.provider, "soundcloud");
+  assert.match(soundcloud.src, /auto_play=false/);
 });

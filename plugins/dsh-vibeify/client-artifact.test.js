@@ -76,6 +76,8 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /AI-assisted graphic/);
   assert.match(client, /Read source/);
   assert.match(client, /Preview and share/);
+  assert.match(client, /data-media-provider/);
+  assert.match(client, /vfx-player\[data-media-provider="soundcloud"\][^}]*height:166px/);
   assert.match(client, /share\.codingforjustice\.org\.uk/);
   assert.match(client, /vibe-share:snapshot/);
   assert.doesNotMatch(client, /\/api\/articles/);

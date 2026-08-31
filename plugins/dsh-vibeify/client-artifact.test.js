@@ -152,6 +152,7 @@ test("Social Desk account settings expose identifiers and credential references 
   assert.match(client, /Credential references are names, not secret values/);
   assert.match(client, /credentials\.describe/);
   assert.match(client, /settings\.set\(field/);
+  assert.match(client, /void refresh\(\)/);
   const settingsStart = client.indexOf("function socialDeskSettingsSection");
   const settingsEnd = client.indexOf("function updateStateCopy", settingsStart);
   assert.ok(settingsStart >= 0 && settingsEnd > settingsStart);

@@ -416,7 +416,7 @@ window.__ModuleLoader__.load({
 							await saveField(account.credential, String(drafts[account.credential] ?? account.credentialDefault).trim());
 						}
 						setMessage("Social account identifiers and credential references saved locally.");
-						await refresh();
+						void refresh();
 					} catch {
 						setMessage("The Social Desk settings could not be saved. Review the fields and try again.");
 					} finally {

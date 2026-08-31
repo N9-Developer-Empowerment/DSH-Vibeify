@@ -75,6 +75,14 @@ node scripts/support-report.mjs --prompt
 
 Installation and provider connection are separate. Open **Settings → Models** in DSH to connect DeepSeek, or complete the official `codex login` browser flow for ChatGPT/combined mode. At least one working provider is needed before Chat can do AI work. Never paste a provider key into a support chat, screenshot, issue, or terminal command suggested by a stranger.
 
+## How do I get better photographs in Vibe?
+
+Vibeify 0.15.6 installs the separate, optional **DSH Visuals** plugin. Wikimedia Commons and Openverse work without an account. For a wider photographic catalogue, open **Settings → Images**, follow the official **Get a free API key** link for Pexels or Pixabay, and paste the issued key directly into that provider's password field.
+
+Choose **Save key**. The field clears because DSH stores the key locally and never reads its value back into the page; only the **Configured** status is shown. A blank field keeps the current key, while **Remove key** is a separate explicit action. Never send an image-provider key through Chat or include it in a screenshot or support report.
+
+The plugin searches only a short title from an explicit magazine page. It does not send the article body, prompt, attachment, Chat history, preferences or existing images. Every accepted result retains the original creator, licence and source page. If the plugin is absent, a provider is unavailable or no suitable result exists, Vibeify keeps the unique local editorial cover instead of reusing unrelated stock.
+
 ## Can a free AI chat help me?
 
 Yes. Installation help does not require the paid account used by DSH. You can use [DeepSeek Chat](https://chat.deepseek.com/), [ChatGPT](https://chatgpt.com/), or [Google Gemini](https://gemini.google.com/) where the service is available to you. Free access, accounts, regional availability, and message limits are controlled by those services and can change.

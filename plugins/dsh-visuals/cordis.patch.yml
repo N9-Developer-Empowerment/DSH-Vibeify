@@ -1,0 +1,6 @@
+# Add the optional host-side visual-source capability. Vibeify discovers it
+# over a loopback-only RPC channel and keeps its existing local fallback when
+# the package is not composed.
+- insert:
+    - id: dsh-visuals
+      name: dsh-visuals

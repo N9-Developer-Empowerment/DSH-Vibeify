@@ -119,3 +119,18 @@ test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /Queue/);
   assert.match(client, /Steer/);
 });
+
+test("optional visual sources expose write-only credential entry and a local fallback", () => {
+  assert.match(client, /\/dsh-visuals/);
+  assert.match(client, /Better article images/);
+  assert.match(client, /Wikimedia Commons · Openverse/);
+  assert.match(client, /PEXELS_API_KEY/);
+  assert.match(client, /PIXABAY_API_KEY/);
+  assert.match(client, /credentials\.describe/);
+  assert.match(client, /credentials\.set/);
+  assert.match(client, /credentials\.unset/);
+  assert.match(client, /credential write rejected/);
+  assert.match(client, /credential removal rejected/);
+  assert.match(client, /Keys are write-only/);
+  assert.match(client, /The DSH Visuals plugin is not active/);
+});

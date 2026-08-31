@@ -48,6 +48,9 @@ const requiredFiles = [
   "plugins/dsh-vibeify/index.js",
   "plugins/dsh-vibeify-experience/package.json",
   "plugins/dsh-vibeify-experience/client.js",
+  "plugins/dsh-visuals/package.json",
+  "plugins/dsh-visuals/index.js",
+  "plugins/dsh-visuals/visual-service.js",
   "scripts/Install DSH Vibeify.command",
   "scripts/Install DSH Vibeify.ps1",
   "scripts/install-dsh-vibeify-linux.sh",
@@ -60,6 +63,7 @@ for (const relativePath of requiredFiles) await checkFile(relativePath);
 
 const governedPackage = await readJson("plugins/dsh-vibeify/package.json");
 const neutralPackage = await readJson("plugins/dsh-vibeify-experience/package.json");
+const visualPackage = await readJson("plugins/dsh-visuals/package.json");
 if (governedPackage && neutralPackage) {
   if (governedPackage.version === neutralPackage.version) {
     console.log(`OK   package versions agree at ${governedPackage.version}`);
@@ -74,12 +78,22 @@ if (governedPackage && neutralPackage) {
     console.log("FAIL DSH bundle manifest");
   }
 }
+if (visualPackage?.name === "dsh-visuals" && visualPackage.dsh?.bundle?.patch) {
+  console.log(`OK   optional visual-source package declared at ${visualPackage.version}`);
+} else {
+  failures.push("the optional dsh-visuals package manifest is invalid");
+  console.log("FAIL optional visual-source package manifest");
+}
 
 for (const relativePath of [
   "plugins/dsh-vibeify/index.js",
   "plugins/dsh-vibeify/client.js",
   "plugins/dsh-vibeify-experience/index.js",
   "plugins/dsh-vibeify-experience/client.js",
+  "plugins/dsh-visuals/index.js",
+  "plugins/dsh-visuals/settings.js",
+  "plugins/dsh-visuals/visual-rpc.js",
+  "plugins/dsh-visuals/visual-service.js",
   "scripts/validate-package-archive.mjs",
 ]) {
   checkJavaScript(relativePath);

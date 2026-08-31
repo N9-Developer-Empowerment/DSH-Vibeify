@@ -76,6 +76,13 @@ import {
 import { clickToLoadMedia } from "./media-embed.js";
 import { beginSharePreview, shareSnapshotForChunk } from "./share-client.js";
 import {
+  mediaFromVisualCandidate,
+  publicVisualBriefForChunk,
+  readVisualCache,
+  searchVisualForChunk,
+  writeVisualCache,
+} from "./visual-source-client.js";
+import {
   boundMagazinePresentation,
   composeOpeningStream,
   createWelcomeEdition,
@@ -191,8 +198,10 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
-  const media = visualMediaForChunk(CATALOG, chunk);
+function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
+  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
+  const media = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
   const contentLink = contentLinkForMarkdown(chunk.markdown);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
@@ -284,7 +293,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickT
   );
 }
 
-function ExperienceShell({ codexFeatures }) {
+function ExperienceShell({ codexFeatures, connection }) {
   const [state, dispatch] = React.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
   const [chunks, setChunks] = React.useState(initialStream);
   const [editorialProfile, setEditorialProfile] = React.useState(() => loadEditorialProfile(browserStorage()));
@@ -292,6 +301,7 @@ function ExperienceShell({ codexFeatures }) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
+  const [visualOverrides, setVisualOverrides] = React.useState(() => readVisualCache(browserStorage()));
   const [libraryOpen, setLibraryOpen] = React.useState(false);
   const [libraryQuery, setLibraryQuery] = React.useState("");
   const [answers, setAnswers] = React.useState(() => {
@@ -307,6 +317,7 @@ function ExperienceShell({ codexFeatures }) {
   const touchPull = React.useRef(createPullRefreshState());
   const trackpadPull = React.useRef(createTrackpadPullRefreshState());
   const trackpadSettleTimer = React.useRef(null);
+  const visualCapability = React.useRef("unknown");
 
   React.useEffect(() => { chunksRef.current = chunks; }, [chunks]);
   React.useEffect(() => { stateRef.current = state; }, [state]);
@@ -391,6 +402,43 @@ function ExperienceShell({ codexFeatures }) {
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  React.useEffect(() => {
+    if (state.view !== "home" || connection?.rpc?.call === undefined) return undefined;
+    let active = true;
+    const run = async () => {
+      if (visualCapability.current === "unknown") {
+        try {
+          const result = await connection.rpc.call("/dsh-visuals", "capabilities", {});
+          visualCapability.current = result?.ok === true ? "available" : "unavailable";
+        } catch {
+          visualCapability.current = "unavailable";
+        }
+      }
+      if (!active || visualCapability.current !== "available") return;
+      const selected = readVisualCache(browserStorage());
+      const excluded = new Set([
+        ...selected.values().map(({ imageUrl }) => imageUrl),
+        ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl)),
+      ]);
+      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) =>
+        publicVisualBriefForChunk(chunk) !== null
+        && remoteVisualForMarkdown(chunk.markdown) === null
+        && !selected.has(chunk.id));
+      for (const chunk of targets) {
+        if (!active) return;
+        const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
+        const visual = candidates[0];
+        if (visual === undefined) continue;
+        selected.set(chunk.id, visual);
+        excluded.add(visual.imageUrl);
+        writeVisualCache(browserStorage(), chunk.id, visual);
+        if (active) setVisualOverrides(new Map(selected));
+      }
+    };
+    run();
+    return () => { active = false; };
+  }, [chunks, connection, state.view]);
 
   React.useEffect(() => {
     saveExperienceState(browserStorage(), state);
@@ -686,6 +734,7 @@ function ExperienceShell({ codexFeatures }) {
                 key={chunk.id}
                 chunk={chunk}
                 index={index}
+                visualOverride={visualOverrides.get(chunk.id)}
                 saved={state.savedChunkIds.includes(chunk.id)}
                 answer={answers[chunk.id]}
                 skipped={skipped.has(chunk.id)}
@@ -768,7 +817,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-chunk[data-visual-mode="duotone"] .vfx-chunk-visual img { filter:grayscale(.68) sepia(.22) hue-rotate(275deg) saturate(1.5) contrast(1.08); }
 .vfx-chunk[data-visual-mode="close-crop"] .vfx-chunk-visual img { transform:scale(1.18); }
 .vfx-chunk[data-visual-kind="ai-graphic"] .vfx-visual-shade { background:linear-gradient(145deg,transparent 35%,rgba(5,3,6,.42)); }
-.vfx-chunk[data-visual-kind="fresh-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
+.vfx-chunk[data-visual-kind="photograph"],.vfx-chunk[data-visual-kind="editorial-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
 .vfx-visual-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(5,3,6,.72),transparent 60%); }
 .vfx-chunk-visual figcaption { position:absolute; right:16px; bottom:14px; color:#d7cad3; font-size:10px; }.vfx-chunk-visual a { color:#fff; }
 .vfx-chunk-copy { min-width:0; max-width:100%; padding:clamp(24px,3vw,42px); }
@@ -815,5 +864,5 @@ export function registerExperienceShell(ctx, { codexFeatures = true } = {}) {
   installRecipeRunner(ctx);
   installThreadMagazineBridge(ctx);
   installBackgroundEditor(ctx, { codexFeatures });
-  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => <ExperienceShell codexFeatures={codexFeatures} />));
+  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => <ExperienceShell codexFeatures={codexFeatures} connection={ctx.connection} />));
 }

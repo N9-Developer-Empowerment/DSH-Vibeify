@@ -9,6 +9,7 @@ DSH Vibeify has four deliberately separate faces.
 | Provider-neutral DSH bundle | DSH Node process and Web UI | Supplies the complete Vibe experience while leaving DSH's native provider and lead agent untouched; its host half provides only the local update-status endpoint. |
 | DSH host bundle | DSH Node process | Registers the ChatGPT-authenticated Codex adapter, capability settings, access policy, model routing, image handling, connected-app support, and bounded DSH delegation tool. |
 | DSH browser client | DSH Web UI | Presents the lean-back Experience Shell, preserves conventional DSH Chat underneath, keeps approvals live, expands progress, adds Queue/Steer and Codex capability controls, and applies the selected Chat VIBE. |
+| Optional DSH Visuals bundle | DSH Node process | Searches allow-listed public image catalogues, keeps creator/source/licence provenance attached, resolves optional Pexels/Pixabay credentials per operation, and exposes a loopback RPC that fails back to Vibeify's local cover. |
 | Codex plugin skill | Codex | Teaches a Codex agent how to install, diagnose, update, and operate the DSH bundle safely. It does not itself run the DSH bridge. |
 
 ## Provider modes
@@ -47,6 +48,8 @@ The modular boundary is deliberate:
 - `client-src/experience/catalog.js` maps those recipes onto the visual channels with explicit source and AI provenance.
 - `client-src/experience/editorial.js` builds the date-keyed editor's edition. The same date is deterministic; different editions vary hero, selection notes and rail order while avoiding adjacent duplicate categories when possible. It is a local presentation function and makes no model call.
 - `client-src/experience/feed.js` builds the 24-chunk synchronous editorial well, spends a locally prepared visual short and questionnaire at explicit update time, parses questionnaire cards, presents append-only arrivals newest-first, assigns every tile stable visual media plus an explicit editorial span, and admits only allow-listed lead-image URLs into the rolling visual catalogue. It contains no model scheduler.
+- `plugins/dsh-visuals/visual-service.js` owns provider requests, reusable-licence filtering, relevance scoring, de-duplication and provenance normalization for Wikimedia Commons, Openverse, Pexels and Pixabay. Its RPC accepts only a short explicit-magazine title and a bounded recent-URL exclusion list. It has no access to article text or browser storage.
+- `client-src/experience/visual-source-client.js` owns the fail-closed browser half of that capability: eligible source classes, result/host/licence validation, the 30-day bounded visual cache and the local-cover fallback. Absence of the plugin is a normal supported state.
 - `client-src/experience/welcome-edition.js` owns the evergreen reader orientation issue and the launch composition order. It puts the installed version's welcome pages above older local cards, retains the bundled well below them, and lets any new current-visit page rise naturally to the top. It contains no model call or storage write.
 - `client-src/experience/state.js` owns the Vibe/Chat state plus saved and last-read chunk ids. Every browser visit lands on Vibe even if Chat was previously open.
 - `client-src/experience/share-client.js` owns the reader-clicked public-preview handshake. It maps a displayed card through the shared allow-list contract, opens only the pinned share origin, and posts the snapshot only after the exact window and versioned origin respond. It never calls the publishing API.
@@ -111,6 +114,7 @@ An explicit update can then extend that reserve with remote public imagery. The 
 - `~/.dsh/settings.yaml` owns the user-selected Codex capability level (or exact custom model/reasoning values) and DSH permissions.
 - `model-routing-policy.json` owns dated worker capabilities, price assumptions, and the quality-first invariant.
 - Codex's own authentication and connected-app configuration remain under Codex; Vibeify does not copy credentials.
+- `PEXELS_API_KEY` and `PIXABAY_API_KEY` are credential references, not settings values. **Settings → Images** writes or removes them through DSH's credential service; the browser receives only configured/writable status. `dsh-visuals` resolves the selected reference immediately before a request and never returns the secret through RPC.
 - Experience navigation, saved/last-read chunk ids, bounded presentation content, visible questionnaire labels, colour choice, multi-tribe editorial direction, explicit interaction learning, radar reserve and conservative daily ledger stay in browser local storage.
 - VIBE colour selection affects the underlying Chat palette only. Editorial direction is passed to the lead on the next explicit magazine update and never changes the model, permissions, routing, approvals or billing.
 

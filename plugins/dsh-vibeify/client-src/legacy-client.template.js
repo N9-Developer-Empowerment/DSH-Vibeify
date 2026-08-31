@@ -20,6 +20,12 @@ window.__ModuleLoader__.load({
 		const CODEX_CAPABILITY_STYLE_ID = "dsh-vibeify-codex-capability-style";
 		const UPDATE_STYLE_ID = "dsh-vibeify-update-style";
 		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
+		const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
+		const VISUAL_SETTINGS_STYLE_ID = "dsh-vibeify-visual-settings-style";
+		const VISUAL_CREDENTIALS = Object.freeze({
+			pexels: Object.freeze({ ref: "PEXELS_API_KEY", label: "Pexels", href: "https://www.pexels.com/api/" }),
+			pixabay: Object.freeze({ ref: "PIXABAY_API_KEY", label: "Pixabay", href: "https://pixabay.com/api/docs/" }),
+		});
 		const CODEX_CAPABILITY_OPTIONS = Object.freeze([
 			{
 				id: "efficient",
@@ -224,6 +230,122 @@ window.__ModuleLoader__.load({
 			};
 		}
 
+		function visualSourcesSection(settings, api) {
+			return function VisualSourcesSection() {
+				const snapshot = React.useSyncExternalStore(
+					(listener) => settings.subscribe(listener),
+					() => settings.getSnapshot(),
+				);
+				const [drafts, setDrafts] = React.useState({ pexels: "", pixabay: "" });
+				const [status, setStatus] = React.useState({ pexels: null, pixabay: null });
+				const [pending, setPending] = React.useState(null);
+				const [message, setMessage] = React.useState("");
+				const referenceFor = React.useCallback((provider) => {
+					const field = provider === "pexels" ? "pexelsApiKeyEnv" : "pixabayApiKeyEnv";
+					const value = snapshot.value?.[field];
+					return typeof value === "string" && value.length > 0 ? value : VISUAL_CREDENTIALS[provider].ref;
+				}, [snapshot.value]);
+				const refresh = React.useCallback(async () => {
+					if (snapshot.status !== "ready") return;
+					const refs = [referenceFor("pexels"), referenceFor("pixabay")];
+					try {
+						const response = await api.credentials.describe({ refs });
+						if (!response.result.ok) return;
+						setStatus({
+							pexels: response.result.value.credentials[refs[0]] ?? { configured: false, writable: true },
+							pixabay: response.result.value.credentials[refs[1]] ?? { configured: false, writable: true },
+						});
+					} catch {
+						setMessage("Image-source status could not be read. No key was changed.");
+					}
+				}, [api, referenceFor, snapshot.status]);
+				React.useEffect(() => { refresh(); }, [refresh]);
+				const save = async (provider) => {
+					const value = drafts[provider].trim();
+					if (value.length === 0) return;
+					setPending(provider);
+					setMessage("");
+					try {
+						const response = await api.credentials.set({ ref: referenceFor(provider), value });
+						if (response?.result?.ok !== true) throw new Error("credential write rejected");
+						setDrafts((current) => ({ ...current, [provider]: "" }));
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key saved securely.`);
+						await refresh();
+					} catch {
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key was not saved. The earlier value is unchanged.`);
+					} finally {
+						setPending(null);
+					}
+				};
+				const remove = async (provider) => {
+					setPending(provider);
+					setMessage("");
+					try {
+						const response = await api.credentials.unset({ ref: referenceFor(provider) });
+						if (response?.result?.ok !== true) throw new Error("credential removal rejected");
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key removed.`);
+						await refresh();
+					} catch {
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key could not be removed.`);
+					} finally {
+						setPending(null);
+					}
+				};
+				if (snapshot.status !== "ready") {
+					return React.createElement("section", { className: "dsh-vibeify-visual-settings" },
+						React.createElement("p", { className: "dsh-vibeify-visual-kicker" }, "OPTIONAL VISUAL SOURCES"),
+						React.createElement("h2", null, "Better article images"),
+						React.createElement("p", null, "The DSH Visuals plugin is not active. VIBE is still using its unique local cover and existing verified-image method."),
+					);
+				}
+				const providerRow = (provider) => {
+					const spec = VISUAL_CREDENTIALS[provider];
+					const view = status[provider];
+					const configured = view?.configured === true;
+					const writable = view?.writable !== false;
+					return React.createElement("div", { className: "dsh-vibeify-visual-provider", key: provider },
+						React.createElement("div", { className: "dsh-vibeify-visual-provider-heading" },
+							React.createElement("div", null,
+								React.createElement("h3", null, spec.label),
+								React.createElement("a", { href: spec.href, target: "_blank", rel: "noreferrer" }, "Get a free API key"),
+							),
+							React.createElement("span", { className: configured ? "is-configured" : "" }, configured ? "Configured" : "Not configured"),
+						),
+						React.createElement("label", null,
+							React.createElement("span", null, `${spec.label} API key`),
+							React.createElement("input", {
+								type: "password",
+								value: drafts[provider],
+								autoComplete: "off",
+								spellCheck: "false",
+								disabled: pending !== null || !writable,
+								placeholder: configured ? "Enter a replacement key" : "Paste key",
+								onChange: (event) => setDrafts((current) => ({ ...current, [provider]: event.target.value })),
+							}),
+						),
+						React.createElement("div", { className: "dsh-vibeify-visual-actions" },
+							React.createElement("button", { type: "button", disabled: pending !== null || drafts[provider].trim().length === 0 || !writable, onClick: () => save(provider) }, pending === provider ? "Saving…" : "Save key"),
+							configured ? React.createElement("button", { type: "button", className: "is-secondary", disabled: pending !== null || !writable, onClick: () => remove(provider) }, "Remove key") : null,
+						),
+					);
+				};
+				return React.createElement("section", { className: "dsh-vibeify-visual-settings" },
+					React.createElement("div", { className: "dsh-vibeify-visual-intro" },
+						React.createElement("p", { className: "dsh-vibeify-visual-kicker" }, "OPTIONAL VISUAL SOURCES"),
+						React.createElement("h2", null, "Better article images"),
+						React.createElement("p", null, "Wikimedia Commons and Openverse work without a key. Pexels and Pixabay widen the choice. Only an explicit magazine page title is sent as a public image-search phrase; ordinary Chat answers and article bodies stay local."),
+					),
+					React.createElement("div", { className: "dsh-vibeify-visual-free" },
+						React.createElement("span", null, "Ready without keys"),
+						React.createElement("strong", null, "Wikimedia Commons · Openverse"),
+					),
+					React.createElement("div", { className: "dsh-vibeify-visual-grid" }, providerRow("pexels"), providerRow("pixabay")),
+					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-visual-message", role: "status" }, message) : null,
+					React.createElement("p", { className: "dsh-vibeify-visual-note" }, "Keys are write-only: this page never reads them back, and shared Vibes never contain them. A blank field keeps the current key."),
+				);
+			};
+		}
+
 		function updateStateCopy(component, kind) {
 			if (component.state === "update-available") return "Update available";
 			if (component.state === "awaiting-vibeify") return "New release detected — compatibility check pending";
@@ -305,6 +427,8 @@ window.__ModuleLoader__.load({
 
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
+			const { api } = ctx.get("connection");
+			const visualSettings = ctx.settingsScope.bind({ namespace: VISUAL_SETTINGS_NAMESPACE });
 			ctx.effect(() => {
 				const style = document.createElement("style");
 				style.id = UPDATE_STYLE_ID;
@@ -340,6 +464,37 @@ window.__ModuleLoader__.load({
 				order: 17,
 				label: "Updates",
 			}, updatesSection(ctx.connection)));
+
+			ctx.effect(() => {
+				const style = document.createElement("style");
+				style.id = VISUAL_SETTINGS_STYLE_ID;
+				style.textContent = `
+.dsh-vibeify-visual-settings { color:var(--dsw-alias-label-primary); padding:4px 0 28px; }
+.dsh-vibeify-visual-intro { max-width:720px; margin-bottom:18px; }
+.dsh-vibeify-visual-kicker { margin:0 0 4px!important; color:var(--dsw-alias-state-business-primary)!important; font-size:11px!important; font-weight:750; letter-spacing:.09em; }
+.dsh-vibeify-visual-settings h2 { margin:0 0 7px; font-size:22px; line-height:1.25; }
+.dsh-vibeify-visual-settings h3 { margin:0; font-size:16px; }
+.dsh-vibeify-visual-settings p { margin:0; color:var(--dsw-alias-label-secondary); font-size:13px; line-height:1.55; }
+.dsh-vibeify-visual-free { margin:18px 0; padding:13px 15px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 18px; border:1px solid var(--dsw-alias-border-l1); border-radius:12px; background:var(--dsw-alias-bg-layer-2); font-size:13px; }.dsh-vibeify-visual-free span { color:var(--dsw-alias-label-secondary); }.dsh-vibeify-visual-free strong { font-weight:700; }
+.dsh-vibeify-visual-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.dsh-vibeify-visual-provider { min-width:0; padding:16px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-layer-1); }
+.dsh-vibeify-visual-provider-heading { display:flex; align-items:start; justify-content:space-between; gap:14px; }.dsh-vibeify-visual-provider-heading a { color:var(--dsw-alias-state-business-primary); font-size:11px; }.dsh-vibeify-visual-provider-heading>span { flex:none; padding:4px 8px; border-radius:999px; background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-secondary); font-size:10px; font-weight:700; }.dsh-vibeify-visual-provider-heading>span.is-configured { color:var(--dsw-alias-state-business-primary); background:var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-visual-provider label { margin-top:14px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-visual-provider input { width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-visual-provider input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-visual-actions { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-visual-actions button { min-height:34px; padding:0 12px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:8px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:11px; font-weight:700; }.dsh-vibeify-visual-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-visual-actions button:disabled { cursor:not-allowed; opacity:.55; }
+.dsh-vibeify-visual-message { margin-top:14px!important; color:var(--dsw-alias-label-primary)!important; font-weight:650; }.dsh-vibeify-visual-note { max-width:720px; margin-top:14px!important; font-size:11px!important; }
+@media (max-width:760px) { .dsh-vibeify-visual-grid { grid-template-columns:1fr; } }
+`;
+				document.getElementById(VISUAL_SETTINGS_STYLE_ID)?.remove();
+				document.head.appendChild(style);
+				return () => style.remove();
+			}, "dsh-vibeify: visual source settings styles");
+
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "vibeify-visual-sources",
+				order: 16,
+				label: "Images",
+			}, visualSourcesSection(visualSettings, api)));
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.settingsScope.bind({

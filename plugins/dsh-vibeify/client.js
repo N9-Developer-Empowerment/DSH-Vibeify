@@ -3041,6 +3041,154 @@ window.__ModuleLoader__.load({
 			  return Object.freeze({ opened: true, cancel: cleanup });
 			}
 
+			// client-src/experience/visual-source-client.js
+			var VISUAL_RPC_CHANNEL = "/dsh-visuals";
+			var VISUAL_CACHE_KEY = "dsh-vibeify.visuals.v1";
+			var VISUAL_CACHE_VERSION = 1;
+			var VISUAL_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
+			var MAX_VISUAL_CACHE = 160;
+			var PUBLIC_SOURCES = Object.freeze(/* @__PURE__ */ new Set(["fresh-stream", "radar-reserve"]));
+			var PROVIDER_HOSTS = Object.freeze({
+			  wikimedia: Object.freeze(/* @__PURE__ */ new Set(["upload.wikimedia.org"])),
+			  openverse: Object.freeze(/* @__PURE__ */ new Set(["upload.wikimedia.org", "live.staticflickr.com", "images-assets.nasa.gov", "tile.loc.gov", "ids.si.edu"])),
+			  pexels: Object.freeze(/* @__PURE__ */ new Set(["images.pexels.com"])),
+			  pixabay: Object.freeze(/* @__PURE__ */ new Set(["cdn.pixabay.com", "pixabay.com"]))
+			});
+			var LICENCES = Object.freeze({
+			  wikimedia: /^(?:CC0|CC BY(?:-SA)?(?: \d(?:\.\d)?)?|Public domain)$/i,
+			  openverse: /^(?:CC0(?: \d(?:\.\d)?)?|CC BY(?:-SA)?(?: \d(?:\.\d)?)?|Public domain)$/i,
+			  pexels: /^Pexels licence$/i,
+			  pixabay: /^Pixabay Content License$/i
+			});
+			function cleanText5(value, limit) {
+			  if (typeof value !== "string") return null;
+			  const cleaned = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+			  return cleaned === "" ? null : cleaned.slice(0, limit);
+			}
+			function cleanHttps2(value, hosts = null) {
+			  try {
+			    const url = new URL(value);
+			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+			    if (hosts !== null && !hosts.has(url.hostname.toLowerCase())) return null;
+			    url.hash = "";
+			    return url.href;
+			  } catch {
+			    return null;
+			  }
+			}
+			function cleanCandidate(value) {
+			  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+			  const provider = Object.hasOwn(PROVIDER_HOSTS, value.provider) ? value.provider : null;
+			  if (provider === null) return null;
+			  const imageUrl = cleanHttps2(value.imageUrl, PROVIDER_HOSTS[provider]);
+			  const sourceUrl = cleanHttps2(value.sourceUrl);
+			  const alt = cleanText5(value.alt, 240);
+			  const creator = cleanText5(value.creator, 120);
+			  const credit = cleanText5(value.credit, 220);
+			  const license = cleanText5(value.license, 80);
+			  if (imageUrl === null || sourceUrl === null || alt === null || creator === null || credit === null || license === null) return null;
+			  if (!LICENCES[provider].test(license) || !credit.toLowerCase().includes(creator.toLowerCase())) return null;
+			  const width = Number(value.width);
+			  const height = Number(value.height);
+			  const score = Number(value.score);
+			  return Object.freeze({
+			    provider,
+			    imageUrl,
+			    sourceUrl,
+			    alt,
+			    creator,
+			    credit,
+			    license,
+			    width: Number.isFinite(width) && width > 0 ? Math.round(width) : null,
+			    height: Number.isFinite(height) && height > 0 ? Math.round(height) : null,
+			    score: Number.isFinite(score) ? score : 0
+			  });
+			}
+			function cleanVisualSearchResult(value) {
+			  const rows = Array.isArray(value?.candidates) ? value.candidates : [];
+			  const seen = /* @__PURE__ */ new Set();
+			  return Object.freeze(rows.slice(0, 24).flatMap((candidate) => {
+			    const cleaned = cleanCandidate(candidate);
+			    if (cleaned === null || seen.has(cleaned.imageUrl)) return [];
+			    seen.add(cleaned.imageUrl);
+			    return [cleaned];
+			  }));
+			}
+			function publicVisualBriefForChunk(chunk) {
+			  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || !PUBLIC_SOURCES.has(chunk.source)) return null;
+			  const query = cleanText5(chunk.title, 180);
+			  if (query === null || query.length < 3) return null;
+			  return Object.freeze({ query, orientation: "landscape" });
+			}
+			function emptyCache() {
+			  return Object.freeze({ version: VISUAL_CACHE_VERSION, entries: Object.freeze([]) });
+			}
+			function cacheDocument(storage3) {
+			  if (storage3 === null || storage3 === void 0 || typeof storage3.getItem !== "function") return emptyCache();
+			  try {
+			    const parsed = JSON.parse(storage3.getItem(VISUAL_CACHE_KEY) ?? "null");
+			    if (parsed?.version !== VISUAL_CACHE_VERSION || !Array.isArray(parsed.entries)) return emptyCache();
+			    return parsed;
+			  } catch {
+			    return emptyCache();
+			  }
+			}
+			function readVisualCache(storage3, now = Date.now()) {
+			  const result = /* @__PURE__ */ new Map();
+			  for (const entry of cacheDocument(storage3).entries.slice(-MAX_VISUAL_CACHE)) {
+			    const chunkId = cleanText5(entry?.chunkId, 96);
+			    const selectedAt = Number(entry?.selectedAt);
+			    const visual = cleanCandidate(entry?.visual);
+			    if (chunkId === null || visual === null || !Number.isFinite(selectedAt) || selectedAt <= 0 || now - selectedAt > VISUAL_CACHE_TTL_MS) continue;
+			    result.set(chunkId, visual);
+			  }
+			  return result;
+			}
+			function writeVisualCache(storage3, chunkId, visual, now = Date.now()) {
+			  const id = cleanText5(chunkId, 96);
+			  const cleaned = cleanCandidate(visual);
+			  if (id === null || cleaned === null || !Number.isFinite(now) || now <= 0 || storage3 === null || typeof storage3.setItem !== "function") return false;
+			  const entries = cacheDocument(storage3).entries.filter((entry) => entry?.chunkId !== id && Number(now) - Number(entry?.selectedAt) <= VISUAL_CACHE_TTL_MS);
+			  entries.push({ chunkId: id, selectedAt: now, visual: cleaned });
+			  try {
+			    storage3.setItem(VISUAL_CACHE_KEY, JSON.stringify({ version: VISUAL_CACHE_VERSION, entries: entries.slice(-MAX_VISUAL_CACHE) }));
+			    return true;
+			  } catch {
+			    return false;
+			  }
+			}
+			async function searchVisualForChunk(connection, chunk, excludeUrls = []) {
+			  const brief = publicVisualBriefForChunk(chunk);
+			  if (brief === null || connection?.rpc?.call === void 0) return Object.freeze([]);
+			  try {
+			    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "search", {
+			      ...brief,
+			      limit: 12,
+			      excludeUrls: Array.isArray(excludeUrls) ? excludeUrls.slice(-80) : []
+			    });
+			    if (response?.ok !== true) return Object.freeze([]);
+			    return cleanVisualSearchResult(response.value);
+			  } catch {
+			    return Object.freeze([]);
+			  }
+			}
+			function mediaFromVisualCandidate(visual, fallbackArtwork, mode = "cinema") {
+			  const cleaned = cleanCandidate(visual);
+			  if (cleaned === null) return null;
+			  return Object.freeze({
+			    kind: cleaned.provider === "pexels" || cleaned.provider === "pixabay" ? "photograph" : "editorial-image",
+			    externalUrl: cleaned.imageUrl,
+			    fallbackArtwork,
+			    alt: cleaned.alt,
+			    focalPoint: "center",
+			    href: cleaned.sourceUrl,
+			    label: cleaned.credit,
+			    mode,
+			    provider: cleaned.provider,
+			    license: cleaned.license
+			  });
+			}
+
 			// client-src/experience/welcome-edition.js
 			var VIBEIFY_SITE = "https://dsh-vibeify.ezzye.chatgpt.site/";
 			var VIBEIFY_REPOSITORY = "https://github.com/N9-Developer-Empowerment/DSH-Vibeify";
@@ -3453,8 +3601,10 @@ window.__ModuleLoader__.load({
 			    }
 			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
-			  const media = visualMediaForChunk(CATALOG, chunk);
+			function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+			  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
+			  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
+			  const media = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
 			  const contentLink = contentLinkForMarkdown(chunk.markdown);
 			  const episode = media?.episode;
 			  const visual = media === null ? null : media.externalUrl ?? ARTWORK[media.artwork];
@@ -3511,7 +3661,7 @@ window.__ModuleLoader__.load({
 			    ), isChatResult || isWelcome ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
 			  );
 			}
-			function ExperienceShell({ codexFeatures }) {
+			function ExperienceShell({ codexFeatures, connection }) {
 			  const [state, dispatch] = import_react.default.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
 			  const [chunks, setChunks] = import_react.default.useState(initialStream);
 			  const [editorialProfile, setEditorialProfile] = import_react.default.useState(() => loadEditorialProfile(browserStorage()));
@@ -3519,6 +3669,7 @@ window.__ModuleLoader__.load({
 			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
 			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => readVisualCache(browserStorage()));
 			  const [libraryOpen, setLibraryOpen] = import_react.default.useState(false);
 			  const [libraryQuery, setLibraryQuery] = import_react.default.useState("");
 			  const [answers, setAnswers] = import_react.default.useState(() => {
@@ -3534,6 +3685,7 @@ window.__ModuleLoader__.load({
 			  const touchPull = import_react.default.useRef(createPullRefreshState());
 			  const trackpadPull = import_react.default.useRef(createTrackpadPullRefreshState());
 			  const trackpadSettleTimer = import_react.default.useRef(null);
+			  const visualCapability = import_react.default.useRef("unknown");
 			  import_react.default.useEffect(() => {
 			    chunksRef.current = chunks;
 			  }, [chunks]);
@@ -3615,6 +3767,41 @@ window.__ModuleLoader__.load({
 			    });
 			    return () => window.cancelAnimationFrame(frame);
 			  }, []);
+			  import_react.default.useEffect(() => {
+			    if (state.view !== "home" || connection?.rpc?.call === void 0) return void 0;
+			    let active = true;
+			    const run = async () => {
+			      if (visualCapability.current === "unknown") {
+			        try {
+			          const result = await connection.rpc.call("/dsh-visuals", "capabilities", {});
+			          visualCapability.current = result?.ok === true ? "available" : "unavailable";
+			        } catch {
+			          visualCapability.current = "unavailable";
+			        }
+			      }
+			      if (!active || visualCapability.current !== "available") return;
+			      const selected = readVisualCache(browserStorage());
+			      const excluded = /* @__PURE__ */ new Set([
+			        ...selected.values().map(({ imageUrl }) => imageUrl),
+			        ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl))
+			      ]);
+			      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) => publicVisualBriefForChunk(chunk) !== null && remoteVisualForMarkdown(chunk.markdown) === null && !selected.has(chunk.id));
+			      for (const chunk of targets) {
+			        if (!active) return;
+			        const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
+			        const visual = candidates[0];
+			        if (visual === void 0) continue;
+			        selected.set(chunk.id, visual);
+			        excluded.add(visual.imageUrl);
+			        writeVisualCache(browserStorage(), chunk.id, visual);
+			        if (active) setVisualOverrides(new Map(selected));
+			      }
+			    };
+			    run();
+			    return () => {
+			      active = false;
+			    };
+			  }, [chunks, connection, state.view]);
 			  import_react.default.useEffect(() => {
 			    saveExperienceState(browserStorage(), state);
 			    document.body.dataset.vibeifyExperience = state.view;
@@ -3873,6 +4060,7 @@ window.__ModuleLoader__.load({
 			        key: chunk.id,
 			        chunk,
 			        index,
+			        visualOverride: visualOverrides.get(chunk.id),
 			        saved: state.savedChunkIds.includes(chunk.id),
 			        answer: answers[chunk.id],
 			        skipped: skipped.has(chunk.id),
@@ -3950,7 +4138,7 @@ window.__ModuleLoader__.load({
 			.vfx-chunk[data-visual-mode="duotone"] .vfx-chunk-visual img { filter:grayscale(.68) sepia(.22) hue-rotate(275deg) saturate(1.5) contrast(1.08); }
 			.vfx-chunk[data-visual-mode="close-crop"] .vfx-chunk-visual img { transform:scale(1.18); }
 			.vfx-chunk[data-visual-kind="ai-graphic"] .vfx-visual-shade { background:linear-gradient(145deg,transparent 35%,rgba(5,3,6,.42)); }
-			.vfx-chunk[data-visual-kind="fresh-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
+			.vfx-chunk[data-visual-kind="photograph"],.vfx-chunk[data-visual-kind="editorial-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
 			.vfx-visual-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(5,3,6,.72),transparent 60%); }
 			.vfx-chunk-visual figcaption { position:absolute; right:16px; bottom:14px; color:#d7cad3; font-size:10px; }.vfx-chunk-visual a { color:#fff; }
 			.vfx-chunk-copy { min-width:0; max-width:100%; padding:clamp(24px,3vw,42px); }
@@ -3995,7 +4183,7 @@ window.__ModuleLoader__.load({
 			  installRecipeRunner(ctx);
 			  installThreadMagazineBridge(ctx);
 			  installBackgroundEditor(ctx, { codexFeatures });
-			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures })));
+			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.connection })));
 			}
 			return module.exports;
 		})();
@@ -4014,6 +4202,12 @@ window.__ModuleLoader__.load({
 		const CODEX_CAPABILITY_STYLE_ID = "dsh-vibeify-codex-capability-style";
 		const UPDATE_STYLE_ID = "dsh-vibeify-update-style";
 		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
+		const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
+		const VISUAL_SETTINGS_STYLE_ID = "dsh-vibeify-visual-settings-style";
+		const VISUAL_CREDENTIALS = Object.freeze({
+			pexels: Object.freeze({ ref: "PEXELS_API_KEY", label: "Pexels", href: "https://www.pexels.com/api/" }),
+			pixabay: Object.freeze({ ref: "PIXABAY_API_KEY", label: "Pixabay", href: "https://pixabay.com/api/docs/" }),
+		});
 		const CODEX_CAPABILITY_OPTIONS = Object.freeze([
 			{
 				id: "efficient",
@@ -4218,6 +4412,122 @@ window.__ModuleLoader__.load({
 			};
 		}
 
+		function visualSourcesSection(settings, api) {
+			return function VisualSourcesSection() {
+				const snapshot = React.useSyncExternalStore(
+					(listener) => settings.subscribe(listener),
+					() => settings.getSnapshot(),
+				);
+				const [drafts, setDrafts] = React.useState({ pexels: "", pixabay: "" });
+				const [status, setStatus] = React.useState({ pexels: null, pixabay: null });
+				const [pending, setPending] = React.useState(null);
+				const [message, setMessage] = React.useState("");
+				const referenceFor = React.useCallback((provider) => {
+					const field = provider === "pexels" ? "pexelsApiKeyEnv" : "pixabayApiKeyEnv";
+					const value = snapshot.value?.[field];
+					return typeof value === "string" && value.length > 0 ? value : VISUAL_CREDENTIALS[provider].ref;
+				}, [snapshot.value]);
+				const refresh = React.useCallback(async () => {
+					if (snapshot.status !== "ready") return;
+					const refs = [referenceFor("pexels"), referenceFor("pixabay")];
+					try {
+						const response = await api.credentials.describe({ refs });
+						if (!response.result.ok) return;
+						setStatus({
+							pexels: response.result.value.credentials[refs[0]] ?? { configured: false, writable: true },
+							pixabay: response.result.value.credentials[refs[1]] ?? { configured: false, writable: true },
+						});
+					} catch {
+						setMessage("Image-source status could not be read. No key was changed.");
+					}
+				}, [api, referenceFor, snapshot.status]);
+				React.useEffect(() => { refresh(); }, [refresh]);
+				const save = async (provider) => {
+					const value = drafts[provider].trim();
+					if (value.length === 0) return;
+					setPending(provider);
+					setMessage("");
+					try {
+						const response = await api.credentials.set({ ref: referenceFor(provider), value });
+						if (response?.result?.ok !== true) throw new Error("credential write rejected");
+						setDrafts((current) => ({ ...current, [provider]: "" }));
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key saved securely.`);
+						await refresh();
+					} catch {
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key was not saved. The earlier value is unchanged.`);
+					} finally {
+						setPending(null);
+					}
+				};
+				const remove = async (provider) => {
+					setPending(provider);
+					setMessage("");
+					try {
+						const response = await api.credentials.unset({ ref: referenceFor(provider) });
+						if (response?.result?.ok !== true) throw new Error("credential removal rejected");
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key removed.`);
+						await refresh();
+					} catch {
+						setMessage(`${VISUAL_CREDENTIALS[provider].label} key could not be removed.`);
+					} finally {
+						setPending(null);
+					}
+				};
+				if (snapshot.status !== "ready") {
+					return React.createElement("section", { className: "dsh-vibeify-visual-settings" },
+						React.createElement("p", { className: "dsh-vibeify-visual-kicker" }, "OPTIONAL VISUAL SOURCES"),
+						React.createElement("h2", null, "Better article images"),
+						React.createElement("p", null, "The DSH Visuals plugin is not active. VIBE is still using its unique local cover and existing verified-image method."),
+					);
+				}
+				const providerRow = (provider) => {
+					const spec = VISUAL_CREDENTIALS[provider];
+					const view = status[provider];
+					const configured = view?.configured === true;
+					const writable = view?.writable !== false;
+					return React.createElement("div", { className: "dsh-vibeify-visual-provider", key: provider },
+						React.createElement("div", { className: "dsh-vibeify-visual-provider-heading" },
+							React.createElement("div", null,
+								React.createElement("h3", null, spec.label),
+								React.createElement("a", { href: spec.href, target: "_blank", rel: "noreferrer" }, "Get a free API key"),
+							),
+							React.createElement("span", { className: configured ? "is-configured" : "" }, configured ? "Configured" : "Not configured"),
+						),
+						React.createElement("label", null,
+							React.createElement("span", null, `${spec.label} API key`),
+							React.createElement("input", {
+								type: "password",
+								value: drafts[provider],
+								autoComplete: "off",
+								spellCheck: "false",
+								disabled: pending !== null || !writable,
+								placeholder: configured ? "Enter a replacement key" : "Paste key",
+								onChange: (event) => setDrafts((current) => ({ ...current, [provider]: event.target.value })),
+							}),
+						),
+						React.createElement("div", { className: "dsh-vibeify-visual-actions" },
+							React.createElement("button", { type: "button", disabled: pending !== null || drafts[provider].trim().length === 0 || !writable, onClick: () => save(provider) }, pending === provider ? "Saving…" : "Save key"),
+							configured ? React.createElement("button", { type: "button", className: "is-secondary", disabled: pending !== null || !writable, onClick: () => remove(provider) }, "Remove key") : null,
+						),
+					);
+				};
+				return React.createElement("section", { className: "dsh-vibeify-visual-settings" },
+					React.createElement("div", { className: "dsh-vibeify-visual-intro" },
+						React.createElement("p", { className: "dsh-vibeify-visual-kicker" }, "OPTIONAL VISUAL SOURCES"),
+						React.createElement("h2", null, "Better article images"),
+						React.createElement("p", null, "Wikimedia Commons and Openverse work without a key. Pexels and Pixabay widen the choice. Only an explicit magazine page title is sent as a public image-search phrase; ordinary Chat answers and article bodies stay local."),
+					),
+					React.createElement("div", { className: "dsh-vibeify-visual-free" },
+						React.createElement("span", null, "Ready without keys"),
+						React.createElement("strong", null, "Wikimedia Commons · Openverse"),
+					),
+					React.createElement("div", { className: "dsh-vibeify-visual-grid" }, providerRow("pexels"), providerRow("pixabay")),
+					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-visual-message", role: "status" }, message) : null,
+					React.createElement("p", { className: "dsh-vibeify-visual-note" }, "Keys are write-only: this page never reads them back, and shared Vibes never contain them. A blank field keeps the current key."),
+				);
+			};
+		}
+
 		function updateStateCopy(component, kind) {
 			if (component.state === "update-available") return "Update available";
 			if (component.state === "awaiting-vibeify") return "New release detected — compatibility check pending";
@@ -4299,6 +4609,8 @@ window.__ModuleLoader__.load({
 
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
+			const { api } = ctx.get("connection");
+			const visualSettings = ctx.settingsScope.bind({ namespace: VISUAL_SETTINGS_NAMESPACE });
 			ctx.effect(() => {
 				const style = document.createElement("style");
 				style.id = UPDATE_STYLE_ID;
@@ -4334,6 +4646,37 @@ window.__ModuleLoader__.load({
 				order: 17,
 				label: "Updates",
 			}, updatesSection(ctx.connection)));
+
+			ctx.effect(() => {
+				const style = document.createElement("style");
+				style.id = VISUAL_SETTINGS_STYLE_ID;
+				style.textContent = `
+.dsh-vibeify-visual-settings { color:var(--dsw-alias-label-primary); padding:4px 0 28px; }
+.dsh-vibeify-visual-intro { max-width:720px; margin-bottom:18px; }
+.dsh-vibeify-visual-kicker { margin:0 0 4px!important; color:var(--dsw-alias-state-business-primary)!important; font-size:11px!important; font-weight:750; letter-spacing:.09em; }
+.dsh-vibeify-visual-settings h2 { margin:0 0 7px; font-size:22px; line-height:1.25; }
+.dsh-vibeify-visual-settings h3 { margin:0; font-size:16px; }
+.dsh-vibeify-visual-settings p { margin:0; color:var(--dsw-alias-label-secondary); font-size:13px; line-height:1.55; }
+.dsh-vibeify-visual-free { margin:18px 0; padding:13px 15px; display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 18px; border:1px solid var(--dsw-alias-border-l1); border-radius:12px; background:var(--dsw-alias-bg-layer-2); font-size:13px; }.dsh-vibeify-visual-free span { color:var(--dsw-alias-label-secondary); }.dsh-vibeify-visual-free strong { font-weight:700; }
+.dsh-vibeify-visual-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.dsh-vibeify-visual-provider { min-width:0; padding:16px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-layer-1); }
+.dsh-vibeify-visual-provider-heading { display:flex; align-items:start; justify-content:space-between; gap:14px; }.dsh-vibeify-visual-provider-heading a { color:var(--dsw-alias-state-business-primary); font-size:11px; }.dsh-vibeify-visual-provider-heading>span { flex:none; padding:4px 8px; border-radius:999px; background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-secondary); font-size:10px; font-weight:700; }.dsh-vibeify-visual-provider-heading>span.is-configured { color:var(--dsw-alias-state-business-primary); background:var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-visual-provider label { margin-top:14px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-visual-provider input { width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-visual-provider input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-visual-actions { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-visual-actions button { min-height:34px; padding:0 12px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:8px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:11px; font-weight:700; }.dsh-vibeify-visual-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-visual-actions button:disabled { cursor:not-allowed; opacity:.55; }
+.dsh-vibeify-visual-message { margin-top:14px!important; color:var(--dsw-alias-label-primary)!important; font-weight:650; }.dsh-vibeify-visual-note { max-width:720px; margin-top:14px!important; font-size:11px!important; }
+@media (max-width:760px) { .dsh-vibeify-visual-grid { grid-template-columns:1fr; } }
+`;
+				document.getElementById(VISUAL_SETTINGS_STYLE_ID)?.remove();
+				document.head.appendChild(style);
+				return () => style.remove();
+			}, "dsh-vibeify: visual source settings styles");
+
+			ctx.slots.inject("settings.section", () => ctx.slots.register({
+				name: "settings.section",
+				id: "vibeify-visual-sources",
+				order: 16,
+				label: "Images",
+			}, visualSourcesSection(visualSettings, api)));
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.settingsScope.bind({

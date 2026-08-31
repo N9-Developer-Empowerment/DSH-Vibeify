@@ -56,12 +56,15 @@ else
   opposite_plugin="dsh-vibeify"
 fi
 plugin_directory="$repository_root/plugins/$plugin_name"
-package_cache="$dsh_home/package-cache/$plugin_name"
+visual_plugin_name="dsh-visuals"
+visual_plugin_directory="$repository_root/plugins/$visual_plugin_name"
 
-if [[ ! -f "$plugin_directory/package.json" ]]; then
-  echo "The $plugin_name package is missing from this Vibeify checkout." >&2
-  exit 1
-fi
+for required_plugin_directory in "$plugin_directory" "$visual_plugin_directory"; do
+  if [[ ! -f "$required_plugin_directory/package.json" ]]; then
+    echo "The $(basename "$required_plugin_directory") package is missing from this Vibeify checkout." >&2
+    exit 1
+  fi
+done
 
 if [[ -f "$profile_directory/package.json" ]] && grep -q "\"$legacy_package\"" "$profile_directory/package.json"; then
   echo "Migrating the older local Vibeify bridge..."
@@ -83,21 +86,27 @@ trap 'rm -rf "$pack_directory"; rm -f "$config_dump"' EXIT
 
 # Install an immutable, content-addressed tarball. This prevents a source edit
 # from changing files underneath a live DSH process.
-mkdir -p "$package_cache"
-packed_name="$(npm pack "$plugin_directory" --silent --pack-destination "$pack_directory")"
-packed_archive="$pack_directory/$packed_name"
-archive_hash="$(shasum -a 256 "$packed_archive" | awk '{print $1}')"
-plugin_version="$(node -p "require('$plugin_directory/package.json').version")"
-snapshot_archive="$package_cache/${plugin_name}-${plugin_version}-${archive_hash:0:16}.tgz"
+install_immutable_plugin() {
+  local package_name="$1"
+  local package_directory="$2"
+  local package_cache="$dsh_home/package-cache/$package_name"
+  local packed_name packed_archive archive_hash package_version snapshot_archive
+  mkdir -p "$package_cache"
+  packed_name="$(npm pack "$package_directory" --silent --pack-destination "$pack_directory")"
+  packed_archive="$pack_directory/$packed_name"
+  archive_hash="$(shasum -a 256 "$packed_archive" | awk '{print $1}')"
+  package_version="$(node -p "require('$package_directory/package.json').version")"
+  snapshot_archive="$package_cache/${package_name}-${package_version}-${archive_hash:0:16}.tgz"
+  if [[ ! -f "$snapshot_archive" ]]; then
+    cp "$packed_archive" "$snapshot_archive"
+  fi
+  node "$script_directory/validate-package-archive.mjs" "$snapshot_archive"
+  echo "Installing $package_name into DSH profile '$profile'..."
+  dsh plugin --profile "$profile" add --workspace-root "file:$snapshot_archive"
+}
 
-if [[ ! -f "$snapshot_archive" ]]; then
-  cp "$packed_archive" "$snapshot_archive"
-fi
-
-node "$script_directory/validate-package-archive.mjs" "$snapshot_archive"
-
-echo "Installing $plugin_name into DSH profile '$profile'..."
-dsh plugin --profile "$profile" add --workspace-root "file:$snapshot_archive"
+install_immutable_plugin "$plugin_name" "$plugin_directory"
+install_immutable_plugin "$visual_plugin_name" "$visual_plugin_directory"
 dsh --profile "$profile" --dump-config >"$config_dump"
 
 if [[ "$provider_mode" == "chatgpt" ]] && ! grep -q "provider: codex-chatgpt" "$config_dump"; then
@@ -116,6 +125,14 @@ if [[ "$provider_mode" == "deepseek" ]] && ! node -e '
   echo "The provider-neutral Vibeify package is not active in the DSH profile." >&2
   exit 1
 fi
+if ! node -e '
+  const p=require(process.argv[1]);
+  const n=process.argv[2];
+  if (!p.dependencies?.[n] || !p.dsh?.profile?.bundles?.includes(n)) process.exit(1);
+' "$profile_directory/package.json" "$visual_plugin_name"; then
+  echo "The optional DSH Visuals image-source package is not active in the DSH profile." >&2
+  exit 1
+fi
 
 printf 'Vibeify mode: %s\n' "$provider_mode"
 if [[ "$provider_mode" == "deepseek" ]]; then
@@ -123,6 +140,7 @@ if [[ "$provider_mode" == "deepseek" ]]; then
 else
   echo "Codex will lead. A DeepSeek key remains optional and can add lower-cost worker routes."
 fi
+echo "Wikimedia Commons and Openverse image search are ready. Add optional Pexels and Pixabay keys under Settings → Images."
 
 if lsof -nP -iTCP:"${DSH_PORT:-3080}" -sTCP:LISTEN >/dev/null 2>&1; then
   echo "Vibeify is staged. A running DSH process still uses its previously loaded code."

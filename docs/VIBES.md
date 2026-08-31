@@ -36,6 +36,10 @@ Editorial direction is explicit configuration, never an inferred identity. It is
 
 ## Visual provenance
 
+Vibeify discovers a separate optional `dsh-visuals` capability. The friendly installers compose it alongside either provider mode, while manual or older installations can omit it without breaking Vibe: every card still receives the existing unique local typographic/graphic fallback. When active, it searches Wikimedia Commons and Openverse without credentials, then adds Pexels and Pixabay when their keys are configured. It sends only the short public title of an explicit magazine page; ordinary Chat cards, article bodies, prompts, attachments, reader history, settings and keys never enter the search request.
+
+Open **Settings → Images** to see the four sources. Pexels and Pixabay each have a write-only password field and a separate remove action. The browser can ask whether a named credential is configured, but it can never read its value. Keys are kept by DSH's credential service, resolved by the host plugin for one search, and omitted from RPC results, visual caches, previews and published pages. A blank field preserves the current value.
+
 The local bundle contains six credited Unsplash photographs and six AI-assisted SVG compositions authored for Vibeify. A card labels the former **Photograph** and links the named photographer's source page; it labels the latter **AI-assisted graphic** and links here. These assets are packaged with the plugin, so changing cards, resizing the window, or opening the magazine makes no image-generation request and does not wait for a remote image host.
 
 That reusable bundle is for private, personal viewing only. Public sharing has a separate freshness contract: no public image is ever reused. The share preview checks a permanent public-use register, prefers an unused exactly relevant real photograph, then an unused story-specific generated image, then a unique graphic. If none is available, it turns the reviewed article title and excerpt into a unique typographic JPEG. Generated visuals remain clearly labelled; they do not impersonate photography, a named artist, or a sacred visual tradition.

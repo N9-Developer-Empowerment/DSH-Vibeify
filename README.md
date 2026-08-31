@@ -6,7 +6,7 @@ DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://git
 
 ![The real DSH Vibeify welcome edition, with visual articles already on screen](docs/assets/dsh-vibeify-magazine-social.png)
 
-[Download Vibeify 0.15.5](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.5) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
+[Download Vibeify 0.15.6](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.6) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
 
 [![Watch DSH Vibeify turn online-agent work into a living magazine](docs/assets/dsh-vibeify-magazine-social.png)](https://youtu.be/jda4uplWsiI)
 
@@ -123,6 +123,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **One magazine across every real Chat thread.** Vibe passively follows ordinary reader sessions for complete verified `chat-` cards, then reads durable DSH history as the fallback and for un-enveloped final answers. It never reopens or resumes a thread. Internal subagents, the dedicated foreground update and the hidden background editor are never mistaken for reader conversations. Transport envelopes are removed during cache migration; card titles are not repeated in their bodies, and Markdown tables remain structured. Raw prompts, half-written envelopes, worker reports, candidate lists, attachments, reasoning, tool activity, approvals, session identifiers, aborted work and incomplete progress are never copied.
 - **No empty wait or hidden work.** Bundled and saved content render in the first local frame. A content-free ledger measures first frame, restore, explicit updates, chunk arrival, and engagement. Simply reading the magazine consumes no model quota.
 - **Real photography, labelled generated visuals, and unique public covers.** Six locally bundled photographs and six labelled local AI-assisted SVG compositions provide a zero-wait private fallback; they are not the live editorial catalogue. Every generated non-questionnaire page begins with verified subject-relevant public photography, while features above 500 words may show two or three separately credited photographs. Each batch considers at least 18 potential images from three or more credible source families, ranks exact subject/entity relevance, informative value, credit clarity, composition, freshness and recent-use diversity, and publishes only the best choices. If exact photography is unavailable, an authorised story-specific generated image is preferred to recycled stock; a unique graphic or typographic treatment is the labelled fallback. The browser accepts reviewed catalogue hosts or a direct first-party image paired with a separate official page on the exact same HTTPS host; arbitrary third-party images stay blocked. It remembers 80 recently used remote image URLs, suppresses referrer data, removes rejected image syntax from article prose, and falls back locally if a remote image fails. Public sharing is stricter still: it permanently prevents visual reuse across public articles and creates a unique article-text JPEG whenever no unused relevant image remains. Saved local cards—including their visual provenance—age out with the bounded 30-day/160-item magazine cache.
+- **Optional image-source plugin.** The separate `dsh-visuals` package is auto-discovered and keeps Vibeify usable when absent. Wikimedia Commons and Openverse work without keys; optional Pexels and Pixabay keys are entered under **Settings → Images** and stay in DSH's write-only credential store. Only a short explicit-magazine title is searched—never ordinary Chat copy, prompts, attachments, history or settings—and every accepted result keeps its creator, licence and original source.
 - **Useful exits from every panel.** Visual credits stay attached to their images. Every generated non-questionnaire panel carries a separate, relevant content destination in the article copy—for example the story, original work, official creator page, paper, video, music or useful service—and Vibe repeats that destination as a compact **Read source** action. Image files and visual-credit pages are never presented as the article link.
 - **Review before sharing.** Every finished non-questionnaire card has **Preview and share**. It opens the fixed first-party share origin, waits for an exact-origin handshake, and transfers only that card's title, rendered Markdown, selected public images, credits, source link, kind, publication time and—when present—one allow-listed YouTube, Vimeo, Spotify or SoundCloud destination. The preview reconstructs that media as click-to-load, with no autoplay or arbitrary embed code, and the public article preserves the same experience. The preview cannot publish automatically: the reader must inspect it and choose **Publish public link**. Every new public article requires an image; the first becomes its responsive cover and social preview. After publication the public URL is copied automatically, with **Copy link** kept as a fallback. Recipients need no AI account. See [Sharing one Vibe article](docs/SHARING.md).
 - **Provider-neutral Vibe.** `dsh-vibeify-experience` supplies Vibe without installing a Codex provider, so native DSH/DeepSeek remains in control.
@@ -184,6 +185,7 @@ DSH-Vibeify/
 │   ├── client.js                      # generated DSH browser artifact
 │   └── skills/dsh-vibeify/SKILL.md    # Codex operational guidance
 ├── plugins/dsh-vibeify-experience/    # provider-neutral DSH client package
+├── plugins/dsh-visuals/               # optional public-image search and secure key references
 ├── services/vibe-share/               # optional account-free public article host
 ├── shared/vibe-share-contract.js      # allow-list boundary shared by DSH and host
 └── scripts/                            # macOS, Windows and Linux installers, migration, doctor and safe support report
@@ -193,7 +195,7 @@ The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2`
 - `@openai/codex` `0.147.0`
-- DSH Vibeify `0.15.5`
+- DSH Vibeify `0.15.6`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

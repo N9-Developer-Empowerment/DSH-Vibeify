@@ -27,6 +27,8 @@ test("Windows preview packages an immutable plugin and never stops live DSH", as
   assert.match(source, /\[switch\]\$Check/);
   assert.match(source, /Get-FileHash -Algorithm SHA256/);
   assert.match(source, /validate-package-archive\.mjs/);
+  assert.match(source, /dsh-visuals/);
+  assert.match(source, /Settings > Images/);
   assert.match(source, /DSH is already open, so this installer will not interrupt it/);
   assert.doesNotMatch(source, /Stop-Process|taskkill|TerminateProcess/);
 });

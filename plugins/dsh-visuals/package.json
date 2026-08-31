@@ -1,0 +1,58 @@
+{
+  "name": "dsh-visuals",
+  "version": "0.1.0",
+  "description": "Optional, provenance-preserving public image search for DSH Vibeify.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    ".codex-plugin",
+    "cordis.patch.yml",
+    "index.js",
+    "settings.js",
+    "skills",
+    "visual-rpc.js",
+    "visual-service.js"
+  ],
+  "scripts": {
+    "check": "node --check index.js && node --check settings.js && node --check visual-rpc.js && node --check visual-service.js",
+    "test": "node --test *.test.js"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "images",
+    "openverse",
+    "pexels",
+    "pixabay",
+    "vibe"
+  ],
+  "author": {
+    "name": "Errol Elliott and Daniela Elliott",
+    "email": "info@codingforjustice.org.uk"
+  },
+  "homepage": "https://dsh-vibeify.ezzye.chatgpt.site",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git"
+  },
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-credentials": "^0.1.1-rc.2",
+    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

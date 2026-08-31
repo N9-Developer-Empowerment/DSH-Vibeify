@@ -70,13 +70,13 @@ The currently tested combination is:
 
 - `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
 - `@openai/codex` `0.147.0` inside the governed bridge;
-- DSH Vibeify `0.15.5`.
+- DSH Vibeify `0.15.6`.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.15.5&path:/plugins/dsh-vibeify-experience'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.15.6&path:/plugins/dsh-vibeify-experience'
 ```
 
 This keeps native DSH/DeepSeek in the lead. Use the friendly installer or the
@@ -120,6 +120,20 @@ codex login status
 Complete the browser login with the ChatGPT account whose Codex access you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
 
 In DSH, open **Settings → Codex** to choose Frontier, Maximum, Balanced, or Efficient. This page exists only in ChatGPT/combined mode. Frontier—GPT-5.6 Sol with Extra High reasoning—is the default quality-preserving lead.
+
+## Add optional image-source keys
+
+The friendly installers also add the separate `dsh-visuals` package. Wikimedia Commons and Openverse work immediately without an account. For a wider photographic catalogue, create keys on the official [Pexels API](https://www.pexels.com/api/) and [Pixabay API](https://pixabay.com/api/docs/) pages, then open DSH **Settings → Images** and paste each key into its named password field.
+
+Choose **Save key**. The field clears after writing because DSH never returns a stored key to the browser; the badge changes to **Configured**. Leaving a field blank keeps its current key. **Remove key** is the only clearing action. Never put either key in the repository, a shell command, a screenshot, an article, a support report or an online chat.
+
+Developer or older manual installations can add the optional package separately:
+
+```bash
+dsh plugin --profile web add --workspace-root ./plugins/dsh-visuals
+```
+
+If `dsh-visuals` is absent or every source is unavailable, Vibeify keeps its built-in unique cover method and remains fully readable.
 
 ## Verify without a paid call
 
@@ -172,6 +186,7 @@ Remove whichever mode is installed:
 ```bash
 dsh plugin --profile web remove --workspace-root dsh-vibeify
 dsh plugin --profile web remove --workspace-root dsh-vibeify-experience
+dsh plugin --profile web remove --workspace-root dsh-visuals
 ```
 
 Removing Vibeify does not delete DSH sessions, Codex authentication, DeepSeek credentials, or browser-stored Vibe preferences.

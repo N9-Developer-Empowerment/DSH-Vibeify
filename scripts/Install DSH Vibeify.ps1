@@ -40,6 +40,33 @@ function Test-LocalDsh {
   }
 }
 
+function Install-ImmutableDshPlugin(
+  [string]$ProjectDirectory,
+  [string]$PackageName,
+  [string]$PackageDirectory,
+  [string]$DshHome,
+  [string]$PackDirectory,
+  [string]$ProfileName
+) {
+  $packOutput = @(& npm pack $PackageDirectory --silent --pack-destination $PackDirectory)
+  Assert-Native "Packaging $PackageName"
+  $PackedName = $packOutput[-1].Trim()
+  $PackedArchive = Join-Path $PackDirectory $PackedName
+  $ArchiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $PackedArchive).Hash.ToLowerInvariant()
+  $PackageVersion = (& node -p "require(process.argv[1]).version" (Join-Path $PackageDirectory "package.json") | Out-String).Trim()
+  Assert-Native "Reading the $PackageName version"
+  $PackageCache = Join-Path $DshHome "package-cache\$PackageName"
+  New-Item -ItemType Directory -Force -Path $PackageCache | Out-Null
+  $SnapshotArchive = Join-Path $PackageCache "$PackageName-$PackageVersion-$($ArchiveHash.Substring(0,16)).tgz"
+  if (-not (Test-Path -LiteralPath $SnapshotArchive)) {
+    Copy-Item -LiteralPath $PackedArchive -Destination $SnapshotArchive
+  }
+  & node (Join-Path $ProjectDirectory "scripts\validate-package-archive.mjs") $SnapshotArchive
+  Assert-Native "Validating the immutable $PackageName package"
+  & dsh plugin --profile $ProfileName add --workspace-root "file:$SnapshotArchive"
+  Assert-Native "Adding $PackageName to DSH"
+}
+
 try {
   Write-Host ""
   Write-Host "Install or update DSH Vibeify"
@@ -89,6 +116,8 @@ try {
         "plugins\dsh-vibeify\client.js",
         "plugins\dsh-vibeify-experience\package.json",
         "plugins\dsh-vibeify-experience\client.js",
+        "plugins\dsh-visuals\package.json",
+        "plugins\dsh-visuals\index.js",
         "scripts\install-dsh.sh",
         "scripts\install-vibeify.sh",
         "scripts\validate-package-archive.mjs"
@@ -164,6 +193,8 @@ try {
     $PluginName = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify" } else { "dsh-vibeify-experience" }
     $OppositePlugin = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify-experience" } else { "dsh-vibeify" }
     $PluginDirectory = Join-Path $ProjectDirectory "plugins\$PluginName"
+    $VisualPluginName = "dsh-visuals"
+    $VisualPluginDirectory = Join-Path $ProjectDirectory "plugins\$VisualPluginName"
 
     if (Test-Path -LiteralPath $ProfilePackage) {
       $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
@@ -176,24 +207,8 @@ try {
 
     $PackDirectory = Join-Path $TemporaryDirectory "pack"
     New-Item -ItemType Directory -Path $PackDirectory | Out-Null
-    $packOutput = @(& npm pack $PluginDirectory --silent --pack-destination $PackDirectory)
-    Assert-Native "Packaging Vibeify"
-    $PackedName = $packOutput[-1].Trim()
-    $PackedArchive = Join-Path $PackDirectory $PackedName
-    $ArchiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $PackedArchive).Hash.ToLowerInvariant()
-    $PluginVersion = (& node -p "require(process.argv[1]).version" (Join-Path $PluginDirectory "package.json") | Out-String).Trim()
-    Assert-Native "Reading the Vibeify version"
-    $PackageCache = Join-Path $DshHome "package-cache\$PluginName"
-    New-Item -ItemType Directory -Force -Path $PackageCache | Out-Null
-    $SnapshotArchive = Join-Path $PackageCache "$PluginName-$PluginVersion-$($ArchiveHash.Substring(0,16)).tgz"
-    if (-not (Test-Path -LiteralPath $SnapshotArchive)) {
-      Copy-Item -LiteralPath $PackedArchive -Destination $SnapshotArchive
-    }
-
-    & node (Join-Path $ProjectDirectory "scripts\validate-package-archive.mjs") $SnapshotArchive
-    Assert-Native "Validating the immutable Vibeify package"
-    & dsh plugin --profile $ProfileName add --workspace-root "file:$SnapshotArchive"
-    Assert-Native "Adding Vibeify to DSH"
+    Install-ImmutableDshPlugin $ProjectDirectory $PluginName $PluginDirectory $DshHome $PackDirectory $ProfileName
+    Install-ImmutableDshPlugin $ProjectDirectory $VisualPluginName $VisualPluginDirectory $DshHome $PackDirectory $ProfileName
     $ConfigDump = (& dsh --profile $ProfileName --dump-config | Out-String)
     Assert-Native "Checking the composed DSH profile"
 
@@ -201,6 +216,9 @@ try {
     $hasDependency = $installedProfile.dependencies.PSObject.Properties.Name -contains $PluginName
     $hasBundle = @($installedProfile.dsh.profile.bundles) -contains $PluginName
     if (-not ($hasDependency -and $hasBundle)) { throw "$PluginName is not active in the DSH profile." }
+    $hasVisualDependency = $installedProfile.dependencies.PSObject.Properties.Name -contains $VisualPluginName
+    $hasVisualBundle = @($installedProfile.dsh.profile.bundles) -contains $VisualPluginName
+    if (-not ($hasVisualDependency -and $hasVisualBundle)) { throw "$VisualPluginName is not active in the DSH profile." }
     if ($ProviderMode -eq "chatgpt" -and $ConfigDump -notlike "*provider: codex-chatgpt*") {
       throw "Vibeify was installed but Codex is not the composed default provider."
     }
@@ -231,6 +249,7 @@ try {
     } elseif ($Provider -eq "later") {
       Write-Host "You can browse Vibe now. Connect DeepSeek or ChatGPT before asking the agent to work."
     }
+    Write-Host "Wikimedia Commons and Openverse image search are ready. Add optional Pexels and Pixabay keys under Settings > Images."
     Write-Host "Updates are safe to run again; an open DSH task is never stopped silently."
     Show-HelpLinks
   } finally {

@@ -1,6 +1,6 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.15.5+codex.20260830170948",
+  "version": "0.15.6+codex.20260831110020",
   "description": "Install, operate, diagnose, and personalize DeepSeek Harness with DeepSeek-only, ChatGPT-only, or combined Codex-led modes.",
   "author": {
     "name": "Errol Elliott and Daniela Elliott",
@@ -13,7 +13,8 @@
     "codex",
     "deepseek-harness",
     "dsh",
-    "vibe"
+    "vibe",
+    "dsh-plugin"
   ],
   "skills": "./skills/",
   "interface": {

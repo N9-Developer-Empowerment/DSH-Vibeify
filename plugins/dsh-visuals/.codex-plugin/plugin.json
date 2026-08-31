@@ -1,0 +1,25 @@
+{
+  "name": "dsh-visuals",
+  "version": "0.1.0",
+  "description": "Optional, provenance-preserving public image search for DSH Vibeify.",
+  "author": {
+    "name": "Errol Elliott and Daniela Elliott",
+    "url": "https://github.com/N9-Developer-Empowerment/DSH-Vibeify"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DSH Visuals",
+    "shortDescription": "Relevant, credited images for Vibeify.",
+    "longDescription": "Adds an optional local visual-source capability to DSH Vibeify, combining Wikimedia Commons and Openverse with keyed Pexels and Pixabay searches while preserving creator, source and licence provenance.",
+    "developerName": "Errol Elliott & Daniela Elliott",
+    "websiteURL": "https://dsh-vibeify.ezzye.chatgpt.site",
+    "category": "Developer Tools",
+    "capabilities": ["Image search", "Licence provenance", "Vibeify integration"],
+    "defaultPrompt": [
+      "Check my DSH Visuals sources.",
+      "Explain how Vibeify chooses a reusable image.",
+      "Help me add Pexels and Pixabay keys safely."
+    ],
+    "brandColor": "#FF759F"
+  }
+}

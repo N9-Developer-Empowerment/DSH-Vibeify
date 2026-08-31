@@ -134,3 +134,26 @@ test("optional visual sources expose write-only credential entry and a local fal
   assert.match(client, /Keys are write-only/);
   assert.match(client, /The DSH Visuals plugin is not active/);
 });
+
+test("Social Desk account settings expose identifiers and credential references without secret values", () => {
+  assert.match(client, /Vibe Social Desk/);
+  assert.match(client, /Social accounts/);
+  assert.match(client, /dsh-social-desk/);
+  assert.match(client, /X username/);
+  assert.match(client, /Bluesky handle/);
+  assert.match(client, /Threads user ID/);
+  assert.match(client, /Facebook Page ID/);
+  assert.match(client, /Instagram professional user ID/);
+  assert.match(client, /X_USER_ACCESS_TOKEN/);
+  assert.match(client, /BLUESKY_APP_PASSWORD/);
+  assert.match(client, /THREADS_ACCESS_TOKEN/);
+  assert.match(client, /FACEBOOK_PAGE_ACCESS_TOKEN/);
+  assert.match(client, /INSTAGRAM_ACCESS_TOKEN/);
+  assert.match(client, /Credential references are names, not secret values/);
+  assert.match(client, /credentials\.describe/);
+  assert.match(client, /settings\.set\(field/);
+  const settingsStart = client.indexOf("function socialDeskSettingsSection");
+  const settingsEnd = client.indexOf("function updateStateCopy", settingsStart);
+  assert.ok(settingsStart >= 0 && settingsEnd > settingsStart);
+  assert.doesNotMatch(client.slice(settingsStart, settingsEnd), /credentials\.set/);
+});

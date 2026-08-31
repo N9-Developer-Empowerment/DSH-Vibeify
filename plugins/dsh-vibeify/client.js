@@ -51,7 +51,7 @@ window.__ModuleLoader__.load({
 			module.exports = __toCommonJS(index_exports);
 
 			// client-src/experience/shell.jsx
-			var import_react = __toESM(require("react"), 1);
+			var import_react2 = __toESM(require("react"), 1);
 
 			// client-src/experience/catalog.js
 			var CREATOR_STATUS = /* @__PURE__ */ new Set(["creator-led", "source-led"]);
@@ -3041,6 +3041,89 @@ window.__ModuleLoader__.load({
 			  return Object.freeze({ opened: true, cancel: cleanup });
 			}
 
+			// client-src/experience/social-desk-client.js
+			var SOCIAL_DESK_RPC_CHANNEL = "/dsh-social-desk";
+			async function call(connection, endpoint, payload) {
+			  if (connection?.rpc?.call === void 0) throw new Error("Social Desk is unavailable.");
+			  const result = await connection.rpc.call(SOCIAL_DESK_RPC_CHANNEL, endpoint, payload);
+			  if (result?.ok !== true) {
+			    const error = new Error(result?.error?.message ?? "Social Desk could not complete that action.");
+			    error.code = result?.error?.code ?? "social-desk-failed";
+			    throw error;
+			  }
+			  return result.value;
+			}
+			function socialDeskCapabilities(connection) {
+			  return call(connection, "capabilities", {});
+			}
+			function loadSocialDesk(connection) {
+			  return call(connection, "list", {});
+			}
+			function prepareSocialPosts(connection, snapshot) {
+			  return call(connection, "prepare", { snapshot });
+			}
+			function approveSocialPost(connection, request) {
+			  return call(connection, "approve-and-schedule", request);
+			}
+			function cancelSocialPost(connection, id) {
+			  return call(connection, "cancel", { id });
+			}
+			function recordManualSocialPost(connection, id, remoteUrl = null) {
+			  return call(connection, "record-manual-post", { id, remoteUrl });
+			}
+			function socialStatusLabel(status2) {
+			  return {
+			    draft: "Review draft",
+			    approved: "Scheduled",
+			    due: "Due",
+			    posting: "Posting",
+			    posted: "Posted",
+			    "failed/retry": "Retry queued",
+			    "ready-to-post": "Ready to post",
+			    "stale/review": "Review again",
+			    cancelled: "Cancelled"
+			  }[status2] ?? "Unknown";
+			}
+			function manualComposerUrl(channel) {
+			  return {
+			    reddit: "https://www.reddit.com/submit",
+			    discord: "https://discord.com/channels/@me",
+			    "youtube-community": "https://www.youtube.com/",
+			    "facebook-profile": "https://www.facebook.com/"
+			  }[channel] ?? null;
+			}
+
+			// client-src/experience/social-desk-panel.jsx
+			var import_react = __toESM(require("react"), 1);
+			function localDateTime(value) {
+			  const date = new Date(value);
+			  if (!Number.isFinite(date.getTime())) return "";
+			  return new Date(date.getTime() - date.getTimezoneOffset() * 6e4).toISOString().slice(0, 16);
+			}
+			function utcDateTime(value) {
+			  const date = new Date(value);
+			  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+			}
+			function QueueItem({ item, channel, busy, onApprove, onCancel, onCopy, onMarkPosted }) {
+			  const [text, setText] = import_react.default.useState(item.text);
+			  const [scheduledAt, setScheduledAt] = import_react.default.useState(() => localDateTime(item.scheduledAt ?? item.suggested?.scheduledAt));
+			  import_react.default.useEffect(() => {
+			    setText(item.text);
+			    setScheduledAt(localDateTime(item.scheduledAt ?? item.suggested?.scheduledAt));
+			  }, [item.id, item.revision]);
+			  const reviewable = item.status === "draft" || item.status === "stale/review";
+			  const manualReady = item.status === "ready-to-post";
+			  const composer = manualComposerUrl(item.channel);
+			  const configured = channel?.configured === true;
+			  const canApprove = item.mode === "ready-to-post" || configured;
+			  return /* @__PURE__ */ import_react.default.createElement("article", { className: "vfx-social-item", "data-status": item.status }, /* @__PURE__ */ import_react.default.createElement("header", null, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, item.channelLabel), /* @__PURE__ */ import_react.default.createElement("strong", null, socialStatusLabel(item.status))), /* @__PURE__ */ import_react.default.createElement("small", null, item.mode === "official-api" ? configured ? "Official API connected" : "Connect in DSH Settings" : "Reviewed manual post")), item.lastError === null ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-warning" }, item.lastError.message), reviewable ? /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-social-copy" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Final post \u2014 ", text.length, "/", item.maxLength), /* @__PURE__ */ import_react.default.createElement("textarea", { value: text, maxLength: item.maxLength, onChange: (event) => setText(event.target.value) })) : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-final" }, item.text), reviewable && item.mode === "official-api" ? /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-social-time" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Publish time"), /* @__PURE__ */ import_react.default.createElement("input", { type: "datetime-local", value: scheduledAt, onChange: (event) => setScheduledAt(event.target.value) }), /* @__PURE__ */ import_react.default.createElement("small", null, item.suggested?.note)) : null, item.scheduledAt === null || reviewable ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-schedule" }, "Scheduled for ", new Date(item.scheduledAt).toLocaleString()), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-actions" }, reviewable ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "is-primary", disabled: busy || !canApprove || text.trim().length < 3, onClick: () => onApprove(item, text, item.mode === "official-api" ? utcDateTime(scheduledAt) : null) }, item.mode === "official-api" ? "Approve and schedule" : "Approve \xB7 Ready to post") : null, manualReady ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: () => onCopy(item) }, "Copy post") : null, manualReady && composer !== null ? /* @__PURE__ */ import_react.default.createElement("a", { href: composer, target: "_blank", rel: "noreferrer" }, "Open ", item.channelLabel) : null, manualReady ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: () => onMarkPosted(item) }, "Mark posted") : null, ["posted", "cancelled", "posting"].includes(item.status) ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "is-quiet", disabled: busy, onClick: () => onCancel(item) }, "Cancel"), item.remoteUrl === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { href: item.remoteUrl, target: "_blank", rel: "noreferrer" }, "View post")));
+			}
+			function SocialDeskPanel({ capability, items, busyId, notice, onApprove, onCancel, onCopy, onMarkPosted, onBack }) {
+			  const byChannel = new Map((capability?.channels ?? []).map((channel) => [channel.id, channel]));
+			  const active = items.filter(({ status: status2 }) => status2 !== "cancelled");
+			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-social-desk", "aria-labelledby": "vfx-social-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-hero" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Vibe Social Desk \xB7 local and reviewed"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-social-title" }, "One good article. The right words for each room."), /* @__PURE__ */ import_react.default.createElement("p", null, "Review every post here. Official connections publish only after one explicit ", /* @__PURE__ */ import_react.default.createElement("strong", null, "Approve and schedule"), " action. Reddit, Discord and other community routes wait as ", /* @__PURE__ */ import_react.default.createElement("strong", null, "Ready to post"), "."), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: onBack }, "Back to Vibe"), /* @__PURE__ */ import_react.default.createElement("small", null, capability?.timezone ?? "Europe/London", " \xB7 missed posts return to review"))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-connections", "aria-label": "Social channel connection status" }, (capability?.channels ?? []).map((channel) => /* @__PURE__ */ import_react.default.createElement("span", { key: channel.id, "data-connected": channel.available }, channel.label, /* @__PURE__ */ import_react.default.createElement("small", null, channel.mode === "ready-to-post" ? "Ready to post" : channel.configured ? "Connected" : "Not connected")))), notice === null ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-notice", role: "status" }, notice), active.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-empty" }, /* @__PURE__ */ import_react.default.createElement("strong", null, "Your desk is clear."), /* @__PURE__ */ import_react.default.createElement("p", null, "Return to Vibe and choose ", /* @__PURE__ */ import_react.default.createElement("em", null, "Prepare social posts"), " on an article worth sharing.")) : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-queue" }, active.map((item) => /* @__PURE__ */ import_react.default.createElement(QueueItem, { key: item.id, item, channel: byChannel.get(item.channel), busy: busyId === item.id, onApprove, onCancel, onCopy, onMarkPosted }))));
+			}
+
 			// client-src/experience/visual-source-client.js
 			var VISUAL_RPC_CHANNEL = "/dsh-visuals";
 			var VISUAL_CACHE_KEY = "dsh-vibeify.visuals.v1";
@@ -3553,24 +3636,25 @@ window.__ModuleLoader__.load({
 			    save: "M6 3h12v18l-6-4-6 4V3z",
 			    share: "M12 3v12m-4-8 4-4 4 4M5 11v9h14v-9",
 			    search: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm5 12 4 4",
+			    social: "M5 5h14v14H5V5zm3-2v4m8-4v4M8 11h8m-8 4h5",
 			    check: "M5 12l4 4L19 6",
 			    arrow: "M5 12h14m-5-5 5 5-5 5"
 			  };
-			  return /* @__PURE__ */ import_react.default.createElement("svg", { "aria-hidden": "true", viewBox: "0 0 24 24", className: "vfx-icon" }, /* @__PURE__ */ import_react.default.createElement("path", { d: paths[name] }));
+			  return /* @__PURE__ */ import_react2.default.createElement("svg", { "aria-hidden": "true", viewBox: "0 0 24 24", className: "vfx-icon" }, /* @__PURE__ */ import_react2.default.createElement("path", { d: paths[name] }));
 			}
 			function Markdown({ value, title, onLink }) {
-			  const ref = import_react.default.useRef(null);
-			  import_react.default.useEffect(() => {
+			  const ref = import_react2.default.useRef(null);
+			  import_react2.default.useEffect(() => {
 			    if (ref.current !== null) ref.current.replaceChildren(markdownFragment(value, title));
 			  }, [title, value]);
-			  return /* @__PURE__ */ import_react.default.createElement("div", { ref, className: "vfx-markdown", onClick: (event) => {
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { ref, className: "vfx-markdown", onClick: (event) => {
 			    const link = event.target instanceof Element ? event.target.closest("a") : null;
 			    if (link !== null) onLink?.(link.href);
 			  } });
 			}
-			function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
+			function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, socialOpen, onChat, onHome, onFind, onSocial, onUpdate, onStop }) {
 			  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
-			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react2.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react2.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "search" }), " Find Vibes"), socialAvailable ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-social-tab", "aria-pressed": socialOpen, onClick: onSocial }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "social" }), " Social Desk") : null, /* @__PURE__ */ import_react2.default.createElement(
 			    "button",
 			    {
 			      type: "button",
@@ -3579,15 +3663,15 @@ window.__ModuleLoader__.load({
 			      "aria-label": updating ? "Stop Vibe magazine update" : "Update Vibe magazine"
 			    },
 			    updateState === "stopping" ? "Stopping\u2026" : updating ? "Stop update" : "Update"
-			  ), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Chat"));
+			  ), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Chat"));
 			}
 			function Questionnaire({ chunk, answer, onAnswer }) {
 			  const options = questionnaireOptions(chunk.markdown);
-			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react.default.createElement("p", null, questionnaireIntroduction(chunk.markdown)), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react.default.createElement(Icon, { name: "check" }) : null), label))));
+			  return /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react2.default.createElement("p", null, questionnaireIntroduction(chunk.markdown)), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react2.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react2.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "check" }) : null), label))));
 			}
 			function InlineVisuals({ visuals, title, onOpen }) {
 			  if (!Array.isArray(visuals) || visuals.length === 0) return null;
-			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-inline-visuals", "aria-label": `More photographs for ${title}` }, visuals.map((visual) => /* @__PURE__ */ import_react.default.createElement("figure", { key: visual.imageUrl }, /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-inline-visuals", "aria-label": `More photographs for ${title}` }, visuals.map((visual) => /* @__PURE__ */ import_react2.default.createElement("figure", { key: visual.imageUrl }, /* @__PURE__ */ import_react2.default.createElement(
 			    "img",
 			    {
 			      src: visual.imageUrl,
@@ -3599,9 +3683,9 @@ window.__ModuleLoader__.load({
 			        event.currentTarget.closest("figure")?.setAttribute("hidden", "");
 			      }
 			    }
-			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
+			  ), /* @__PURE__ */ import_react2.default.createElement("figcaption", null, /* @__PURE__ */ import_react2.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+			function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, socialAvailable, socialStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onSocial, onChat }) {
 			  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
 			  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
 			  const media = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
@@ -3613,10 +3697,10 @@ window.__ModuleLoader__.load({
 			  const isHero = index === 0 && !isChatResult;
 			  const hasTable = markdownHasTable(chunk.markdown);
 			  const layout = panelLayoutForChunk(chunk, index);
-			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
+			  const [playerOpen, setPlayerOpen] = import_react2.default.useState(false);
 			  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
 			  const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
-			  return /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement(
 			    "article",
 			    {
 			      className: `vfx-chunk${isHero ? " is-hero" : ""}`,
@@ -3629,7 +3713,7 @@ window.__ModuleLoader__.load({
 			      "data-chunk-id": chunk.id,
 			      style: { "--chunk-accent": episode?.accent ?? "#ff759f" }
 			    },
-			    visual !== null ? /* @__PURE__ */ import_react.default.createElement("figure", { className: "vfx-chunk-visual" }, /* @__PURE__ */ import_react.default.createElement(
+			    visual !== null ? /* @__PURE__ */ import_react2.default.createElement("figure", { className: "vfx-chunk-visual" }, /* @__PURE__ */ import_react2.default.createElement(
 			      "img",
 			      {
 			        src: visual,
@@ -3644,11 +3728,11 @@ window.__ModuleLoader__.load({
 			          event.currentTarget.src = ARTWORK[media.fallbackArtwork];
 			        }
 			      }
-			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
+			    ), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react2.default.createElement("figcaption", null, /* @__PURE__ */ import_react2.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
+			    /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react2.default.createElement("div", null, /* @__PURE__ */ import_react2.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react2.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react2.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react2.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react2.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
-			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
+			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react2.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react2.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react2.default.createElement(
 			      "button",
 			      {
 			        type: "button",
@@ -3656,52 +3740,68 @@ window.__ModuleLoader__.load({
 			        disabled: shareStatus === "opening",
 			        onClick: () => onShare(chunk, { media, inlineVisuals, contentLink, embeddedMedia: player })
 			      },
-			      /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }),
+			      /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "share" }),
 			      { opening: "Opening preview\u2026", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"
-			    ), isChatResult || isWelcome ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
+			    ), socialAvailable ? /* @__PURE__ */ import_react2.default.createElement(
+			      "button",
+			      {
+			        type: "button",
+			        className: "vfx-social-prepare",
+			        disabled: socialStatus === "preparing",
+			        onClick: () => onSocial(chunk, { media, inlineVisuals, contentLink, embeddedMedia: player })
+			      },
+			      /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "social" }),
+			      socialStatus === "preparing" ? "Preparing\u2026" : socialStatus === "error" ? "Try Social Desk again" : "Prepare social posts"
+			    ) : null, isChatResult || isWelcome ? null : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
 			  );
 			}
 			function ExperienceShell({ codexFeatures, connection }) {
-			  const [state, dispatch] = import_react.default.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
-			  const [chunks, setChunks] = import_react.default.useState(initialStream);
-			  const [editorialProfile, setEditorialProfile] = import_react.default.useState(() => loadEditorialProfile(browserStorage()));
-			  const [updateState, setUpdateState] = import_react.default.useState("idle");
-			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
-			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
-			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
-			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => readVisualCache(browserStorage()));
-			  const [libraryOpen, setLibraryOpen] = import_react.default.useState(false);
-			  const [libraryQuery, setLibraryQuery] = import_react.default.useState("");
-			  const [answers, setAnswers] = import_react.default.useState(() => {
+			  const [state, dispatch] = import_react2.default.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
+			  const [chunks, setChunks] = import_react2.default.useState(initialStream);
+			  const [editorialProfile, setEditorialProfile] = import_react2.default.useState(() => loadEditorialProfile(browserStorage()));
+			  const [updateState, setUpdateState] = import_react2.default.useState("idle");
+			  const [pullDistance, setPullDistance] = import_react2.default.useState(0);
+			  const [skipped, setSkipped] = import_react2.default.useState(() => /* @__PURE__ */ new Set());
+			  const [shareState, setShareState] = import_react2.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [socialCapability, setSocialCapability] = import_react2.default.useState(null);
+			  const [socialOpen, setSocialOpen] = import_react2.default.useState(false);
+			  const [socialItems, setSocialItems] = import_react2.default.useState([]);
+			  const [socialBusyId, setSocialBusyId] = import_react2.default.useState(null);
+			  const [socialNotice, setSocialNotice] = import_react2.default.useState(null);
+			  const [socialPrepareState, setSocialPrepareState] = import_react2.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [visualOverrides, setVisualOverrides] = import_react2.default.useState(() => readVisualCache(browserStorage()));
+			  const [libraryOpen, setLibraryOpen] = import_react2.default.useState(false);
+			  const [libraryQuery, setLibraryQuery] = import_react2.default.useState("");
+			  const [answers, setAnswers] = import_react2.default.useState(() => {
 			    const store = getCachedStream(browserStorage());
 			    return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
 			  });
-			  const streamRef = import_react.default.useRef(null);
-			  const chunksRef = import_react.default.useRef(chunks);
-			  const stateRef = import_react.default.useRef(state);
-			  const answersRef = import_react.default.useRef(answers);
-			  const editorialProfileRef = import_react.default.useRef(editorialProfile);
-			  const scheduler = import_react.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
-			  const touchPull = import_react.default.useRef(createPullRefreshState());
-			  const trackpadPull = import_react.default.useRef(createTrackpadPullRefreshState());
-			  const trackpadSettleTimer = import_react.default.useRef(null);
-			  const visualCapability = import_react.default.useRef("unknown");
-			  import_react.default.useEffect(() => {
+			  const streamRef = import_react2.default.useRef(null);
+			  const chunksRef = import_react2.default.useRef(chunks);
+			  const stateRef = import_react2.default.useRef(state);
+			  const answersRef = import_react2.default.useRef(answers);
+			  const editorialProfileRef = import_react2.default.useRef(editorialProfile);
+			  const scheduler = import_react2.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+			  const touchPull = import_react2.default.useRef(createPullRefreshState());
+			  const trackpadPull = import_react2.default.useRef(createTrackpadPullRefreshState());
+			  const trackpadSettleTimer = import_react2.default.useRef(null);
+			  const visualCapability = import_react2.default.useRef("unknown");
+			  import_react2.default.useEffect(() => {
 			    chunksRef.current = chunks;
 			  }, [chunks]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    stateRef.current = state;
 			  }, [state]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    answersRef.current = answers;
 			  }, [answers]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    editorialProfileRef.current = editorialProfile;
 			  }, [editorialProfile]);
-			  const record = import_react.default.useCallback((event, recipeId, durationMs, source) => {
+			  const record = import_react2.default.useCallback((event, recipeId, durationMs, source) => {
 			    appendStreamMetric(browserStorage(), { event, recipeId, durationMs, source });
 			  }, []);
-			  const startRun = import_react.default.useCallback(() => {
+			  const startRun = import_react2.default.useCallback(() => {
 			    const current = scheduler.current;
 			    if (stateRef.current.view !== "home" || current.active) return;
 			    current.runsStarted += 1;
@@ -3750,13 +3850,13 @@ window.__ModuleLoader__.load({
 			    record("magazine-update-started", runId, 0, "fresh-stream");
 			    window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
 			  }, [codexFeatures, record]);
-			  const stopRun = import_react.default.useCallback(() => {
+			  const stopRun = import_react2.default.useCallback(() => {
 			    const current = scheduler.current;
 			    if (!current.active || current.activeId === null) return;
 			    setUpdateState("stopping");
 			    window.dispatchEvent(new CustomEvent(RECIPE_STOP_EVENT, { detail: { id: current.activeId } }));
 			  }, []);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    const now = Date.now();
 			    appendCachedChunks(browserStorage(), chunks, now);
 			    const frame = window.requestAnimationFrame(() => {
@@ -3767,7 +3867,7 @@ window.__ModuleLoader__.load({
 			    });
 			    return () => window.cancelAnimationFrame(frame);
 			  }, []);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    if (state.view !== "home" || connection?.rpc?.call === void 0) return void 0;
 			    let active = true;
 			    const run = async () => {
@@ -3802,15 +3902,42 @@ window.__ModuleLoader__.load({
 			      active = false;
 			    };
 			  }, [chunks, connection, state.view]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
+			    if (state.view !== "home" || connection?.rpc?.call === void 0) return void 0;
+			    let active = true;
+			    const discover = async () => {
+			      try {
+			        const capability = await socialDeskCapabilities(connection);
+			        if (!active) return;
+			        setSocialCapability(capability);
+			        const queue = await loadSocialDesk(connection);
+			        if (active) setSocialItems(Array.isArray(queue?.items) ? queue.items : []);
+			      } catch {
+			        if (active) setSocialCapability(null);
+			      }
+			    };
+			    void discover();
+			    const timer = window.setInterval(() => {
+			      if (!active || !socialOpen) return;
+			      void loadSocialDesk(connection).then((queue) => {
+			        if (active) setSocialItems(Array.isArray(queue?.items) ? queue.items : []);
+			      }).catch(() => {
+			      });
+			    }, 15e3);
+			    return () => {
+			      active = false;
+			      window.clearInterval(timer);
+			    };
+			  }, [connection, socialOpen, state.view]);
+			  import_react2.default.useEffect(() => {
 			    saveExperienceState(browserStorage(), state);
 			    document.body.dataset.vibeifyExperience = state.view;
 			    return () => delete document.body.dataset.vibeifyExperience;
 			  }, [state]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    if (state.view === "home") markVibeActivity(browserStorage());
 			  }, [state.view]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    const onChunks = (event) => {
 			      const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
 			      appendCachedChunks(browserStorage(), incoming);
@@ -3870,6 +3997,7 @@ window.__ModuleLoader__.load({
 			      });
 			    };
 			    const onVibeHome = () => {
+			      setSocialOpen(false);
 			      setLibraryOpen(false);
 			      setLibraryQuery("");
 			      dispatch({ type: "home" });
@@ -3890,7 +4018,7 @@ window.__ModuleLoader__.load({
 			      window.removeEventListener("storage", onStorage);
 			    };
 			  }, [record]);
-			  const onScroll = import_react.default.useCallback(() => {
+			  const onScroll = import_react2.default.useCallback(() => {
 			    const current = scheduler.current;
 			    if (current.scrollFrame !== null) return;
 			    current.scrollFrame = window.requestAnimationFrame(() => {
@@ -3909,36 +4037,36 @@ window.__ModuleLoader__.load({
 			      if (last !== void 0) dispatch({ type: "mark-read", chunkId: last });
 			    });
 			  }, []);
-			  const onTouchStart = import_react.default.useCallback((event) => {
+			  const onTouchStart = import_react2.default.useCallback((event) => {
 			    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
 			    trackpadSettleTimer.current = null;
 			    trackpadPull.current = createTrackpadPullRefreshState();
 			    const y = event.touches?.[0]?.clientY;
 			    touchPull.current = reducePullRefresh(touchPull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
 			  }, []);
-			  const onTouchMove = import_react.default.useCallback((event) => {
+			  const onTouchMove = import_react2.default.useCallback((event) => {
 			    const y = event.touches?.[0]?.clientY;
 			    touchPull.current = reducePullRefresh(touchPull.current, { type: "move", y });
 			    setPullDistance(touchPull.current.distance);
 			  }, []);
-			  const finishPull = import_react.default.useCallback(() => {
+			  const finishPull = import_react2.default.useCallback(() => {
 			    const ended = reducePullRefresh(touchPull.current, { type: "end" });
 			    touchPull.current = createPullRefreshState();
 			    setPullDistance(0);
 			    if (ended.requested) startRun();
 			  }, [startRun]);
-			  const cancelPull = import_react.default.useCallback(() => {
+			  const cancelPull = import_react2.default.useCallback(() => {
 			    touchPull.current = reducePullRefresh(touchPull.current, { type: "cancel" });
 			    setPullDistance(0);
 			  }, []);
-			  const finishTrackpadPull = import_react.default.useCallback(() => {
+			  const finishTrackpadPull = import_react2.default.useCallback(() => {
 			    trackpadSettleTimer.current = null;
 			    const ended = reduceTrackpadPullRefresh(trackpadPull.current, { type: "end" });
 			    trackpadPull.current = createTrackpadPullRefreshState();
 			    setPullDistance(0);
 			    if (ended.requested) startRun();
 			  }, [startRun]);
-			  const onTrackpadWheel = import_react.default.useCallback((event) => {
+			  const onTrackpadWheel = import_react2.default.useCallback((event) => {
 			    const next = reduceTrackpadPullRefresh(trackpadPull.current, {
 			      type: "wheel",
 			      deltaY: event.deltaY,
@@ -3952,7 +4080,7 @@ window.__ModuleLoader__.load({
 			    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
 			    trackpadSettleTimer.current = window.setTimeout(finishTrackpadPull, TRACKPAD_PULL_SETTLE_MS);
 			  }, [finishTrackpadPull]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    if (state.view !== "home") return void 0;
 			    const stream = streamRef.current;
 			    if (stream === null) return void 0;
@@ -3965,27 +4093,27 @@ window.__ModuleLoader__.load({
 			      trackpadPull.current = createTrackpadPullRefreshState();
 			    };
 			  }, [onTrackpadWheel, state.view]);
-			  const onAnswer = import_react.default.useCallback((chunkId, label) => {
+			  const onAnswer = import_react2.default.useCallback((chunkId, label) => {
 			    if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
 			    setAnswers((current) => ({ ...current, [chunkId]: label }));
 			    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
 			    if (chunk !== void 0) appendLearningEvent(browserStorage(), { event: "answered", chunkId, kind: chunk.kind, tribes: chunk.tribes, label });
 			    record("questionnaire-answered", "home", Math.max(0, performance.now() - NAVIGATION_STARTED_AT), "user");
 			  }, [record]);
-			  const onSave = import_react.default.useCallback((chunkId) => {
+			  const onSave = import_react2.default.useCallback((chunkId) => {
 			    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
 			    if (!stateRef.current.savedChunkIds.includes(chunkId) && chunk !== void 0) appendLearningEvent(browserStorage(), { event: "saved", chunkId, kind: chunk.kind, tribes: chunk.tribes });
 			    dispatch({ type: "toggle-save", chunkId });
 			  }, []);
-			  const onEngage = import_react.default.useCallback((chunk, event) => {
+			  const onEngage = import_react2.default.useCallback((chunk, event) => {
 			    appendLearningEvent(browserStorage(), { event, chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
 			    markVibeActivity(browserStorage());
 			  }, []);
-			  const onSkip = import_react.default.useCallback((chunk) => {
+			  const onSkip = import_react2.default.useCallback((chunk) => {
 			    appendLearningEvent(browserStorage(), { event: "skipped", chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
 			    setSkipped((current) => /* @__PURE__ */ new Set([...current, chunk.id]));
 			  }, []);
-			  const onShare = import_react.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
+			  const onShare = import_react2.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
 			    const snapshot = shareSnapshotForChunk({
 			      chunk,
 			      markdown: markdownWithoutLeadVisual(chunk.markdown),
@@ -4005,19 +4133,101 @@ window.__ModuleLoader__.load({
 			      }
 			    });
 			  }, []);
+			  const socialSnapshot = import_react2.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => shareSnapshotForChunk({
+			    chunk,
+			    markdown: markdownWithoutLeadVisual(chunk.markdown),
+			    media,
+			    inlineVisuals,
+			    contentLink,
+			    embeddedMedia
+			  }), []);
+			  const onPrepareSocial = import_react2.default.useCallback(async (chunk, details) => {
+			    const snapshot = socialSnapshot(chunk, details);
+			    if (snapshot === null) {
+			      setSocialPrepareState({ chunkId: chunk.id, status: "error" });
+			      return;
+			    }
+			    setSocialPrepareState({ chunkId: chunk.id, status: "preparing" });
+			    try {
+			      const prepared = await prepareSocialPosts(connection, snapshot);
+			      const queue = await loadSocialDesk(connection);
+			      setSocialItems(Array.isArray(queue?.items) ? queue.items : prepared?.items ?? []);
+			      setSocialPrepareState({ chunkId: chunk.id, status: "ready" });
+			      setSocialNotice(`Prepared ${prepared?.items?.length ?? 0} reviewed channel drafts from \u201C${chunk.title}\u201D.`);
+			      setLibraryOpen(false);
+			      setSocialOpen(true);
+			      window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+			    } catch (cause) {
+			      setSocialPrepareState({ chunkId: chunk.id, status: "error" });
+			      setSocialNotice(cause?.message ?? "Social Desk could not prepare this article.");
+			    }
+			  }, [connection, socialSnapshot]);
+			  const onApproveSocial = import_react2.default.useCallback(async (item, text, scheduledAt) => {
+			    setSocialBusyId(item.id);
+			    try {
+			      const updated = await approveSocialPost(connection, { id: item.id, revision: item.revision, text, scheduledAt });
+			      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
+			      setSocialNotice(updated.status === "ready-to-post" ? `${updated.channelLabel} is ready for your reviewed manual post.` : `${updated.channelLabel} is approved and scheduled.`);
+			    } catch (cause) {
+			      setSocialNotice(cause?.message ?? "That post could not be approved.");
+			    } finally {
+			      setSocialBusyId(null);
+			    }
+			  }, [connection]);
+			  const onCancelSocial = import_react2.default.useCallback(async (item) => {
+			    setSocialBusyId(item.id);
+			    try {
+			      const updated = await cancelSocialPost(connection, item.id);
+			      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
+			      setSocialNotice(`${updated.channelLabel} was removed from the active queue.`);
+			    } catch (cause) {
+			      setSocialNotice(cause?.message ?? "That post could not be cancelled.");
+			    } finally {
+			      setSocialBusyId(null);
+			    }
+			  }, [connection]);
+			  const onCopySocial = import_react2.default.useCallback(async (item) => {
+			    try {
+			      await navigator.clipboard.writeText(item.text);
+			      setSocialNotice(`${item.channelLabel} copy is on your clipboard.`);
+			    } catch {
+			      setSocialNotice("Your browser did not allow clipboard access. Select the post text and copy it manually.");
+			    }
+			  }, []);
+			  const onMarkSocialPosted = import_react2.default.useCallback(async (item) => {
+			    setSocialBusyId(item.id);
+			    try {
+			      const updated = await recordManualSocialPost(connection, item.id);
+			      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
+			      setSocialNotice(`${updated.channelLabel} is recorded as posted.`);
+			    } catch (cause) {
+			      setSocialNotice(cause?.message ?? "That post could not be marked posted.");
+			    } finally {
+			      setSocialBusyId(null);
+			    }
+			  }, [connection]);
 			  const newestChunks = newestFirst(chunks);
 			  const librarySummary = vibeLibrarySummary(newestChunks);
 			  const displayChunks = libraryOpen ? searchableVibeChunks(newestChunks, libraryQuery) : newestChunks;
-			  const goHome = import_react.default.useCallback(() => {
+			  const goHome = import_react2.default.useCallback(() => {
+			    setSocialOpen(false);
 			    setLibraryOpen(false);
 			    setLibraryQuery("");
 			    streamRef.current?.scrollTo({ top: 0, behavior: "smooth" });
 			  }, []);
-			  const openLibrary = import_react.default.useCallback(() => {
+			  const openLibrary = import_react2.default.useCallback(() => {
+			    setSocialOpen(false);
 			    setLibraryOpen(true);
 			    window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
 			  }, []);
-			  const enterChat = import_react.default.useCallback(() => {
+			  const openSocialDesk = import_react2.default.useCallback(() => {
+			    setLibraryOpen(false);
+			    setSocialOpen(true);
+			    setSocialNotice(null);
+			    void loadSocialDesk(connection).then((queue) => setSocialItems(Array.isArray(queue?.items) ? queue.items : [])).catch(() => setSocialNotice("Social Desk could not refresh its local queue."));
+			    window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+			  }, [connection]);
+			  const enterChat = import_react2.default.useCallback(() => {
 			    dispatch({ type: "enter-chat" });
 			    window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
 			  }, []);
@@ -4027,7 +4237,7 @@ window.__ModuleLoader__.load({
 			    "timed-out": "Magazine update reached its time limit and stopped.",
 			    error: "The magazine could not update. Your existing edition is unchanged."
 			  }[updateState];
-			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-shell", "data-view": state.view }, state.view === "home" ? /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-shell", "data-view": state.view }, state.view === "home" ? /* @__PURE__ */ import_react2.default.createElement(
 			    "main",
 			    {
 			      ref: streamRef,
@@ -4038,23 +4248,36 @@ window.__ModuleLoader__.load({
 			      onTouchEnd: finishPull,
 			      onTouchCancel: cancelPull
 			    },
-			    /* @__PURE__ */ import_react.default.createElement(
+			    /* @__PURE__ */ import_react2.default.createElement(
 			      Header,
 			      {
 			        editorialLabel: editorialProfile.label,
 			        updateState,
 			        libraryOpen,
+			        socialAvailable: socialCapability !== null,
+			        socialOpen,
 			        onHome: goHome,
 			        onFind: openLibrary,
+			        onSocial: openSocialDesk,
 			        onUpdate: startRun,
 			        onStop: stopRun,
 			        onChat: enterChat
 			      }
 			    ),
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
-			    libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
-			    libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
+			    socialOpen ? /* @__PURE__ */ import_react2.default.createElement(
+			      SocialDeskPanel,
+			      {
+			        capability: socialCapability,
+			        items: socialItems,
+			        busyId: socialBusyId,
+			        notice: socialNotice,
+			        onApprove: onApproveSocial,
+			        onCancel: onCancelSocial,
+			        onCopy: onCopySocial,
+			        onMarkPosted: onMarkSocialPosted,
+			        onBack: goHome
+			      }
+			    ) : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react2.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")), libraryOpen ? /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react2.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react2.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react2.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react2.default.createElement("div", null, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react2.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react2.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react2.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react2.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react2.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)), libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react2.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react2.default.createElement(
 			      StreamChunk,
 			      {
 			        key: chunk.id,
@@ -4065,16 +4288,18 @@ window.__ModuleLoader__.load({
 			        answer: answers[chunk.id],
 			        skipped: skipped.has(chunk.id),
 			        shareStatus: shareState.chunkId === chunk.id ? shareState.status : "idle",
+			        socialAvailable: socialCapability !== null,
+			        socialStatus: socialPrepareState.chunkId === chunk.id ? socialPrepareState.status : "idle",
 			        clickToLoad: editorialProfile.clickToLoadMedia,
 			        onSave,
 			        onAnswer,
 			        onEngage,
 			        onSkip,
 			        onShare,
+			        onSocial: onPrepareSocial,
 			        onChat: enterChat
 			      }
-			    ))),
-			    /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 external actions stay in Chat"))
+			    ))), /* @__PURE__ */ import_react2.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react2.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react2.default.createElement("span", null, "Creators credited \xB7 sharing stays reviewed")))
 			  ) : null);
 			}
 			var CSS = `
@@ -4096,6 +4321,8 @@ window.__ModuleLoader__.load({
 			.vfx-update:hover { background:rgba(255,255,255,.12); }.vfx-update.is-active { color:#190d13; border-color:#ff9aba; background:#ff9aba; }
 			.vfx-find { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
 			.vfx-find:hover,.vfx-find[aria-pressed="true"] { border-color:rgba(255,154,186,.68); background:rgba(255,117,159,.14); }
+			.vfx-social-tab { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
+			.vfx-social-tab:hover,.vfx-social-tab[aria-pressed="true"] { color:#190d13; border-color:#ff9aba; background:#ff9aba; }
 			.vfx-chat { min-height:39px; padding:0 16px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.25); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:13px; font-weight:700; }
 			.vfx-chat:hover { background:rgba(255,255,255,.14); }
 			.vfx-pull { height:0; overflow:hidden; display:grid; place-items:end center; color:#9d8f99; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; transition:height .18s ease; }.vfx-pull span { padding:0 0 12px; }.vfx-pull.is-armed { color:#ff8db1; }
@@ -4159,12 +4386,21 @@ window.__ModuleLoader__.load({
 			.vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 			.vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 			.vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
-			.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-chat-cta,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-chat-cta { display:inline-flex; align-items:center; gap:7px; border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 20%,#171017); color:#fff; font-weight:800; }.vfx-chat-cta:hover { background:color-mix(in srgb,var(--chunk-accent) 32%,#171017); }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player[data-media-provider="soundcloud"] { height:166px; aspect-ratio:auto; background:#fff; }.vfx-player iframe { width:100%; height:100%; display:block; border:0; }
+			.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-social-prepare,.vfx-chat-cta,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-chat-cta { display:inline-flex; align-items:center; gap:7px; border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 20%,#171017); color:#fff; font-weight:800; }.vfx-chat-cta:hover { background:color-mix(in srgb,var(--chunk-accent) 32%,#171017); }.vfx-share,.vfx-social-prepare { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-social-prepare { color:#f2ecff; border-color:rgba(159,140,255,.42); background:rgba(159,140,255,.11); }.vfx-share:hover,.vfx-social-prepare:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled,.vfx-social-prepare:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player[data-media-provider="soundcloud"] { height:166px; aspect-ratio:auto; background:#fff; }.vfx-player iframe { width:100%; height:100%; display:block; border:0; }
+			.vfx-social-desk { width:min(1180px,calc(100% - 40px)); margin:0 auto; padding:clamp(34px,5vw,66px) 0 70px; }
+			.vfx-social-hero { padding:clamp(26px,4vw,52px); overflow:hidden; border:1px solid rgba(255,154,186,.22); border-radius:26px; background:radial-gradient(circle at 90% 0,rgba(159,140,255,.22),transparent 42%),linear-gradient(145deg,#2b1524,#130e15); }
+			.vfx-social-hero>span { color:#ff91b4; font-size:10px; font-weight:850; letter-spacing:.15em; text-transform:uppercase; }.vfx-social-hero h1 { max-width:900px; margin:10px 0 16px; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(38px,5vw,68px); font-weight:500; line-height:.96; letter-spacing:-.05em; text-wrap:balance; }.vfx-social-hero p { max-width:780px; margin:0; color:#cbbec7; font-size:clamp(14px,1.3vw,18px); line-height:1.55; }.vfx-social-hero>div { margin-top:24px; display:flex; flex-wrap:wrap; align-items:center; gap:14px; }.vfx-social-hero button { min-height:40px; padding:0 16px; border:1px solid #ff9aba; border-radius:999px; background:#ff9aba; color:#190d13; cursor:pointer; font-weight:850; }.vfx-social-hero small { color:#9e909a; }
+			.vfx-social-connections { margin:24px 0; display:flex; flex-wrap:wrap; gap:8px; }.vfx-social-connections>span { min-width:130px; padding:10px 12px; display:grid; gap:3px; border:1px solid rgba(255,255,255,.1); border-radius:12px; color:#d4c8d0; background:rgba(255,255,255,.035); font-size:11px; font-weight:760; }.vfx-social-connections>span[data-connected="true"] { border-color:rgba(99,221,190,.34); }.vfx-social-connections small { color:#8e808a; font-size:9px; font-weight:600; }
+			.vfx-social-notice { margin:0 0 18px; padding:13px 15px; border:1px solid rgba(255,154,186,.24); border-radius:12px; color:#ffd3e1; background:rgba(255,117,159,.08); font-size:12px; }
+			.vfx-social-empty { padding:48px 24px; border:1px dashed rgba(255,255,255,.16); border-radius:18px; color:#b8abb4; text-align:center; }.vfx-social-empty strong { color:#fff; font-family:"Iowan Old Style",Georgia,serif; font-size:28px; font-weight:500; }.vfx-social-empty p { margin:8px 0 0; }
+			.vfx-social-queue { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; align-items:start; }.vfx-social-item { min-width:0; padding:24px; border:1px solid rgba(255,255,255,.11); border-radius:18px; background:linear-gradient(145deg,rgba(29,21,30,.96),rgba(15,11,16,.98)); }.vfx-social-item[data-status="ready-to-post"] { border-color:rgba(159,140,255,.35); }.vfx-social-item[data-status="posted"] { border-color:rgba(99,221,190,.28); }.vfx-social-item>header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-social-item>header>div { display:grid; gap:3px; }.vfx-social-item>header span { color:#ff91b4; font-size:10px; font-weight:850; letter-spacing:.1em; text-transform:uppercase; }.vfx-social-item>header strong { font-family:"Iowan Old Style",Georgia,serif; font-size:25px; font-weight:500; }.vfx-social-item>header small { max-width:150px; color:#8f828b; font-size:9px; text-align:right; }
+			.vfx-social-warning { padding:11px 13px; border-radius:10px; color:#ffd2c7; background:rgba(255,129,96,.1); font-size:11px; line-height:1.45; }.vfx-social-copy,.vfx-social-time { margin-top:18px; display:grid; gap:8px; color:#9f919a; font-size:10px; font-weight:780; letter-spacing:.06em; text-transform:uppercase; }.vfx-social-copy textarea { width:100%; min-height:190px; resize:vertical; padding:14px; border:1px solid rgba(255,255,255,.14); border-radius:12px; outline:0; color:#f8eff4; background:#0c090d; font:500 14px/1.55 Inter,"SF Pro Display","Helvetica Neue",sans-serif; letter-spacing:0; text-transform:none; }.vfx-social-copy textarea:focus,.vfx-social-time input:focus { border-color:#ff9aba; box-shadow:0 0 0 3px rgba(255,117,159,.12); }.vfx-social-final { white-space:pre-wrap; color:#c9bdc5; font-size:14px; line-height:1.55; }.vfx-social-time input { min-height:42px; padding:0 12px; border:1px solid rgba(255,255,255,.14); border-radius:10px; outline:0; color:#fff; color-scheme:dark; background:#0c090d; font:600 13px Inter,sans-serif; }.vfx-social-time small { color:#776b74; font-weight:500; letter-spacing:0; text-transform:none; }.vfx-social-schedule { color:#a99ca5; font-size:11px; }
+			.vfx-social-actions { margin-top:18px; display:flex; flex-wrap:wrap; gap:8px; }.vfx-social-actions button,.vfx-social-actions a { min-height:36px; padding:0 13px; display:inline-flex; align-items:center; border:1px solid rgba(255,255,255,.16); border-radius:999px; color:#eee4ea; background:rgba(255,255,255,.045); cursor:pointer; font-size:11px; font-weight:760; text-decoration:none; }.vfx-social-actions .is-primary { color:#190d13; border-color:#ff9aba; background:#ff9aba; }.vfx-social-actions .is-quiet { color:#958892; }.vfx-social-actions button:disabled { cursor:not-allowed; opacity:.45; }
 			.vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
-			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
-			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-update,.vfx-chat { min-height:36px; padding:0 10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
+			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; }.vfx-social-queue { grid-template-columns:1fr; } }
+			@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-social-tab,.vfx-update,.vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:9px; }.vfx-find .vfx-icon,.vfx-social-tab .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-social-desk,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-social-hero { min-width:0; padding:26px 22px; border-radius:18px; }.vfx-social-hero h1 { min-width:0; max-width:100%; overflow-wrap:normal; font-size:36px; line-height:.98; }.vfx-social-hero p { overflow-wrap:break-word; }.vfx-social-connections>span { min-width:calc(50% - 4px); flex:1 1 calc(50% - 4px); }.vfx-social-item { padding:20px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 			@media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 			`;
 			function installStyles(ctx) {
@@ -4183,7 +4419,7 @@ window.__ModuleLoader__.load({
 			  installRecipeRunner(ctx);
 			  installThreadMagazineBridge(ctx);
 			  installBackgroundEditor(ctx, { codexFeatures });
-			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.connection })));
+			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react2.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.connection })));
 			}
 			return module.exports;
 		})();

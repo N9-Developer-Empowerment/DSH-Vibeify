@@ -16,6 +16,18 @@ const emptySessions = {
     },
   },
 };
+let socialItems = [{
+  id: "preview-x", groupId: "preview", revision: 1, channel: "x", channelLabel: "X", mode: "official-api", status: "draft",
+  text: "Turn your agent work into a living magazine. Vibeify keeps the magazine local and lets you share only the finished article you choose.", maxLength: 280,
+  snapshot: { title: "Turn your agent work into a living magazine", excerpt: "A calmer way to use DeepSeek Harness.", publicUrl: "https://share.codingforjustice.org.uk/a/example", visual: null },
+  suggested: { scheduledAt: new Date(Date.now() + 86_400_000).toISOString(), timezone: "Europe/London", note: "A calm starting point; adjust it for your audience before approval." },
+  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), scheduledAt: null, approval: null, attempts: 0, nextAttemptAt: null, lastError: null, remoteId: null, remoteUrl: null,
+}, {
+  id: "preview-reddit", groupId: "preview", revision: 2, channel: "reddit", channelLabel: "Reddit", mode: "ready-to-post", status: "ready-to-post",
+  text: "What I built\n\nA local magazine for agent work.\n\nWhat surprised me\n\nFinished articles can leave without the rest of the workspace.\n\nQuestion for the community\n\nHow do you decide what deserves a public life?",
+  maxLength: 10_000, snapshot: { title: "A local magazine for agent work", excerpt: "Finished articles can leave without the rest of the workspace.", publicUrl: "https://share.codingforjustice.org.uk/a/example", visual: null },
+  suggested: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), scheduledAt: null, approval: { approvedAt: new Date().toISOString() }, attempts: 0, nextAttemptAt: null, lastError: null, remoteId: null, remoteUrl: null,
+}];
 const unavailableConnection = {
   api: {
     sessions: {
@@ -26,8 +38,42 @@ const unavailableConnection = {
       async rename() { return { result: { ok: false } }; },
     },
   },
+  rpc: {
+    async call(channel, action, payload) {
+      if (channel === "/dsh-visuals") return { ok: false };
+      if (channel !== "/dsh-social-desk") return { ok: false, error: { message: "Unavailable" } };
+      if (action === "capabilities") return { ok: true, value: {
+        name: "Vibe Social Desk", timezone: "Europe/London",
+        channels: [
+          { id: "x", label: "X", mode: "official-api", configured: true, available: true },
+          { id: "bluesky", label: "Bluesky", mode: "official-api", configured: false, available: false },
+          { id: "threads", label: "Threads", mode: "official-api", configured: true, available: true },
+          { id: "facebook-page", label: "Facebook Page", mode: "official-api", configured: false, available: false },
+          { id: "instagram", label: "Instagram professional", mode: "official-api", configured: false, available: false },
+          { id: "reddit", label: "Reddit", mode: "ready-to-post", configured: false, available: true },
+          { id: "discord", label: "Discord", mode: "ready-to-post", configured: false, available: true },
+          { id: "youtube-community", label: "YouTube Community", mode: "ready-to-post", configured: false, available: true },
+        ],
+      } };
+      if (action === "list") return { ok: true, value: { items: structuredClone(socialItems) } };
+      if (action === "approve-and-schedule") {
+        socialItems = socialItems.map((item) => item.id === payload.id ? { ...item, revision: item.revision + 1, text: payload.text, scheduledAt: payload.scheduledAt, status: item.mode === "official-api" ? "approved" : "ready-to-post" } : item);
+        return { ok: true, value: structuredClone(socialItems.find((item) => item.id === payload.id)) };
+      }
+      if (action === "cancel") {
+        socialItems = socialItems.map((item) => item.id === payload.id ? { ...item, revision: item.revision + 1, status: "cancelled" } : item);
+        return { ok: true, value: structuredClone(socialItems.find((item) => item.id === payload.id)) };
+      }
+      if (action === "record-manual-post") {
+        socialItems = socialItems.map((item) => item.id === payload.id ? { ...item, revision: item.revision + 1, status: "posted" } : item);
+        return { ok: true, value: structuredClone(socialItems.find((item) => item.id === payload.id)) };
+      }
+      return { ok: false, error: { message: "Unavailable in preview" } };
+    },
+  },
 };
 const ctx = {
+  connection: unavailableConnection,
   get(name) {
     if (name === "sessions") return emptySessions;
     if (name === "connection") return unavailableConnection;
@@ -74,5 +120,14 @@ if (new URLSearchParams(window.location.search).get("fixture") === "table") {
       },
     }));
   }));
+}
+if (new URLSearchParams(window.location.search).get("fixture") === "social") {
+  const openSocialFixture = window.setInterval(() => {
+    const button = document.querySelector(".vfx-social-tab");
+    if (button === null) return;
+    window.clearInterval(openSocialFixture);
+    button.click();
+  }, 40);
+  window.setTimeout(() => window.clearInterval(openSocialFixture), 4_000);
 }
 window.addEventListener("beforeunload", () => cleanups.reverse().forEach((cleanup) => cleanup()));

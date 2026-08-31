@@ -29,6 +29,7 @@ repository_root="$(cd "$script_directory/.." && pwd)"
 plugin_directory="$repository_root/plugins/dsh-vibeify"
 experience_plugin_directory="$repository_root/plugins/dsh-vibeify-experience"
 visual_plugin_directory="$repository_root/plugins/dsh-visuals"
+social_plugin_directory="$repository_root/plugins/dsh-social-desk"
 
 check "plugin JavaScript syntax" node --check "$plugin_directory/index.js"
 check "browser JavaScript syntax" node --check "$plugin_directory/client.js"
@@ -38,6 +39,9 @@ check "provider-neutral update host syntax" node --check "$experience_plugin_dir
 check "provider-neutral package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-vibeify-experience"||p.main!=="index.js"||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$experience_plugin_directory/package.json"
 check "visual-source package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-visuals"||p.main!=="index.js"||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$visual_plugin_directory/package.json"
 check "visual-source host syntax" node --check "$visual_plugin_directory/index.js"
+check "Social Desk package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-social-desk"||p.main!=="index.js"||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$social_plugin_directory/package.json"
+check "Social Desk host syntax" node --check "$social_plugin_directory/index.js"
+check "Social Desk behavior tests" node --test "$social_plugin_directory"/*.test.js
 check "restart handoff syntax" node --check "$script_directory/dsh-restart.mjs"
 check "restart handoff tests" node --test "$script_directory/dsh-restart.test.mjs"
 check "cross-platform DSH starter syntax" node --check "$script_directory/start-dsh.mjs"
@@ -58,11 +62,13 @@ check "Windows installer contract" grep -q 'validate-package-archive.mjs' "$scri
 check "routing policy tests" node --test "$plugin_directory/routing-policy.test.js"
 check "DSH bundle manifest" grep -q '"bundle"' "$plugin_directory/package.json"
 check "Codex manifest JSON" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-vibeify"||p.skills!=="./skills/")process.exit(1)' "$plugin_directory/.codex-plugin/plugin.json"
+check "Social Desk Codex manifest JSON" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-social-desk"||p.skills!=="./skills/")process.exit(1)' "$social_plugin_directory/.codex-plugin/plugin.json"
 check "Codex marketplace JSON" node -e 'const p=require(process.argv[1]);if(p.plugins?.[0]?.name!=="dsh-vibeify")process.exit(1)' "$repository_root/.agents/plugins/marketplace.json"
 codex_home="${CODEX_HOME:-$HOME/.codex}"
 plugin_validator="$codex_home/skills/.system/plugin-creator/scripts/validate_plugin.py"
 if [[ -f "$plugin_validator" ]] && python3 -c 'import yaml' >/dev/null 2>&1; then
   check "Codex plugin manifest" python3 "$plugin_validator" "$plugin_directory"
+  check "Social Desk Codex plugin manifest" python3 "$plugin_validator" "$social_plugin_directory"
 else
   printf 'INFO Full Codex validator is unavailable; dependency-free manifest checks were used.\n'
 fi

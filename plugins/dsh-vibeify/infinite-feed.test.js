@@ -14,6 +14,7 @@ import {
   questionnaireOptions,
   remoteVisualForMarkdown,
   remoteVisualsForMarkdown,
+  storyCoverForChunk,
   visualMediaForChunk,
   visualEpisodeForChunk,
 } from "./client-src/experience/feed.js";
@@ -74,7 +75,7 @@ test("every valid stream tile receives a stable locally bundled photograph", () 
   assert.equal(visualEpisodeForChunk(catalog, topicChunk).id, topicChunk.topicId);
 });
 
-test("reader and generated cards default to photography while bundled visual features may use labelled graphics", () => {
+test("bundled cards use their curated visuals while generated cards never inherit unrelated stock", () => {
   const stream = createBundledStream(catalog, "2026-08-28", 72);
   const media = stream.map((chunk) => visualMediaForChunk(catalog, chunk));
   assert.ok(media.every(({ artwork, alt, href, label }) => artwork.length > 0 && alt.length > 0 && href.startsWith("https://") && label.length > 0));
@@ -83,8 +84,10 @@ test("reader and generated cards default to photography while bundled visual fea
   assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= catalog.episodes.length);
   const generated = visualMediaForChunk(catalog, { id: "reader-jason-arday", kind: "article", source: "fresh-stream", title: "Jason Arday", markdown: "A finished article.", topicId: null });
   const chat = visualMediaForChunk(catalog, { id: "chat-jason-arday", kind: "article", source: "chat-directed", title: "Jason Arday", markdown: "A finished answer.", topicId: null });
-  assert.equal(generated.kind, "photograph");
-  assert.equal(chat.kind, "photograph");
+  assert.equal(generated.kind, "typography");
+  assert.equal(chat.kind, "typography");
+  assert.match(decodeURIComponent(generated.externalUrl), /Jason Arday/);
+  assert.notEqual(generated.externalUrl, chat.externalUrl);
 });
 
 test("the welcome magazine has an immediate visual on every panel and mixes photographs with labelled graphics", () => {
@@ -151,7 +154,7 @@ test("an official first-party image can render beside its separate same-origin s
 test("long magazine pages retain several relevant photographs as visual beats", () => {
   const markdown = [
     "![Jason Arday speaking at a lectern](https://upload.wikimedia.org/wikipedia/commons/a/aa/jason-one.jpg)",
-    "[Photograph · University archive](https://commons.wikimedia.org/wiki/File:Jason_one.jpg)",
+    "[Photograph · University archive · CC BY 4.0](https://commons.wikimedia.org/wiki/File:Jason_one.jpg)",
     "An opening section with [the appointment profile](https://university.example/jason-arday).",
     "![A university corridor with portraits](https://images.pexels.com/photos/123/corridor.jpeg?w=1600)",
     "[Photograph · Alex Example](https://www.pexels.com/photo/corridor-123/)",
@@ -180,15 +183,41 @@ test("article destinations exclude image files and visual-credit links", () => {
   assert.equal(contentLinkForMarkdown("A complete article without a link."), null);
 });
 
-test("unapproved remote images cannot enter the catalogue and receive a local fallback", () => {
+test("unapproved remote images cannot enter the catalogue and receive a relevant unique fallback", () => {
   const markdown = "![Tracking image](https://tracker.example/pixel.jpg)\n\n[Source](https://example.com)\n\nUseful copy.";
   const chunk = Object.freeze({ id: "refill-rejected-image", kind: "image", source: "fresh-stream", title: "Rejected image", markdown, topicId: null });
   const media = visualMediaForChunk(catalog, chunk);
   assert.equal(remoteVisualForMarkdown(markdown), null);
   assert.notEqual(media.kind, "fresh-image");
-  assert.ok(["photograph", "ai-graphic"].includes(media.kind));
+  assert.equal(media.kind, "typography");
+  assert.match(decodeURIComponent(media.externalUrl), /Rejected image/);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /!\[/);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Tracking image/);
+});
+
+test("reusable catalogue families require a visible licence and preserve it in the credit", () => {
+  const image = "https://upload.wikimedia.org/wikipedia/commons/a/aa/flying-car.jpg";
+  const source = "https://commons.wikimedia.org/wiki/File:Flying_car.jpg";
+  assert.equal(remoteVisualForMarkdown(`![A real flying-car prototype](${image})\n\n[Photograph · Example](${source})\n\nUseful copy.`), null);
+  assert.deepEqual(remoteVisualForMarkdown(`![A real flying-car prototype](${image})\n\n[Photograph · Example · CC BY-SA 4.0](${source})\n\nUseful copy.`), {
+    imageUrl: image,
+    sourceUrl: source,
+    alt: "A real flying-car prototype",
+    credit: "Photograph · Example · CC BY-SA 4.0",
+  });
+  const flickrImage = "https://live.staticflickr.com/65535/example.jpg";
+  const flickrSource = "https://www.flickr.com/photos/example/123456789/";
+  assert.equal(remoteVisualForMarkdown(`![A noncommercial-only photograph](${flickrImage})\n\n[Photograph · Example · CC BY-NC 4.0](${flickrSource})\n\nUseful copy.`), null);
+});
+
+test("story covers are deterministic, unique to their copy, and contain the article title", () => {
+  const first = storyCoverForChunk({ title: "Why flying cars remain aircraft", markdown: "Gravity sends the invoice." });
+  const again = storyCoverForChunk({ title: "Why flying cars remain aircraft", markdown: "Gravity sends the invoice." });
+  const different = storyCoverForChunk({ title: "A different story", markdown: "Different copy." });
+  assert.equal(first.externalUrl, again.externalUrl);
+  assert.notEqual(first.externalUrl, different.externalUrl);
+  assert.match(decodeURIComponent(first.externalUrl), /Why flying cars remain aircraft/);
+  assert.equal(first.kind, "typography");
 });
 
 test("rolling catalogue images require provenance and discard tracking parameters", () => {

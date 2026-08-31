@@ -37,5 +37,9 @@ test("prompt establishes the provider boundary and closed envelope contract", ()
   assert.match(prompt, /recent-use diversity/i);
   assert.match(prompt, /every non-questionnaire page must begin with a subject-relevant photograph/i);
   assert.match(prompt, /longer than 500 words.*two or three/i);
+  assert.match(prompt, /Google Images with its Usage rights filter.*not permission/i);
+  assert.match(prompt, /verify the exact reusable licence/i);
+  assert.match(prompt, /Wikimedia Commons, Openverse.*Flickr Commons/i);
+  assert.match(prompt, /Photograph · Creator · CC BY 4\.0/i);
   assert.match(buildBackgroundReservePrompt({ runId: "reserve-abc", profile, signals, learning, codexFeatures: false }), /Do not claim Codex or independent verification/);
 });

@@ -13,10 +13,21 @@ worker = worker.replace(
   'from "../../../shared/vibe-share-contract.js"',
   'from "./vibe-share-contract.js"',
 );
+let render = await readFile(resolve(project, "src/render.mjs"), "utf8");
+render = render.replace(
+  'from "../../../shared/vibe-markdown.js"',
+  'from "./vibe-markdown.js"',
+);
+let appSource = await readFile(resolve(project, "src/app-source.mjs"), "utf8");
+appSource = appSource.replace(
+  'from "../../../shared/vibe-markdown.js"',
+  'from "./vibe-markdown.js"',
+);
 
 await Promise.all([
   writeFile(resolve(server, "index.js"), worker),
-  copyFile(resolve(project, "src/render.mjs"), resolve(server, "render.mjs")),
-  copyFile(resolve(project, "src/app-source.mjs"), resolve(server, "app-source.mjs")),
+  writeFile(resolve(server, "render.mjs"), render),
+  writeFile(resolve(server, "app-source.mjs"), appSource),
   copyFile(resolve(project, "../../shared/vibe-share-contract.js"), resolve(server, "vibe-share-contract.js")),
+  copyFile(resolve(project, "../../shared/vibe-markdown.js"), resolve(server, "vibe-markdown.js")),
 ]);

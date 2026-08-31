@@ -25,7 +25,11 @@ test("each explicit update renews the rolling visual catalogue without reusing r
   assert.match(prompt, /unique story-specific generated image/i);
   assert.match(prompt, /typographic editorial cover/i);
   assert.match(prompt, /never present generated imagery as a real photograph/i);
-  assert.match(prompt, /images\.unsplash\.com, images\.pexels\.com, upload\.wikimedia\.org, or cdn\.pixabay\.com/i);
+  assert.match(prompt, /Google Images with its Usage rights filter/i);
+  assert.match(prompt, /never treat that filter or a search-result label as permission/i);
+  assert.match(prompt, /independently verify its exact reusable licence/i);
+  assert.match(prompt, /Wikimedia Commons, Openverse.*Flickr Commons/i);
+  assert.match(prompt, /CC BY 4\.0/i);
   assert.match(prompt, /never reuse a recent image URL/i);
   assert.equal(prompt.split(oldImage).length - 1, 1);
 });

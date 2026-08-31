@@ -10,13 +10,16 @@ export const SHARE_READY_TIMEOUT_MS = 15_000;
 
 export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
   const publicPhoto = media?.episode?.photo;
-  const visual = media?.externalUrl !== undefined ? {
-    imageUrl: media.externalUrl,
+  const remoteImageUrl = typeof media?.externalUrl === "string" && media.externalUrl.startsWith("https://")
+    ? media.externalUrl
+    : null;
+  const visual = remoteImageUrl !== null ? {
+    imageUrl: remoteImageUrl,
     sourceUrl: media.href,
     alt: media.alt,
     credit: media.label,
     kind: media.kind ?? (/\bphotograph|\bphoto\b/i.test(media.label ?? "") ? "photograph" : undefined),
-  } : typeof publicPhoto?.publicImageUrl === "string" ? {
+  } : media?.kind !== "typography" && typeof publicPhoto?.publicImageUrl === "string" ? {
     imageUrl: publicPhoto.publicImageUrl,
     sourceUrl: publicPhoto.sourceUrl ?? media.href,
     alt: publicPhoto.alt ?? media.alt,

@@ -1,4 +1,6 @@
-export const APP_JS = String.raw`const VERSION = 1;
+import { vibeMarkdownRuntimeSource } from "../../../shared/vibe-markdown.js";
+
+const APP_BODY = String.raw`const VERSION = 1;
 const READY = "vibe-share:ready";
 const SNAPSHOT = "vibe-share:snapshot";
 const ALLOWED_OPENERS = new Set(["http://127.0.0.1:3080", "http://localhost:3080"]);
@@ -40,9 +42,16 @@ function createTypographicCover(value) {
   canvas.width = 1200;
   canvas.height = 630;
   const context = canvas.getContext("2d");
-  const entropy = new Uint32Array(1);
-  crypto.getRandomValues(entropy);
-  const seed = [...String(value.title ?? "Vibe")].reduce((sum, character) => (sum * 31 + character.codePointAt(0)) >>> 0, entropy[0]);
+  const excerpt = String(value.markdown ?? "")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[*_#>|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const seed = [...String(value.title ?? "Vibe") + ":" + excerpt].reduce((sum, character) => {
+    const mixed = (sum ^ character.codePointAt(0)) >>> 0;
+    return Math.imul(mixed, 16777619) >>> 0;
+  }, 2166136261);
   const hue = seed % 360;
   const gradient = context.createLinearGradient(0, 0, 1200, 630);
   gradient.addColorStop(0, "hsl(" + hue + " 42% 13%)");
@@ -66,12 +75,6 @@ function createTypographicCover(value) {
   context.fillStyle = "#fffafc";
   context.font = "500 68px Georgia, serif";
   wrapCoverText(context, value.title, 72, 176, 940, 78, 4);
-  const excerpt = String(value.markdown ?? "")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[*_#>|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
   context.fillStyle = "#d7cbd2";
   context.font = "400 27px system-ui, sans-serif";
   wrapCoverText(context, excerpt, 74, 515, 980, 36, 2);
@@ -222,52 +225,30 @@ function installMediaPlayers(root = document) {
 }
 
 function appendInline(parent, value) {
-  const text = String(value ?? "").replace(/!\[[^\]\n]*\]\([^\s)]+\)/g, "");
-  const pattern = /(\[[^\]\n]{1,240}\]\(https:\/\/[^\s)]+\)|\*\*[^*\n]{1,300}\*\*|\*[^*\n]{1,300}\*)/g;
-  let cursor = 0;
-  for (const match of text.matchAll(pattern)) {
-    if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
-    const token = match[0];
-    const link = /^\[([^\]]+)\]\((https:\/\/[^\s)]+)\)$/.exec(token);
-    if (link !== null) {
+  for (const token of parseVibeInline(value)) {
+    if (token.type === "link") {
       const anchor = document.createElement("a");
-      anchor.href = link[2];
+      anchor.href = token.href;
       anchor.target = "_blank";
       anchor.rel = "noopener noreferrer";
-      anchor.textContent = link[1];
+      anchor.textContent = token.value;
       parent.append(anchor);
-    } else {
-      const strong = token.startsWith("**");
-      const emphasis = document.createElement(strong ? "strong" : "em");
-      emphasis.textContent = token.slice(strong ? 2 : 1, strong ? -2 : -1);
+    } else if (token.type === "strong") {
+      const strong = document.createElement("strong");
+      strong.textContent = token.value;
+      parent.append(strong);
+    } else if (token.type === "emphasis") {
+      const emphasis = document.createElement("em");
+      emphasis.textContent = token.value;
       parent.append(emphasis);
+    } else if (token.type === "code") {
+      const code = document.createElement("code");
+      code.textContent = token.value;
+      parent.append(code);
+    } else {
+      parent.append(document.createTextNode(token.value));
     }
-    cursor = match.index + token.length;
   }
-  if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
-}
-
-function tableCells(line) {
-  const value = String(line ?? "").trim();
-  if (!value.startsWith("|") || !value.endsWith("|")) return null;
-  const cells = value.slice(1, -1).split("|").map((cell) => cell.trim());
-  return cells.length >= 2 && cells.every((cell) => cell.length > 0) ? cells : null;
-}
-
-function markdownTableAt(lines, startIndex) {
-  const headers = tableCells(lines[startIndex]);
-  const alignment = tableCells(lines[startIndex + 1]);
-  if (headers === null || alignment === null || headers.length !== alignment.length) return null;
-  if (!alignment.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
-  const rows = [];
-  let nextIndex = startIndex + 2;
-  while (nextIndex < lines.length) {
-    const cells = tableCells(lines[nextIndex]);
-    if (cells === null || cells.length !== headers.length) break;
-    rows.push(cells);
-    nextIndex += 1;
-  }
-  return { headers, rows, nextIndex };
 }
 
 function renderTable(table) {
@@ -301,54 +282,46 @@ function renderTable(table) {
   return scroll;
 }
 
-function renderMarkdown(markdown) {
+function renderMarkdown(markdown, title = "") {
   const fragment = document.createDocumentFragment();
-  const lines = String(markdown ?? "").split(/\r?\n/);
-  let paragraph = [];
-  let list = null;
-  const flushParagraph = () => {
-    if (paragraph.length === 0) return;
-    const element = document.createElement("p");
-    appendInline(element, paragraph.join(" "));
-    if (element.textContent.trim() !== "") fragment.append(element);
-    paragraph = [];
-  };
-  const flushList = () => { if (list !== null) { fragment.append(list); list = null; } };
-  for (let index = 0; index < lines.length; index += 1) {
-    const raw = lines[index];
-    const line = raw.trim();
-    if (line === "") { flushParagraph(); flushList(); continue; }
-    const table = markdownTableAt(lines, index);
-    if (table !== null) {
-      flushParagraph(); flushList();
-      fragment.append(renderTable(table));
-      index = table.nextIndex - 1;
-      continue;
-    }
-    const heading = /^(#{1,3})\s+(.+)$/.exec(line);
-    if (heading !== null) {
-      flushParagraph(); flushList();
-      const element = document.createElement("h" + Math.min(3, heading[1].length + 1));
-      appendInline(element, heading[2]);
+  for (const block of parseVibeMarkdown(markdown, title)) {
+    if (block.type === "table") {
+      fragment.append(renderTable(block));
+    } else if (block.type === "heading") {
+      const element = document.createElement("h" + block.level);
+      appendInline(element, block.value);
       fragment.append(element);
-      continue;
+    } else if (block.type === "list") {
+      const list = document.createElement(block.kind === "ordered" ? "ol" : "ul");
+      block.items.forEach((value) => {
+        const item = document.createElement("li");
+        appendInline(item, value);
+        list.append(item);
+      });
+      fragment.append(list);
+    } else if (block.type === "quote") {
+      const quote = document.createElement("blockquote");
+      appendInline(quote, block.value);
+      fragment.append(quote);
+    } else if (block.type === "code-block") {
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      if (block.language !== "") code.className = "language-" + block.language;
+      code.textContent = block.value;
+      pre.append(code);
+      fragment.append(pre);
+    } else if (block.type === "math") {
+      const math = document.createElement("div");
+      math.className = "math";
+      math.setAttribute("role", "math");
+      math.textContent = block.value;
+      fragment.append(math);
+    } else {
+      const paragraph = document.createElement("p");
+      appendInline(paragraph, block.value);
+      fragment.append(paragraph);
     }
-    const bullet = /^[-*]\s+(.+)$/.exec(line);
-    const ordered = /^\d+[.)]\s+(.+)$/.exec(line);
-    if (bullet !== null || ordered !== null) {
-      flushParagraph();
-      const kind = bullet !== null ? "UL" : "OL";
-      if (list !== null && list.tagName !== kind) flushList();
-      list ??= document.createElement(kind.toLowerCase());
-      const item = document.createElement("li");
-      appendInline(item, (bullet ?? ordered)[1]);
-      list.append(item);
-      continue;
-    }
-    flushList();
-    paragraph.push(line);
   }
-  flushParagraph(); flushList();
   return fragment;
 }
 
@@ -369,7 +342,7 @@ function renderSnapshot(value) {
   title.textContent = value.title;
   const body = document.createElement("div");
   body.className = "body";
-  body.append(renderMarkdown(value.markdown));
+  body.append(renderMarkdown(value.markdown, value.title));
   copy.append(kind, title, body);
   const media = renderMedia(value.media);
   if (media !== null) copy.append(media);
@@ -478,3 +451,5 @@ publish?.addEventListener("click", async () => {
     publish.disabled = false;
   }
 });`;
+
+export const APP_JS = `${vibeMarkdownRuntimeSource()}\n\n${APP_BODY}`;

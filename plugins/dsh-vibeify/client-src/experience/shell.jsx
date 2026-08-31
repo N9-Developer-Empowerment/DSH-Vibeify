@@ -121,11 +121,11 @@ function Icon({ name }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" className="vfx-icon"><path d={paths[name]} /></svg>;
 }
 
-function Markdown({ value, onLink }) {
+function Markdown({ value, title, onLink }) {
   const ref = React.useRef(null);
   React.useEffect(() => {
-    if (ref.current !== null) ref.current.replaceChildren(markdownFragment(value));
-  }, [value]);
+    if (ref.current !== null) ref.current.replaceChildren(markdownFragment(value, title));
+  }, [title, value]);
   return <div ref={ref} className="vfx-markdown" onClick={(event) => {
     const link = event.target instanceof Element ? event.target.closest("a") : null;
     if (link !== null) onLink?.(link.href);
@@ -246,7 +246,7 @@ function StreamChunk({ chunk, index, saved, answer, skipped, shareStatus, clickT
         </div>
         {chunk.kind === "questionnaire"
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
-          : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} onLink={() => onEngage(chunk, "opened")} />}
+          : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} onLink={() => onEngage(chunk, "opened")} />}
         {chunk.kind === "questionnaire" ? null : <InlineVisuals visuals={inlineVisuals} title={chunk.title} onOpen={() => onEngage(chunk, "opened")} />}
         {player === null ? null : playerOpen ? (
           <div className="vfx-player" data-media-provider={player.provider}>
@@ -778,7 +778,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-chunk.is-hero h2 { font-size:clamp(40px,3vw,60px); }
 .vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 .vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
-.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown pre { display:block; max-width:100%; overflow-x:auto; white-space:pre-wrap; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }
+.vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown h2 { margin:30px 0 12px; font-size:clamp(26px,3vw,40px); line-height:1.06; }.vfx-markdown h3 { margin:24px 0 10px; font-size:clamp(21px,2.2vw,29px); line-height:1.14; }.vfx-markdown pre { display:block; max-width:100%; padding:18px; overflow-x:auto; white-space:pre-wrap; border:1px solid rgba(255,255,255,.11); border-radius:12px; background:#0a070b; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }.vfx-math { max-width:100%; margin:24px 0; padding:18px 22px; overflow-x:auto; border-left:3px solid var(--chunk-accent); border-radius:0 12px 12px 0; background:rgba(255,255,255,.045); color:#fff7fb; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(20px,2.7vw,34px); line-height:1.25; letter-spacing:.015em; white-space:nowrap; }
 .vfx-table-scroll { max-width:100%; margin:22px 0; overflow-x:auto; overscroll-behavior-inline:contain; -webkit-overflow-scrolling:touch; scrollbar-color:#765466 transparent; }
 .vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
 .vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }

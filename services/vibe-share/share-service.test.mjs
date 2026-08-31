@@ -158,6 +158,32 @@ test("private previews and public pages render pipe tables as responsive tables"
   assert.match(page, /\.body th,\.body td\{[^}]*word-break:normal/);
 });
 
+test("Vibe formatting survives private preview and public rendering without title or TeX leakage", () => {
+  const title = "The flying car will not be a car";
+  const markdown = [
+    `# ${title}`,
+    "",
+    "*Advanced-air-mobility concept art: NASA.*",
+    "",
+    "## There are only three bargains with gravity",
+    "",
+    "**Float in the air.** Read [NASA data](https://www.nasa.gov/).",
+    "",
+    String.raw`\[ L=\tfrac{1}{2}\rho V^2 S C_L \]`,
+  ].join("\n");
+  const html = markdownToHtml(markdown, title);
+  assert.doesNotMatch(html, new RegExp(`<h2>${title}</h2>`));
+  assert.match(html, /<em>Advanced-air-mobility concept art: NASA\.<\/em>/);
+  assert.match(html, /<h3>There are only three bargains with gravity<\/h3>/);
+  assert.match(html, /<strong>Float in the air\.<\/strong>/);
+  assert.match(html, /<div class="math" role="math">L=1⁄2ρ V² S Cₗ<\/div>/);
+  assert.doesNotMatch(html, /\\tfrac|\\rho|\\\[/);
+
+  assert.match(APP_JS, /function parseVibeMarkdown/);
+  assert.match(APP_JS, /parseVibeMarkdown\(markdown, title\)/);
+  assert.match(APP_JS, /math\.className = "math"/);
+});
+
 test("an inline photograph becomes the lead when an older snapshot has no lead image", () => {
   const page = renderPublicArticle({
     ...snapshot,

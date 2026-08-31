@@ -1,3 +1,10 @@
+import {
+  markdownTableAt as sharedMarkdownTableAt,
+  parseVibeInline,
+  parseVibeMarkdown,
+  stripDuplicatedLeadTitle as sharedStripDuplicatedLeadTitle,
+} from "../../../../shared/vibe-markdown.js";
+
 const TAB_ID = "dsh-vibeify-vibe-tab";
 const TAB_STYLE_ID = "dsh-vibeify-vibe-tab-style";
 const MARKDOWN_SELECTOR = 'div[class*="_markdown_"]';
@@ -102,23 +109,9 @@ export function renderedAnswerToMarkdown(source) {
     .trim();
 }
 
-function comparableTitle(value) {
-  return String(value ?? "")
-    .replace(/\[([^\]]+)\]\([^\s)]+\)/g, "$1")
-    .replace(/[*_`>#]/g, "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim()
-    .toLocaleLowerCase();
-}
-
 /** The card chrome owns the title; an identical first heading is redundant. */
 export function stripDuplicatedLeadTitle(markdown, title) {
-  if (typeof markdown !== "string") return "";
-  const lead = markdown.match(/^\s*(?:(?:#{1,3})\s+([^\n]+)|\*\*([^*\n]+)\*\*)\s*(?:\n+|$)/);
-  if (lead === null) return markdown;
-  const candidate = lead[1] ?? lead[2] ?? "";
-  if (comparableTitle(candidate) !== comparableTitle(title)) return markdown;
-  return markdown.slice(lead[0].length).trimStart();
+  return sharedStripDuplicatedLeadTitle(markdown, title);
 }
 
 export function createChatResultChunk(source, publishedAt = Date.now()) {
@@ -153,53 +146,34 @@ export function isNativeResultTabList(tabList) {
 }
 
 function appendInline(container, value) {
-  const pattern = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|`([^`]+)`)/g;
-  let cursor = 0;
-  for (const match of value.matchAll(pattern)) {
-    if (match.index > cursor) container.append(document.createTextNode(value.slice(cursor, match.index)));
-    if (match[2] !== undefined) {
+  for (const token of parseVibeInline(value)) {
+    if (token.type === "link") {
       const link = document.createElement("a");
-      link.href = match[3];
+      link.href = token.href;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = match[2];
+      link.textContent = token.value;
       container.append(link);
-    } else if (match[4] !== undefined) {
+    } else if (token.type === "strong") {
       const strong = document.createElement("strong");
-      strong.textContent = match[4];
+      strong.textContent = token.value;
       container.append(strong);
-    } else {
+    } else if (token.type === "emphasis") {
+      const emphasis = document.createElement("em");
+      emphasis.textContent = token.value;
+      container.append(emphasis);
+    } else if (token.type === "code") {
       const code = document.createElement("code");
-      code.textContent = match[5];
+      code.textContent = token.value;
       container.append(code);
+    } else {
+      container.append(document.createTextNode(token.value));
     }
-    cursor = match.index + match[0].length;
   }
-  if (cursor < value.length) container.append(document.createTextNode(value.slice(cursor)));
-}
-
-function tableCells(line) {
-  const value = String(line ?? "").trim();
-  if (!value.includes("|") || !value.startsWith("|") || !value.endsWith("|")) return null;
-  const cells = value.slice(1, -1).split("|").map((cell) => cell.trim());
-  return cells.length >= 2 && cells.every((cell) => cell.length > 0) ? cells : null;
 }
 
 export function markdownTableAt(lines, startIndex) {
-  if (!Array.isArray(lines) || !Number.isInteger(startIndex)) return null;
-  const headers = tableCells(lines[startIndex]);
-  const alignment = tableCells(lines[startIndex + 1]);
-  if (headers === null || alignment === null || headers.length !== alignment.length) return null;
-  if (!alignment.every((cell) => /^:?-{3,}:?$/.test(cell))) return null;
-  const rows = [];
-  let nextIndex = startIndex + 2;
-  while (nextIndex < lines.length) {
-    const cells = tableCells(lines[nextIndex]);
-    if (cells === null || cells.length !== headers.length) break;
-    rows.push(cells);
-    nextIndex += 1;
-  }
-  return { headers, rows, nextIndex };
+  return sharedMarkdownTableAt(lines, startIndex);
 }
 
 export function markdownHasTable(markdown) {
@@ -207,89 +181,75 @@ export function markdownHasTable(markdown) {
   return lines.some((_line, index) => markdownTableAt(lines, index) !== null);
 }
 
-export function markdownFragment(markdown) {
+function renderTable(table) {
+  const scroll = document.createElement("div");
+  scroll.className = "vfx-table-scroll";
+  scroll.tabIndex = 0;
+  scroll.setAttribute("role", "region");
+  scroll.setAttribute("aria-label", "Scrollable article table");
+  const element = document.createElement("table");
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  for (const value of table.headers) {
+    const cell = document.createElement("th");
+    appendInline(cell, value);
+    headRow.append(cell);
+  }
+  head.append(headRow);
+  element.append(head);
+  const body = document.createElement("tbody");
+  for (const row of table.rows) {
+    const bodyRow = document.createElement("tr");
+    for (const value of row) {
+      const cell = document.createElement("td");
+      appendInline(cell, value);
+      bodyRow.append(cell);
+    }
+    body.append(bodyRow);
+  }
+  element.append(body);
+  scroll.append(element);
+  return scroll;
+}
+
+export function markdownFragment(markdown, title = "") {
   const fragment = document.createDocumentFragment();
-  const lines = String(markdown ?? "").replace(/\r\n?/g, "\n").split("\n");
-  let index = 0;
-  const special = (line) => /^#{1,3}\s|^>\s?|^[-*]\s+|^\d+\.\s+/.test(line);
-  while (index < lines.length) {
-    const line = lines[index];
-    if (line.trim().length === 0) { index += 1; continue; }
-    const table = markdownTableAt(lines, index);
-    if (table !== null) {
-      const scroll = document.createElement("div");
-      scroll.className = "vfx-table-scroll";
-      scroll.tabIndex = 0;
-      scroll.setAttribute("role", "region");
-      scroll.setAttribute("aria-label", "Scrollable article table");
-      const element = document.createElement("table");
-      const head = document.createElement("thead");
-      const headRow = document.createElement("tr");
-      for (const value of table.headers) {
-        const cell = document.createElement("th");
-        appendInline(cell, value);
-        headRow.append(cell);
-      }
-      head.append(headRow);
-      element.append(head);
-      const body = document.createElement("tbody");
-      for (const row of table.rows) {
-        const bodyRow = document.createElement("tr");
-        for (const value of row) {
-          const cell = document.createElement("td");
-          appendInline(cell, value);
-          bodyRow.append(cell);
-        }
-        body.append(bodyRow);
-      }
-      element.append(body);
-      scroll.append(element);
-      fragment.append(scroll);
-      index = table.nextIndex;
-      continue;
-    }
-    const heading = line.match(/^(#{1,3})\s+(.+)$/);
-    if (heading !== null) {
-      const element = document.createElement(`h${heading[1].length}`);
-      appendInline(element, heading[2]);
+  for (const block of parseVibeMarkdown(markdown, title)) {
+    if (block.type === "table") {
+      fragment.append(renderTable(block));
+    } else if (block.type === "heading") {
+      const element = document.createElement(`h${block.level}`);
+      appendInline(element, block.value);
       fragment.append(element);
-      index += 1;
-      continue;
-    }
-    if (/^[-*]\s+/.test(line) || /^\d+\.\s+/.test(line)) {
-      const ordered = /^\d+\.\s+/.test(line);
-      const list = document.createElement(ordered ? "ol" : "ul");
-      const itemPattern = ordered ? /^\d+\.\s+(.+)$/ : /^[-*]\s+(.+)$/;
-      while (index < lines.length) {
-        const item = lines[index].match(itemPattern);
-        if (item === null) break;
-        const child = document.createElement("li");
-        appendInline(child, item[1]);
-        list.append(child);
-        index += 1;
+    } else if (block.type === "list") {
+      const list = document.createElement(block.kind === "ordered" ? "ol" : "ul");
+      for (const value of block.items) {
+        const item = document.createElement("li");
+        appendInline(item, value);
+        list.append(item);
       }
       fragment.append(list);
-      continue;
-    }
-    if (/^>\s?/.test(line)) {
+    } else if (block.type === "quote") {
       const quote = document.createElement("blockquote");
-      const parts = [];
-      while (index < lines.length && /^>\s?/.test(lines[index])) {
-        parts.push(lines[index].replace(/^>\s?/, ""));
-        index += 1;
-      }
-      appendInline(quote, parts.join(" "));
+      appendInline(quote, block.value);
       fragment.append(quote);
-      continue;
+    } else if (block.type === "code-block") {
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      if (block.language !== "") code.className = `language-${block.language}`;
+      code.textContent = block.value;
+      pre.append(code);
+      fragment.append(pre);
+    } else if (block.type === "math") {
+      const math = document.createElement("div");
+      math.className = "vfx-math";
+      math.textContent = block.value;
+      fragment.append(math);
+    } else {
+      const paragraph = document.createElement("p");
+      appendInline(paragraph, block.value);
+      fragment.append(paragraph);
     }
-    const paragraph = [];
-    while (index < lines.length && lines[index].trim().length > 0 && !special(lines[index])) {
-      paragraph.push(lines[index].trim());
-      index += 1;
-    }
-    const element = document.createElement("p");
-    appendInline(element, paragraph.join(" "));
-    fragment.append(element);
   }
   return fragment;
 }

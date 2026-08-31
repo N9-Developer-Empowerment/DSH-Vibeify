@@ -172,11 +172,11 @@ function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, soc
   );
 }
 
-function Questionnaire({ chunk, answer, onAnswer }) {
+function Questionnaire({ chunk, answer, onAnswer, onLink }) {
   const options = questionnaireOptions(chunk.markdown);
   return (
     <section className="vfx-question" aria-labelledby={`vfx-title-${chunk.id}`}>
-      <p>{questionnaireIntroduction(chunk.markdown)}</p>
+      <Markdown value={questionnaireIntroduction(chunk.markdown)} title={chunk.title} onLink={onLink} />
       <div className="vfx-question-options">
         {options.map((label) => (
           <button key={label} type="button" aria-pressed={answer === label} onClick={() => onAnswer(chunk.id, label)}>
@@ -265,7 +265,7 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
           )}
         </div>
         {chunk.kind === "questionnaire"
-          ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
+          ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} onLink={() => onEngage(chunk, "opened")} />
           : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} onLink={() => onEngage(chunk, "opened")} />}
         {chunk.kind === "questionnaire" ? null : <InlineVisuals visuals={inlineVisuals} title={chunk.title} onOpen={() => onEngage(chunk, "opened")} />}
         {player === null ? null : playerOpen ? (
@@ -989,7 +989,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
 .vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 .vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
-.vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
+.vfx-question>.vfx-markdown { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 .vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }

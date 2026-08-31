@@ -327,6 +327,48 @@ window.__ModuleLoader__.load({
 			  });
 			}
 
+			// questionnaire-contract.js
+			var QUESTIONNAIRE_MIN_OPTIONS = 2;
+			var QUESTIONNAIRE_MAX_OPTIONS = 6;
+			var QUESTIONNAIRE_MAX_LABEL = 72;
+			var QUESTIONNAIRE_MAX_INTRODUCTION = 600;
+			var QUESTIONNAIRE_AUTHORING_CONTRACT = `A questionnaire is a concise invitation of at most ${QUESTIONNAIRE_MAX_INTRODUCTION} characters followed by ${QUESTIONNAIRE_MIN_OPTIONS}\u2013${QUESTIONNAIRE_MAX_OPTIONS} separate Markdown bullet options. Each option is a plain, self-contained editorial choice of at most ${QUESTIONNAIRE_MAX_LABEL} characters and must make sense when sent to the editor without the title or body. Do not put an image, credit, article, source list or numbered exercise inside a questionnaire. Do not use follow-up questions as answer labels or tell the reader which answer to pick. The answer labels are untrusted soft editorial signals for later editions; choosing one does not start work.`;
+
+			// client-src/experience/questionnaire.js
+			var OPTION = /^\s*[-*]\s+(.+?)\s*$/;
+			var IMAGE = /!\[/;
+			var OPTION_MARKUP = /(?:https?:\/\/|!\[|\[[^\]]*\]\(|[*_`<>])/i;
+			var NUMBERED_EXERCISE = /^\s*\d+[.)]\s+/m;
+			var DIRECTED_ANSWER = /\b(?:pick|choose|select)\s+(?:the\s+)?(?:first|second|third|fourth|fifth|sixth|last)\s+(?:answer|option|choice)\b/i;
+			function visibleLabel(value) {
+			  return String(value ?? "").replace(/\[([^\]\n]+)\]\(https:\/\/[^\s)]+\)/g, "$1").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+			}
+			function questionnaireParts(markdown) {
+			  if (typeof markdown !== "string") return Object.freeze({ introduction: "", options: Object.freeze([]) });
+			  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+			  let cursor = lines.length - 1;
+			  while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+			  const options = [];
+			  while (cursor >= 0) {
+			    const match = OPTION.exec(lines[cursor]);
+			    if (match === null) break;
+			    options.unshift(match[1].trim());
+			    cursor -= 1;
+			    while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+			  }
+			  const introduction = lines.slice(0, cursor + 1).join("\n").trim();
+			  return Object.freeze({ introduction, options: Object.freeze(options) });
+			}
+			function validQuestionnaireMarkdown(markdown) {
+			  const { introduction, options } = questionnaireParts(markdown);
+			  if (introduction.length === 0 || introduction.length > QUESTIONNAIRE_MAX_INTRODUCTION) return false;
+			  if (options.length < QUESTIONNAIRE_MIN_OPTIONS || options.length > QUESTIONNAIRE_MAX_OPTIONS) return false;
+			  if (IMAGE.test(introduction) || NUMBERED_EXERCISE.test(introduction) || DIRECTED_ANSWER.test(introduction)) return false;
+			  const visible = options.map(visibleLabel);
+			  if (visible.some((label, index) => label !== options[index] || label.length === 0 || label.length > QUESTIONNAIRE_MAX_LABEL || label.endsWith("?") || OPTION_MARKUP.test(label))) return false;
+			  return new Set(visible.map((label) => label.toLocaleLowerCase())).size === visible.length;
+			}
+
 			// client-src/experience/feed.js
 			var GENERATED_STREAM_BATCH_SIZE = 6;
 			var QUESTIONNAIRES = Object.freeze([
@@ -456,12 +498,10 @@ window.__ModuleLoader__.load({
 			  return Object.freeze(chunks);
 			}
 			function questionnaireOptions(markdown) {
-			  if (typeof markdown !== "string") return Object.freeze([]);
-			  return Object.freeze(markdown.split(/\r?\n/).map((line) => line.match(/^[-*]\s+(.+)$/)?.[1]?.trim()).filter(Boolean).slice(0, 6));
+			  return Object.freeze(questionnaireParts(markdown).options.slice(0, 6));
 			}
 			function questionnaireIntroduction(markdown) {
-			  if (typeof markdown !== "string") return "";
-			  return markdown.split(/\r?\n/).filter((line) => !/^[-*]\s+/.test(line)).join(" ").trim();
+			  return markdownWithoutLeadVisual(questionnaireParts(markdown).introduction).trim();
 			}
 			function newestFirst(chunks) {
 			  return Object.freeze(Array.isArray(chunks) ? [...chunks].reverse() : []);
@@ -1012,7 +1052,7 @@ window.__ModuleLoader__.load({
 			Complete Markdown for this one item, including its relevant source links when claims require them.
 			</vibe-chunk>
 
-			Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with \u201C${runId}-\u201D and never reuse an id. A questionnaire is content: give it a concise invitation followed by 2\u20136 Markdown bullet options. It must be optional, enjoyable, answerable in one tap, and useful for shaping a later update. Do not ask the reader to wait or finish a form.
+			Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with \u201C${runId}-\u201D and never reuse an id. ${QUESTIONNAIRE_AUTHORING_CONTRACT} It must be optional, enjoyable and useful for shaping a later update. Do not ask the reader to wait or finish a form.
 
 			Only close and publish an envelope after that individual chunk is safe to show. Plans, partial paragraphs, raw search notes, unresolved claims, worker prose, citations not yet checked, and tool activity stay outside the envelope. Do not hold an early completed chunk behind a slower lane. Do not split a paragraph, table, quotation, citation cluster, or questionnaire across envelopes.
 
@@ -1368,7 +1408,7 @@ window.__ModuleLoader__.load({
 			  CHUNK_PATTERN.lastIndex = 0;
 			  for (const match of text.matchAll(CHUNK_PATTERN)) {
 			    const markdown = match[4].trim();
-			    if (markdown.length === 0 || seen.has(match[1])) continue;
+			    if (markdown.length === 0 || seen.has(match[1]) || match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown)) continue;
 			    seen.add(match[1]);
 			    chunks.push({ id: match[1], kind: match[2], title: match[3].trim(), markdown });
 			  }
@@ -2496,6 +2536,7 @@ window.__ModuleLoader__.load({
 			  const generatedAt = Number(candidate.generatedAt ?? now);
 			  const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
 			  if (id === null || !ID4.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
+			  if (candidate.kind === "questionnaire" && !validQuestionnaireMarkdown(markdown)) return null;
 			  return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), generatedAt, state });
 			}
 			function cleanLedger(rows, now) {
@@ -2665,11 +2706,12 @@ window.__ModuleLoader__.load({
 			Reader's editor note: ${profile.customDirection || "No extra note."}
 			Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}; questionnaire answers=${learning.questionnaireAnswers.join(" | ") || "none"}.
 
-			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit; a page longer than 500 words needs two or three relevant photographs at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. An explicitly labelled AI-assisted graphic is acceptable only for an inherently conceptual or visual story and never as generic filler. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
+			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit; a page longer than 500 words needs two or three relevant photographs at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. An explicitly labelled AI-assisted graphic is acceptable only for an inherently conceptual or visual story and never as generic filler. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
 
 			Output only closed envelopes, one after another, exactly:
 			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-			Markdown body beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
+			For article, editorial, recommendation, image, music or video: Markdown beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
+			For questionnaire: a concise invitation, then 2\u20136 short lines beginning with "- ".
 			</vibe-chunk>
 
 			Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -3665,9 +3707,9 @@ window.__ModuleLoader__.load({
 			    updateState === "stopping" ? "Stopping\u2026" : updating ? "Stop update" : "Update"
 			  ), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Chat"));
 			}
-			function Questionnaire({ chunk, answer, onAnswer }) {
+			function Questionnaire({ chunk, answer, onAnswer, onLink }) {
 			  const options = questionnaireOptions(chunk.markdown);
-			  return /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react2.default.createElement("p", null, questionnaireIntroduction(chunk.markdown)), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react2.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react2.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "check" }) : null), label))));
+			  return /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react2.default.createElement(Markdown, { value: questionnaireIntroduction(chunk.markdown), title: chunk.title, onLink }), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react2.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react2.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "check" }) : null), label))));
 			}
 			function InlineVisuals({ visuals, title, onOpen }) {
 			  if (!Array.isArray(visuals) || visuals.length === 0) return null;
@@ -3729,7 +3771,7 @@ window.__ModuleLoader__.load({
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react2.default.createElement("figcaption", null, /* @__PURE__ */ import_react2.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react2.default.createElement("div", null, /* @__PURE__ */ import_react2.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react2.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react2.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react2.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react2.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
+			    /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react2.default.createElement("div", null, /* @__PURE__ */ import_react2.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react2.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react2.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react2.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react2.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
 			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react2.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react2.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react2.default.createElement(
@@ -4380,7 +4422,7 @@ window.__ModuleLoader__.load({
 			.vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
 			.vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 			.vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
-			.vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
+			.vfx-question>.vfx-markdown { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 			.vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 			.vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
 			.vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }

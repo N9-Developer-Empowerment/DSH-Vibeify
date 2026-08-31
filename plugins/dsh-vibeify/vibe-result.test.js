@@ -56,6 +56,19 @@ test("only complete closed Vibe chunks become feed content", () => {
   ]);
 });
 
+test("malformed generated questionnaires cannot enter the feed", () => {
+  const text = [
+    '<vibe-chunk id="run-broken-question" kind="questionnaire" title="A broken question">![A studio](https://example.com/studio.jpg)\n\nPick the third answer.\n\n- Which one?\n- Another?</vibe-chunk>',
+    '<vibe-chunk id="run-useful-question" kind="questionnaire" title="Choose the next edit">Choose what the editor should explore next.\n\n- More tiny filmmaking projects\n- More constrained writing ideas</vibe-chunk>',
+  ].join("\n");
+  assert.deepEqual(extractPublishedChunks(text), [{
+    id: "run-useful-question",
+    kind: "questionnaire",
+    title: "Choose the next edit",
+    markdown: "Choose what the editor should explore next.\n\n- More tiny filmmaking projects\n- More constrained writing ideas",
+  }]);
+});
+
 test("direct Chat publication accepts only explicit chat ids and refill publication stays run-scoped", () => {
   assert.equal(chunkBelongsToPublication(null, "chat-free-webcomics"), true);
   assert.equal(chunkBelongsToPublication(null, "tool-output"), false);

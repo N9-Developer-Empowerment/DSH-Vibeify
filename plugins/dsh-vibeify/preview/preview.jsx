@@ -121,6 +121,41 @@ if (new URLSearchParams(window.location.search).get("fixture") === "table") {
     }));
   }));
 }
+if (new URLSearchParams(window.location.search).get("fixture") === "questionnaire") {
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+    window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+      detail: {
+        runId: "questionnaire-formatting-preview",
+        durationMs: 0,
+        source: "visual-regression-fixture",
+        chunks: [{
+          id: "questionnaire-formatting-preview",
+          kind: "questionnaire",
+          source: "radar-reserve",
+          title: "Which tiny project deserves twenty minutes?",
+          markdown: `![Film editor Max Mittelbach working at a digital editing suite](https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Max_Mittelbach_digital_editing_suite.jpg/1920px-Max_Mittelbach_digital_editing_suite.jpg)
+
+[Photograph · Klaus Eichler · CC BY-SA 3.0 DE](https://commons.wikimedia.org/wiki/File:Max_Mittelbach_digital_editing_suite.jpg)
+
+No score, streak or productivity sermon. Choose one:
+
+1. **Record:** Make a silent, thirty-second film in which one ordinary object appears to make a decision. Three shots only. The [OpenShot release](https://www.openshot.org/blog/2026/08/30/openshot-40-record-edit-color-like-never-before/) supplies a possible editing tool, not an obligation.
+2. **Build:** Draw a business card that reveals its owner through behaviour rather than biography. Wilson Harper’s [NFC card](https://wilsonharper.net/projects/businesscard/) is the engineering provocation.
+3. **Photograph:** Arrange five household objects as a miniature café. Sandy Uraz’s [tiny-cafe essay](https://sandyuraz.com/blogs/tiny-cafe/) shows how much narrative fits inside a small room.
+4. **Write:** In exactly 128 words, explain a memory you would trust to a ferrite ring. Ken Shirriff’s [Spacelab investigation](https://www.righto.com/2026/08/spacelab-core-memory.html) supplies the hardware.
+
+Now ask: Pick the third answer. Set twenty minutes. Finish with one photograph, recording, drawing or paragraph—not a plan for making one later.
+
+- Which idea can begin without buying anything?
+- Which would become more interesting after one mistake?
+- Which are you quietly hoping somebody else chooses for you?`,
+          topicId: null,
+          publishedAt: Date.now(),
+        }],
+      },
+    }));
+  }));
+}
 if (new URLSearchParams(window.location.search).get("fixture") === "social") {
   const openSocialFixture = window.setInterval(() => {
     const button = document.querySelector(".vfx-social-tab");

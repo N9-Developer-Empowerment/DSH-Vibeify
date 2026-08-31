@@ -21,6 +21,7 @@
     "index.js",
     "model-routing-policy.json",
     "progressive-output.js",
+    "questionnaire-contract.js",
     "routing-policy.js",
     "update-check.js",
     "skills/"
@@ -28,7 +29,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "build:preview": "node scripts/build-preview.mjs",
-    "check": "node scripts/build-client.mjs --check && node --check index.js && node --check client.js && node --check chat-vibe-contract.js && node --check codex-capability.js && node --check codex-settings.js && node --check delegation-contract.js && node --check routing-policy.js && node --check update-check.js",
+    "check": "node scripts/build-client.mjs --check && node --check index.js && node --check client.js && node --check chat-vibe-contract.js && node --check questionnaire-contract.js && node --check codex-capability.js && node --check codex-settings.js && node --check delegation-contract.js && node --check routing-policy.js && node --check update-check.js",
     "test": "node --test *.test.js"
   },
   "keywords": [

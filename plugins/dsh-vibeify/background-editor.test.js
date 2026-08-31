@@ -41,5 +41,8 @@ test("prompt establishes the provider boundary and closed envelope contract", ()
   assert.match(prompt, /verify the exact reusable licence/i);
   assert.match(prompt, /Wikimedia Commons, Openverse.*Flickr Commons/i);
   assert.match(prompt, /Photograph · Creator · CC BY 4\.0/i);
+  assert.match(prompt, /questionnaire.*concise invitation.*2–6 separate Markdown bullet options/i);
+  assert.match(prompt, /do not put an image, credit, article, source list or numbered exercise inside a questionnaire/i);
+  assert.match(prompt, /answer labels.*soft editorial signals.*later editions/i);
   assert.match(buildBackgroundReservePrompt({ runId: "reserve-abc", profile, signals, learning, codexFeatures: false }), /Do not claim Codex or independent verification/);
 });

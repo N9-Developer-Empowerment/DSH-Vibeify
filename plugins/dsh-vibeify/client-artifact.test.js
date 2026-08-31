@@ -108,6 +108,16 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.doesNotMatch(client, /MIN_BACKGROUND_RUNS_PER_VISIT|buffer-low-water|shouldStartStreamRun|continuous-stream/);
 });
 
+test("questionnaires use the shared Markdown renderer before their one-tap choices", () => {
+  const start = client.indexOf("function Questionnaire");
+  const end = client.indexOf("function InlineVisuals", start);
+  assert.ok(start >= 0 && end > start);
+  const questionnaire = client.slice(start, end);
+  assert.match(questionnaire, /createElement\(Markdown/);
+  assert.doesNotMatch(questionnaire, /createElement\("p"/);
+  assert.match(client, /\.vfx-question>\.vfx-markdown\s*\{/);
+});
+
 test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /approval stream watchdog/);
   assert.match(client, /Capability level/);

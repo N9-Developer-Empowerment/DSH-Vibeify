@@ -11,6 +11,7 @@ import {
   markdownWithoutLeadVisual,
   newestFirst,
   panelLayoutForChunk,
+  questionnaireIntroduction,
   questionnaireOptions,
   remoteVisualForMarkdown,
   remoteVisualsForMarkdown,
@@ -50,6 +51,34 @@ test("every explicit update spends an immediate visual page and questionnaire fr
   assert.ok(chunks[1].topicId !== null);
   assert.ok(questionnaireOptions(chunks[0].markdown).length >= 2);
   assert.ok(chunks.every(({ id }) => id.startsWith("refill-under-a-second-")));
+});
+
+test("illustrated questionnaires keep rich copy separate from one-tap answer labels", () => {
+  const markdown = [
+    "![Film editor at a digital editing suite](https://upload.wikimedia.org/wikipedia/commons/a/aa/editor.jpg)",
+    "[Photograph · Example Creator · CC BY-SA 4.0](https://commons.wikimedia.org/wiki/File:Editor.jpg)",
+    "",
+    "No score or productivity sermon. Choose one:",
+    "",
+    "1. **Record:** Make a thirty-second film with [OpenShot](https://www.openshot.org/).",
+    "2. **Build:** Draw an impossible business card.",
+    "",
+    "Now ask which route can begin without buying anything.",
+    "",
+    "- Which would become more interesting after one mistake?",
+    "- Which are you quietly hoping somebody else chooses for you?",
+  ].join("\n");
+
+  assert.deepEqual(questionnaireOptions(markdown), [
+    "Which would become more interesting after one mistake?",
+    "Which are you quietly hoping somebody else chooses for you?",
+  ]);
+  const introduction = questionnaireIntroduction(markdown);
+  assert.doesNotMatch(introduction, /!\[|Photograph · Example Creator/);
+  assert.match(introduction, /1\. \*\*Record:\*\*/);
+  assert.match(introduction, /\[OpenShot\]\(https:\/\/www\.openshot\.org\/\)/);
+  assert.match(introduction, /\n\n1\. \*\*Record:/);
+  assert.doesNotMatch(introduction, /Which would become more interesting/);
 });
 
 test("the feed presents newest arrivals first without mutating append-only storage order", () => {

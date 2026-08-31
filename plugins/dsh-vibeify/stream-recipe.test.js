@@ -10,6 +10,9 @@ test("the generated edition requires complete copy or a useful verified link in 
   assert.match(prompt, /recommendation, image, music, and video chunks must always include at least one relevant verified link/i);
   assert.match(prompt, /content destination/i);
   assert.match(prompt, /separate from any image URL or visual-credit link/i);
+  assert.match(prompt, /questionnaire.*concise invitation.*2–6 separate Markdown bullet options/i);
+  assert.match(prompt, /self-contained editorial choice of at most 72 characters/i);
+  assert.match(prompt, /choosing one does not start work/i);
 });
 
 test("each explicit update renews the rolling visual catalogue without reusing recent images", () => {

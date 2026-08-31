@@ -27,3 +27,13 @@ test("a conservative reservation makes two dollars a hard daily background ceili
   assert.equal(reserveBackgroundRun(local, 2, "run-nine", NOW + 21), false);
   assert.equal(reserveBackgroundRun(local, 0, "disabled", NOW + 22), false);
 });
+
+test("the hidden reserve rejects article-shaped questionnaires", () => {
+  const local = storage();
+  const appended = appendReservePages(local, [
+    { id: "broken-question", kind: "questionnaire", title: "Broken", markdown: "![A studio](https://example.com/studio.jpg)\n\nPick the third answer.\n\n- Which one?\n- Another?" },
+    { id: "useful-question", kind: "questionnaire", title: "Useful", markdown: "Choose the next direction.\n\n- More tiny filmmaking projects\n- More constrained writing ideas" },
+  ], "approved", NOW);
+  assert.deepEqual(appended.map(({ id }) => id), ["useful-question"]);
+  assert.deepEqual(getEditorialReserve(local, NOW).approved.map(({ id }) => id), ["useful-question"]);
+});

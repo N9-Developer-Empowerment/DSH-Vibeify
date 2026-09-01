@@ -149,7 +149,7 @@ function Markdown({ value, title, onLink }) {
   }} />;
 }
 
-function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, socialOpen, onChat, onHome, onFind, onSocial, onUpdate, onStop }) {
+function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, socialOpen, socialReadyCount, onChat, onHome, onFind, onSocial, onUpdate, onStop }) {
   const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
   return (
     <header className="vfx-header">
@@ -158,7 +158,7 @@ function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, soc
       </button>
       <span className="vfx-edition">{editorialLabel} · {CATALOG.editorial.label}</span>
       <button type="button" className="vfx-find" aria-pressed={libraryOpen} onClick={onFind}><Icon name="search" /> Find Vibes</button>
-      {socialAvailable ? <button type="button" className="vfx-social-tab" aria-pressed={socialOpen} onClick={onSocial}><Icon name="social" /> Social Desk</button> : null}
+      {socialAvailable ? <button type="button" className="vfx-social-tab" aria-pressed={socialOpen} onClick={onSocial}><Icon name="social" /> Social Desk{socialReadyCount > 0 ? <strong aria-label={`${socialReadyCount} posts ready`}>{socialReadyCount}</strong> : null}</button> : null}
       <button
         type="button"
         className={`vfx-update${updating ? " is-active" : ""}`}
@@ -342,6 +342,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const answersRef = React.useRef(answers);
   const editorialProfileRef = React.useRef(editorialProfile);
   const scheduler = React.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+  const socialReadyRef = React.useRef(0);
   const touchPull = React.useRef(createPullRefreshState());
   const trackpadPull = React.useRef(createTrackpadPullRefreshState());
   const trackpadSettleTimer = React.useRef(null);
@@ -477,20 +478,29 @@ function ExperienceShell({ codexFeatures, connection }) {
         if (!active) return;
         setSocialCapability(capability);
         const queue = await loadSocialDesk(connection);
-        if (active) setSocialItems(Array.isArray(queue?.items) ? queue.items : []);
+        if (active) {
+          const next = Array.isArray(queue?.items) ? queue.items : [];
+          socialReadyRef.current = next.filter(({ status }) => status === "ready-to-post").length;
+          setSocialItems(next);
+        }
       } catch {
         if (active) setSocialCapability(null);
       }
     };
     void discover();
     const timer = window.setInterval(() => {
-      if (!active || !socialOpen) return;
+      if (!active) return;
       void loadSocialDesk(connection).then((queue) => {
-        if (active) setSocialItems(Array.isArray(queue?.items) ? queue.items : []);
+        if (!active) return;
+        const next = Array.isArray(queue?.items) ? queue.items : [];
+        const ready = next.filter(({ status }) => status === "ready-to-post").length;
+        if (ready > socialReadyRef.current) setSocialNotice(`${ready - socialReadyRef.current} scheduled ${ready - socialReadyRef.current === 1 ? "post is" : "posts are"} ready for your final click.`);
+        socialReadyRef.current = ready;
+        setSocialItems(next);
       }).catch(() => {});
     }, 15_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [connection, socialOpen, state.view]);
+  }, [connection, state.view]);
 
   React.useEffect(() => {
     saveExperienceState(browserStorage(), state);
@@ -739,7 +749,11 @@ function ExperienceShell({ codexFeatures, connection }) {
     try {
       const updated = await approveSocialPost(connection, { id: item.id, revision: item.revision, text, scheduledAt });
       setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
-      setSocialNotice(updated.status === "ready-to-post" ? `${updated.channelLabel} is ready for your reviewed manual post.` : `${updated.channelLabel} is approved and scheduled.`);
+      setSocialNotice(updated.status === "ready-to-post"
+        ? `${updated.channelLabel} is ready. Copy it, open the composer and make the final public click.`
+        : updated.mode === "official-api"
+          ? `${updated.channelLabel} is approved for optional automatic publishing.`
+          : `${updated.channelLabel} is scheduled locally. Vibeify will mark it Ready to post at that time.`);
     } catch (cause) {
       setSocialNotice(cause?.message ?? "That post could not be approved.");
     } finally {
@@ -761,7 +775,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const onCopySocial = React.useCallback(async (item) => {
     try {
       await navigator.clipboard.writeText(item.text);
-      setSocialNotice(`${item.channelLabel} copy is on your clipboard.`);
+      setSocialNotice(`${item.channelLabel} copy is on your clipboard. Check the real composer, then make the final public click.`);
     } catch {
       setSocialNotice("Your browser did not allow clipboard access. Select the post text and copy it manually.");
     }
@@ -809,6 +823,7 @@ function ExperienceShell({ codexFeatures, connection }) {
     "timed-out": "Magazine update reached its time limit and stopped.",
     error: "The magazine could not update. Your existing edition is unchanged.",
   }[updateState];
+  const socialReadyCount = socialItems.filter(({ status }) => status === "ready-to-post").length;
 
   return (
     <div className="vfx-shell" data-view={state.view}>
@@ -828,6 +843,7 @@ function ExperienceShell({ codexFeatures, connection }) {
             libraryOpen={libraryOpen}
             socialAvailable={socialCapability !== null}
             socialOpen={socialOpen}
+            socialReadyCount={socialReadyCount}
             onHome={goHome}
             onFind={openLibrary}
             onSocial={openSocialDesk}
@@ -931,7 +947,9 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-find { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
 .vfx-find:hover,.vfx-find[aria-pressed="true"] { border-color:rgba(255,154,186,.68); background:rgba(255,117,159,.14); }
 .vfx-social-tab { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
+.vfx-social-tab strong { min-width:19px; height:19px; padding:0 5px; display:inline-grid; place-items:center; border-radius:999px; color:#190d13; background:#ff9aba; font-size:10px; }
 .vfx-social-tab:hover,.vfx-social-tab[aria-pressed="true"] { color:#190d13; border-color:#ff9aba; background:#ff9aba; }
+.vfx-social-tab:hover strong,.vfx-social-tab[aria-pressed="true"] strong { color:#fff; background:#190d13; }
 .vfx-chat { min-height:39px; padding:0 16px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.25); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:13px; font-weight:700; }
 .vfx-chat:hover { background:rgba(255,255,255,.14); }
 .vfx-pull { height:0; overflow:hidden; display:grid; place-items:end center; color:#9d8f99; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; transition:height .18s ease; }.vfx-pull span { padding:0 0 12px; }.vfx-pull.is-armed { color:#ff8db1; }
@@ -1009,7 +1027,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 @media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 @media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; }.vfx-social-queue { grid-template-columns:1fr; } }
-@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-social-tab,.vfx-update,.vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:9px; }.vfx-find .vfx-icon,.vfx-social-tab .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-social-desk,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-social-hero { min-width:0; padding:26px 22px; border-radius:18px; }.vfx-social-hero h1 { min-width:0; max-width:100%; overflow-wrap:normal; font-size:36px; line-height:.98; }.vfx-social-hero p { overflow-wrap:break-word; }.vfx-social-connections>span { min-width:calc(50% - 4px); flex:1 1 calc(50% - 4px); }.vfx-social-item { padding:20px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
+@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-shell .vfx-find,.vfx-shell .vfx-social-tab,.vfx-shell .vfx-update,.vfx-shell .vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:10px; }.vfx-shell .vfx-social-tab { gap:2px; padding-inline:2px; font-size:9px; }.vfx-social-tab strong { min-width:15px; height:15px; padding:0 3px; font-size:8px; }.vfx-find .vfx-icon,.vfx-social-tab .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-social-desk,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-social-hero { min-width:0; padding:26px 22px; border-radius:18px; }.vfx-social-hero h1 { min-width:0; max-width:100%; overflow-wrap:normal; font-size:36px; line-height:.98; }.vfx-social-hero p { overflow-wrap:break-word; }.vfx-social-connections>span { min-width:calc(50% - 4px); flex:1 1 calc(50% - 4px); }.vfx-social-item { padding:20px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 `;
 

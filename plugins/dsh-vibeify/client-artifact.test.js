@@ -135,9 +135,11 @@ test("optional visual sources expose write-only credential entry and a local fal
   assert.match(client, /The DSH Visuals plugin is not active/);
 });
 
-test("Social Desk account settings expose identifiers and credential references without secret values", () => {
+test("Social Desk defaults to composer hand-off while keeping official credentials optional and write-only", () => {
   assert.match(client, /Vibe Social Desk/);
-  assert.match(client, /Social accounts/);
+  assert.match(client, /Optional automatic posting/);
+  assert.match(client, /You do not need to connect any account/);
+  assert.match(client, /Leave every switch off for the simple no-API route/);
   assert.match(client, /dsh-social-desk/);
   assert.match(client, /X username/);
   assert.match(client, /Bluesky handle/);
@@ -151,10 +153,12 @@ test("Social Desk account settings expose identifiers and credential references 
   assert.match(client, /INSTAGRAM_ACCESS_TOKEN/);
   assert.match(client, /Credential references are names, not secret values/);
   assert.match(client, /credentials\.describe/);
+  assert.match(client, /credentials\.set/);
+  assert.match(client, /credentials\.unset/);
+  assert.match(client, /Paste token or app password/);
+  assert.match(client, /secret write rejected/);
+  assert.match(client, /secret removal rejected/);
+  assert.match(client, /Secrets are write-only/);
   assert.match(client, /settings\.set\(field/);
   assert.match(client, /void refresh\(\)/);
-  const settingsStart = client.indexOf("function socialDeskSettingsSection");
-  const settingsEnd = client.indexOf("function updateStateCopy", settingsStart);
-  assert.ok(settingsStart >= 0 && settingsEnd > settingsStart);
-  assert.doesNotMatch(client.slice(settingsStart, settingsEnd), /credentials\.set/);
 });

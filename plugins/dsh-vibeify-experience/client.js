@@ -3084,13 +3084,28 @@ window.__ModuleLoader__.load({
 			    cancelled: "Cancelled"
 			  }[status2] ?? "Unknown";
 			}
-			function manualComposerUrl(channel) {
-			  return {
-			    reddit: "https://www.reddit.com/submit",
-			    discord: "https://discord.com/channels/@me",
-			    "youtube-community": "https://www.youtube.com/",
-			    "facebook-profile": "https://www.facebook.com/"
-			  }[channel] ?? null;
+			function composerUrl(base, values = {}) {
+			  const url = new URL(base);
+			  for (const [key, value] of Object.entries(values)) {
+			    if (typeof value === "string" && value.length > 0) url.searchParams.set(key, value);
+			  }
+			  return url.href;
+			}
+			function manualComposerUrl(channel, item = {}) {
+			  const text = typeof item.text === "string" ? item.text : "";
+			  const publicUrl = typeof item.snapshot?.publicUrl === "string" ? item.snapshot.publicUrl : "";
+			  const title = typeof item.snapshot?.title === "string" ? item.snapshot.title : "";
+			  if (channel === "x") return composerUrl("https://x.com/intent/post", { text });
+			  if (channel === "bluesky") return composerUrl("https://bsky.app/intent/compose", { text });
+			  if (channel === "threads") return composerUrl("https://www.threads.net/intent/post", { text });
+			  if (channel === "facebook-page" || channel === "facebook-profile") {
+			    return publicUrl === "" ? "https://www.facebook.com/" : composerUrl("https://www.facebook.com/sharer/sharer.php", { u: publicUrl });
+			  }
+			  if (channel === "reddit") return composerUrl("https://www.reddit.com/submit", { url: publicUrl, title });
+			  if (channel === "discord") return "https://discord.com/channels/@me";
+			  if (channel === "youtube-community") return "https://www.youtube.com/";
+			  if (channel === "instagram") return "https://www.instagram.com/";
+			  return null;
 			}
 
 			// client-src/experience/social-desk-panel.jsx
@@ -3113,15 +3128,14 @@ window.__ModuleLoader__.load({
 			  }, [item.id, item.revision]);
 			  const reviewable = item.status === "draft" || item.status === "stale/review";
 			  const manualReady = item.status === "ready-to-post";
-			  const composer = manualComposerUrl(item.channel);
-			  const configured = channel?.configured === true;
-			  const canApprove = item.mode === "ready-to-post" || configured;
-			  return /* @__PURE__ */ import_react.default.createElement("article", { className: "vfx-social-item", "data-status": item.status }, /* @__PURE__ */ import_react.default.createElement("header", null, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, item.channelLabel), /* @__PURE__ */ import_react.default.createElement("strong", null, socialStatusLabel(item.status))), /* @__PURE__ */ import_react.default.createElement("small", null, item.mode === "official-api" ? configured ? "Official API connected" : "Connect in DSH Settings" : "Reviewed manual post")), item.lastError === null ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-warning" }, item.lastError.message), reviewable ? /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-social-copy" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Final post \u2014 ", text.length, "/", item.maxLength), /* @__PURE__ */ import_react.default.createElement("textarea", { value: text, maxLength: item.maxLength, onChange: (event) => setText(event.target.value) })) : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-final" }, item.text), reviewable && item.mode === "official-api" ? /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-social-time" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Publish time"), /* @__PURE__ */ import_react.default.createElement("input", { type: "datetime-local", value: scheduledAt, onChange: (event) => setScheduledAt(event.target.value) }), /* @__PURE__ */ import_react.default.createElement("small", null, item.suggested?.note)) : null, item.scheduledAt === null || reviewable ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-schedule" }, "Scheduled for ", new Date(item.scheduledAt).toLocaleString()), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-actions" }, reviewable ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "is-primary", disabled: busy || !canApprove || text.trim().length < 3, onClick: () => onApprove(item, text, item.mode === "official-api" ? utcDateTime(scheduledAt) : null) }, item.mode === "official-api" ? "Approve and schedule" : "Approve \xB7 Ready to post") : null, manualReady ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: () => onCopy(item) }, "Copy post") : null, manualReady && composer !== null ? /* @__PURE__ */ import_react.default.createElement("a", { href: composer, target: "_blank", rel: "noreferrer" }, "Open ", item.channelLabel) : null, manualReady ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: () => onMarkPosted(item) }, "Mark posted") : null, ["posted", "cancelled", "posting"].includes(item.status) ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "is-quiet", disabled: busy, onClick: () => onCancel(item) }, "Cancel"), item.remoteUrl === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { href: item.remoteUrl, target: "_blank", rel: "noreferrer" }, "View post")));
+			  const composer = manualComposerUrl(item.channel, item);
+			  const automatic = item.mode === "official-api";
+			  return /* @__PURE__ */ import_react.default.createElement("article", { className: "vfx-social-item", "data-status": item.status }, /* @__PURE__ */ import_react.default.createElement("header", null, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, item.channelLabel), /* @__PURE__ */ import_react.default.createElement("strong", null, socialStatusLabel(item.status))), /* @__PURE__ */ import_react.default.createElement("small", null, automatic ? "Optional automatic posting" : "No connection needed \xB7 you make the final click")), item.lastError === null ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-warning" }, item.lastError.message), reviewable ? /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-social-copy" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Final post \u2014 ", text.length, "/", item.maxLength), /* @__PURE__ */ import_react.default.createElement("textarea", { value: text, maxLength: item.maxLength, onChange: (event) => setText(event.target.value) })) : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-final" }, item.text), reviewable ? /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-social-time" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Publish time"), /* @__PURE__ */ import_react.default.createElement("input", { type: "datetime-local", value: scheduledAt, onChange: (event) => setScheduledAt(event.target.value) }), /* @__PURE__ */ import_react.default.createElement("small", null, item.suggested?.note)) : null, item.scheduledAt === null || reviewable ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-schedule" }, "Scheduled for ", new Date(item.scheduledAt).toLocaleString()), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-actions" }, reviewable ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "is-primary", disabled: busy || text.trim().length < 3 || utcDateTime(scheduledAt) === null, onClick: () => onApprove(item, text, utcDateTime(scheduledAt)) }, "Approve and schedule") : null, manualReady && composer !== null ? /* @__PURE__ */ import_react.default.createElement("a", { className: "is-primary", href: composer, target: "_blank", rel: "noreferrer", onClick: () => onCopy(item) }, "Copy and open ", item.channelLabel) : null, manualReady ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: () => onCopy(item) }, "Copy only") : null, manualReady && item.snapshot?.visual?.imageUrl ? /* @__PURE__ */ import_react.default.createElement("a", { href: item.snapshot.visual.imageUrl, target: "_blank", rel: "noreferrer" }, "Open article image") : null, manualReady ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: () => onMarkPosted(item) }, "Mark posted") : null, ["posted", "cancelled", "posting"].includes(item.status) ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "is-quiet", disabled: busy, onClick: () => onCancel(item) }, "Cancel"), item.remoteUrl === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { href: item.remoteUrl, target: "_blank", rel: "noreferrer" }, "View post")));
 			}
 			function SocialDeskPanel({ capability, items, busyId, notice, onApprove, onCancel, onCopy, onMarkPosted, onBack }) {
 			  const byChannel = new Map((capability?.channels ?? []).map((channel) => [channel.id, channel]));
 			  const active = items.filter(({ status: status2 }) => status2 !== "cancelled");
-			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-social-desk", "aria-labelledby": "vfx-social-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-hero" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Vibe Social Desk \xB7 local and reviewed"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-social-title" }, "One good article. The right words for each room."), /* @__PURE__ */ import_react.default.createElement("p", null, "Review every post here. Official connections publish only after one explicit ", /* @__PURE__ */ import_react.default.createElement("strong", null, "Approve and schedule"), " action. Reddit, Discord and other community routes wait as ", /* @__PURE__ */ import_react.default.createElement("strong", null, "Ready to post"), "."), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: onBack }, "Back to Vibe"), /* @__PURE__ */ import_react.default.createElement("small", null, capability?.timezone ?? "Europe/London", " \xB7 missed posts return to review"))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-connections", "aria-label": "Social channel connection status" }, (capability?.channels ?? []).map((channel) => /* @__PURE__ */ import_react.default.createElement("span", { key: channel.id, "data-connected": channel.available }, channel.label, /* @__PURE__ */ import_react.default.createElement("small", null, channel.mode === "ready-to-post" ? "Ready to post" : channel.configured ? "Connected" : "Not connected")))), notice === null ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-notice", role: "status" }, notice), active.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-empty" }, /* @__PURE__ */ import_react.default.createElement("strong", null, "Your desk is clear."), /* @__PURE__ */ import_react.default.createElement("p", null, "Return to Vibe and choose ", /* @__PURE__ */ import_react.default.createElement("em", null, "Prepare social posts"), " on an article worth sharing.")) : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-queue" }, active.map((item) => /* @__PURE__ */ import_react.default.createElement(QueueItem, { key: item.id, item, channel: byChannel.get(item.channel), busy: busyId === item.id, onApprove, onCancel, onCopy, onMarkPosted }))));
+			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-social-desk", "aria-labelledby": "vfx-social-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-hero" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Vibe Social Desk \xB7 local and reviewed"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-social-title" }, "One good article. The right words for each room."), /* @__PURE__ */ import_react.default.createElement("p", null, "No developer account is required. Review and schedule each post; when its time arrives, Vibeify makes it ", /* @__PURE__ */ import_react.default.createElement("strong", null, "Ready to post"), ". One button copies your words and opens the real social composer. You make the final public click. Optional official connections can publish unattended after the same explicit approval."), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: onBack }, "Back to Vibe"), /* @__PURE__ */ import_react.default.createElement("small", null, capability?.timezone ?? "Europe/London", " \xB7 missed posts return to review"))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-connections", "aria-label": "Social channel connection status" }, (capability?.channels ?? []).map((channel) => /* @__PURE__ */ import_react.default.createElement("span", { key: channel.id, "data-connected": "true" }, channel.label, /* @__PURE__ */ import_react.default.createElement("small", null, channel.publishingMode === "official-api" ? "Optional automatic posting on" : "No connection needed")))), notice === null ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-social-notice", role: "status" }, notice), active.length === 0 ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-empty" }, /* @__PURE__ */ import_react.default.createElement("strong", null, "Your desk is clear."), /* @__PURE__ */ import_react.default.createElement("p", null, "Return to Vibe and choose ", /* @__PURE__ */ import_react.default.createElement("em", null, "Prepare social posts"), " on an article worth sharing.")) : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-social-queue" }, active.map((item) => /* @__PURE__ */ import_react.default.createElement(QueueItem, { key: item.id, item, channel: byChannel.get(item.channel), busy: busyId === item.id, onApprove, onCancel, onCopy, onMarkPosted }))));
 			}
 
 			// client-src/experience/visual-source-client.js
@@ -3652,9 +3666,9 @@ window.__ModuleLoader__.load({
 			    if (link !== null) onLink?.(link.href);
 			  } });
 			}
-			function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, socialOpen, onChat, onHome, onFind, onSocial, onUpdate, onStop }) {
+			function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, socialOpen, socialReadyCount, onChat, onHome, onFind, onSocial, onUpdate, onStop }) {
 			  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
-			  return /* @__PURE__ */ import_react2.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react2.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react2.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "search" }), " Find Vibes"), socialAvailable ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-social-tab", "aria-pressed": socialOpen, onClick: onSocial }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "social" }), " Social Desk") : null, /* @__PURE__ */ import_react2.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react2.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react2.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "search" }), " Find Vibes"), socialAvailable ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-social-tab", "aria-pressed": socialOpen, onClick: onSocial }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "social" }), " Social Desk", socialReadyCount > 0 ? /* @__PURE__ */ import_react2.default.createElement("strong", { "aria-label": `${socialReadyCount} posts ready` }, socialReadyCount) : null) : null, /* @__PURE__ */ import_react2.default.createElement(
 			    "button",
 			    {
 			      type: "button",
@@ -3782,6 +3796,7 @@ window.__ModuleLoader__.load({
 			  const answersRef = import_react2.default.useRef(answers);
 			  const editorialProfileRef = import_react2.default.useRef(editorialProfile);
 			  const scheduler = import_react2.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+			  const socialReadyRef = import_react2.default.useRef(0);
 			  const touchPull = import_react2.default.useRef(createPullRefreshState());
 			  const trackpadPull = import_react2.default.useRef(createTrackpadPullRefreshState());
 			  const trackpadSettleTimer = import_react2.default.useRef(null);
@@ -3911,16 +3926,25 @@ window.__ModuleLoader__.load({
 			        if (!active) return;
 			        setSocialCapability(capability);
 			        const queue = await loadSocialDesk(connection);
-			        if (active) setSocialItems(Array.isArray(queue?.items) ? queue.items : []);
+			        if (active) {
+			          const next = Array.isArray(queue?.items) ? queue.items : [];
+			          socialReadyRef.current = next.filter(({ status: status2 }) => status2 === "ready-to-post").length;
+			          setSocialItems(next);
+			        }
 			      } catch {
 			        if (active) setSocialCapability(null);
 			      }
 			    };
 			    void discover();
 			    const timer = window.setInterval(() => {
-			      if (!active || !socialOpen) return;
+			      if (!active) return;
 			      void loadSocialDesk(connection).then((queue) => {
-			        if (active) setSocialItems(Array.isArray(queue?.items) ? queue.items : []);
+			        if (!active) return;
+			        const next = Array.isArray(queue?.items) ? queue.items : [];
+			        const ready = next.filter(({ status: status2 }) => status2 === "ready-to-post").length;
+			        if (ready > socialReadyRef.current) setSocialNotice(`${ready - socialReadyRef.current} scheduled ${ready - socialReadyRef.current === 1 ? "post is" : "posts are"} ready for your final click.`);
+			        socialReadyRef.current = ready;
+			        setSocialItems(next);
 			      }).catch(() => {
 			      });
 			    }, 15e3);
@@ -3928,7 +3952,7 @@ window.__ModuleLoader__.load({
 			      active = false;
 			      window.clearInterval(timer);
 			    };
-			  }, [connection, socialOpen, state.view]);
+			  }, [connection, state.view]);
 			  import_react2.default.useEffect(() => {
 			    saveExperienceState(browserStorage(), state);
 			    document.body.dataset.vibeifyExperience = state.view;
@@ -4167,7 +4191,7 @@ window.__ModuleLoader__.load({
 			    try {
 			      const updated = await approveSocialPost(connection, { id: item.id, revision: item.revision, text, scheduledAt });
 			      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
-			      setSocialNotice(updated.status === "ready-to-post" ? `${updated.channelLabel} is ready for your reviewed manual post.` : `${updated.channelLabel} is approved and scheduled.`);
+			      setSocialNotice(updated.status === "ready-to-post" ? `${updated.channelLabel} is ready. Copy it, open the composer and make the final public click.` : updated.mode === "official-api" ? `${updated.channelLabel} is approved for optional automatic publishing.` : `${updated.channelLabel} is scheduled locally. Vibeify will mark it Ready to post at that time.`);
 			    } catch (cause) {
 			      setSocialNotice(cause?.message ?? "That post could not be approved.");
 			    } finally {
@@ -4189,7 +4213,7 @@ window.__ModuleLoader__.load({
 			  const onCopySocial = import_react2.default.useCallback(async (item) => {
 			    try {
 			      await navigator.clipboard.writeText(item.text);
-			      setSocialNotice(`${item.channelLabel} copy is on your clipboard.`);
+			      setSocialNotice(`${item.channelLabel} copy is on your clipboard. Check the real composer, then make the final public click.`);
 			    } catch {
 			      setSocialNotice("Your browser did not allow clipboard access. Select the post text and copy it manually.");
 			    }
@@ -4237,6 +4261,7 @@ window.__ModuleLoader__.load({
 			    "timed-out": "Magazine update reached its time limit and stopped.",
 			    error: "The magazine could not update. Your existing edition is unchanged."
 			  }[updateState];
+			  const socialReadyCount = socialItems.filter(({ status: status2 }) => status2 === "ready-to-post").length;
 			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-shell", "data-view": state.view }, state.view === "home" ? /* @__PURE__ */ import_react2.default.createElement(
 			    "main",
 			    {
@@ -4256,6 +4281,7 @@ window.__ModuleLoader__.load({
 			        libraryOpen,
 			        socialAvailable: socialCapability !== null,
 			        socialOpen,
+			        socialReadyCount,
 			        onHome: goHome,
 			        onFind: openLibrary,
 			        onSocial: openSocialDesk,
@@ -4322,7 +4348,9 @@ window.__ModuleLoader__.load({
 			.vfx-find { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
 			.vfx-find:hover,.vfx-find[aria-pressed="true"] { border-color:rgba(255,154,186,.68); background:rgba(255,117,159,.14); }
 			.vfx-social-tab { min-height:39px; padding:0 15px; display:flex; align-items:center; gap:7px; border:1px solid rgba(255,255,255,.17); border-radius:999px; background:rgba(255,255,255,.035); cursor:pointer; font-size:12px; font-weight:760; }
+			.vfx-social-tab strong { min-width:19px; height:19px; padding:0 5px; display:inline-grid; place-items:center; border-radius:999px; color:#190d13; background:#ff9aba; font-size:10px; }
 			.vfx-social-tab:hover,.vfx-social-tab[aria-pressed="true"] { color:#190d13; border-color:#ff9aba; background:#ff9aba; }
+			.vfx-social-tab:hover strong,.vfx-social-tab[aria-pressed="true"] strong { color:#fff; background:#190d13; }
 			.vfx-chat { min-height:39px; padding:0 16px; display:flex; align-items:center; gap:8px; border:1px solid rgba(255,255,255,.25); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:13px; font-weight:700; }
 			.vfx-chat:hover { background:rgba(255,255,255,.14); }
 			.vfx-pull { height:0; overflow:hidden; display:grid; place-items:end center; color:#9d8f99; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; transition:height .18s ease; }.vfx-pull span { padding:0 0 12px; }.vfx-pull.is-armed { color:#ff8db1; }
@@ -4400,7 +4428,7 @@ window.__ModuleLoader__.load({
 			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; }.vfx-social-queue { grid-template-columns:1fr; } }
-			@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-social-tab,.vfx-update,.vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:9px; }.vfx-find .vfx-icon,.vfx-social-tab .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-social-desk,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-social-hero { min-width:0; padding:26px 22px; border-radius:18px; }.vfx-social-hero h1 { min-width:0; max-width:100%; overflow-wrap:normal; font-size:36px; line-height:.98; }.vfx-social-hero p { overflow-wrap:break-word; }.vfx-social-connections>span { min-width:calc(50% - 4px); flex:1 1 calc(50% - 4px); }.vfx-social-item { padding:20px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
+			@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-shell .vfx-find,.vfx-shell .vfx-social-tab,.vfx-shell .vfx-update,.vfx-shell .vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:10px; }.vfx-shell .vfx-social-tab { gap:2px; padding-inline:2px; font-size:9px; }.vfx-social-tab strong { min-width:15px; height:15px; padding:0 3px; font-size:8px; }.vfx-find .vfx-icon,.vfx-social-tab .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-social-desk,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-social-hero { min-width:0; padding:26px 22px; border-radius:18px; }.vfx-social-hero h1 { min-width:0; max-width:100%; overflow-wrap:normal; font-size:36px; line-height:.98; }.vfx-social-hero p { overflow-wrap:break-word; }.vfx-social-connections>span { min-width:calc(50% - 4px); flex:1 1 calc(50% - 4px); }.vfx-social-item { padding:20px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 			@media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 			`;
 			function installStyles(ctx) {
@@ -4781,9 +4809,11 @@ window.__ModuleLoader__.load({
 					() => settings.getSnapshot(),
 				);
 				const [drafts, setDrafts] = React.useState({});
+				const [secretDrafts, setSecretDrafts] = React.useState({});
 				const [credentialStatus, setCredentialStatus] = React.useState({});
 				const [channelStatus, setChannelStatus] = React.useState({});
 				const [pending, setPending] = React.useState(false);
+				const [secretPending, setSecretPending] = React.useState(null);
 				const [message, setMessage] = React.useState("");
 				const revision = snapshot.revision;
 
@@ -4842,10 +4872,46 @@ window.__ModuleLoader__.load({
 					}
 				};
 
+				const saveSecret = async (account) => {
+					const ref = String(drafts[account.credential] ?? account.credentialDefault).trim();
+					const value = String(secretDrafts[account.id] ?? "").trim();
+					if (!/^[A-Z_][A-Z0-9_]*$/.test(ref) || value.length === 0) return;
+					setSecretPending(account.id);
+					setMessage("");
+					try {
+						const response = await api.credentials.set({ ref, value });
+						if (response?.result?.ok !== true) throw new Error("secret write rejected");
+						setSecretDrafts((current) => ({ ...current, [account.id]: "" }));
+						setMessage(`${account.label} credential saved securely.`);
+						await refresh();
+					} catch {
+						setMessage(`${account.label} credential was not saved. The earlier value is unchanged.`);
+					} finally {
+						setSecretPending(null);
+					}
+				};
+
+				const removeSecret = async (account) => {
+					const ref = String(drafts[account.credential] ?? account.credentialDefault).trim();
+					if (!/^[A-Z_][A-Z0-9_]*$/.test(ref)) return;
+					setSecretPending(account.id);
+					setMessage("");
+					try {
+						const response = await api.credentials.unset({ ref });
+						if (response?.result?.ok !== true) throw new Error("secret removal rejected");
+						setMessage(`${account.label} credential removed.`);
+						await refresh();
+					} catch {
+						setMessage(`${account.label} credential could not be removed.`);
+					} finally {
+						setSecretPending(null);
+					}
+				};
+
 				if (snapshot.status !== "ready") {
 					return React.createElement("section", { className: "dsh-vibeify-social-settings" },
 						React.createElement("p", { className: "dsh-vibeify-social-kicker" }, "VIBE SOCIAL DESK"),
-						React.createElement("h2", null, "Social accounts"),
+						React.createElement("h2", null, "Optional automatic posting"),
 						React.createElement("p", null, "The Social Desk settings are not available in this DSH session."),
 					);
 				}
@@ -4853,6 +4919,7 @@ window.__ModuleLoader__.load({
 				const accountCard = (account) => {
 					const ref = String(drafts[account.credential] ?? account.credentialDefault);
 					const stored = credentialStatus[ref]?.configured === true;
+					const writable = credentialStatus[ref]?.writable !== false;
 					const connected = channelStatus[account.id]?.configured === true;
 					return React.createElement("article", { className: "dsh-vibeify-social-account", key: account.id },
 						React.createElement("div", { className: "dsh-vibeify-social-account-heading" },
@@ -4873,14 +4940,30 @@ window.__ModuleLoader__.load({
 							React.createElement("span", null, "Credential reference"),
 							React.createElement("input", { type: "text", value: ref, disabled: pending, autoComplete: "off", spellCheck: "false", placeholder: account.credentialDefault, onChange: (event) => setDrafts((current) => ({ ...current, [account.credential]: event.target.value })) }),
 						),
+						React.createElement("label", null,
+							React.createElement("span", null, "New access token or app password"),
+							React.createElement("input", {
+								type: "password",
+								value: secretDrafts[account.id] ?? "",
+								disabled: pending || secretPending !== null || !writable,
+								autoComplete: "off",
+								spellCheck: "false",
+								placeholder: stored ? "Enter a replacement credential" : "Paste token or app password",
+								onChange: (event) => setSecretDrafts((current) => ({ ...current, [account.id]: event.target.value })),
+							}),
+						),
+						React.createElement("div", { className: "dsh-vibeify-social-secret-actions" },
+							React.createElement("button", { type: "button", disabled: pending || secretPending !== null || !writable || String(secretDrafts[account.id] ?? "").trim().length === 0, onClick: () => saveSecret(account) }, secretPending === account.id ? "Saving…" : "Save credential"),
+							stored ? React.createElement("button", { type: "button", className: "is-secondary", disabled: pending || secretPending !== null || !writable, onClick: () => removeSecret(account) }, "Remove credential") : null,
+						),
 					);
 				};
 
 				return React.createElement("section", { className: "dsh-vibeify-social-settings" },
 					React.createElement("div", { className: "dsh-vibeify-social-intro" },
 						React.createElement("p", { className: "dsh-vibeify-social-kicker" }, "VIBE SOCIAL DESK"),
-						React.createElement("h2", null, "Social accounts"),
-						React.createElement("p", null, "Connect only the official posting routes you want. Reddit, Discord, YouTube Community and personal Facebook remain reviewed Ready to post routes."),
+						React.createElement("h2", null, "Optional automatic posting"),
+						React.createElement("p", null, "You do not need to connect any account. By default, Social Desk copies each reviewed post and opens the normal social composer for your final click. Configure an official connection here only if you deliberately want unattended publishing for that channel."),
 					),
 					React.createElement("div", { className: "dsh-vibeify-social-grid" }, ...SOCIAL_DESK_ACCOUNTS.map(accountCard)),
 					React.createElement("div", { className: "dsh-vibeify-social-actions" },
@@ -4888,7 +4971,7 @@ window.__ModuleLoader__.load({
 						React.createElement("button", { type: "button", className: "is-secondary", disabled: pending, onClick: refresh }, "Refresh connection status"),
 					),
 					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-social-message", role: "status" }, message) : null,
-					React.createElement("p", { className: "dsh-vibeify-social-note" }, "Credential references are names, not secret values. This page never reads or displays a token. A channel is Connected only when its switch, required account identifier and referenced credential are all present."),
+					React.createElement("p", { className: "dsh-vibeify-social-note" }, "Leave every switch off for the simple no-API route. Credential references are names, not secret values. Secrets are write-only: this page can replace or remove one but never reads or displays it. A channel is Connected only when its switch, required account identifier and referenced credential are all present."),
 				);
 			};
 		}
@@ -5058,7 +5141,8 @@ window.__ModuleLoader__.load({
 .dsh-vibeify-social-account { min-width:0; padding:16px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-layer-1); }
 .dsh-vibeify-social-account-heading { display:flex; align-items:start; justify-content:space-between; gap:14px; }.dsh-vibeify-social-account-heading>div>span { display:inline-block; margin-top:5px; padding:4px 8px; border-radius:999px; background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-secondary); font-size:10px; font-weight:700; }.dsh-vibeify-social-account-heading>div>span.has-credential { color:var(--dsw-alias-label-primary); }.dsh-vibeify-social-account-heading>div>span.is-connected { color:var(--dsw-alias-state-business-primary); background:var(--dsw-alias-state-business-tertiary); }
 .dsh-vibeify-social-enable { display:flex!important; grid-template-columns:auto 1fr!important; align-items:center; gap:7px!important; margin:0!important; color:var(--dsw-alias-label-primary)!important; }.dsh-vibeify-social-enable input { width:16px!important; min-height:16px!important; }
-.dsh-vibeify-social-account>label { margin-top:13px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-social-account>label input[type="text"] { box-sizing:border-box; width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-social-account>label input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-social-account>label { margin-top:13px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-social-account>label input[type="text"],.dsh-vibeify-social-account>label input[type="password"] { box-sizing:border-box; width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-social-account>label input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-social-secret-actions { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-social-secret-actions button { min-height:34px; padding:0 11px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:9px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:11px; font-weight:700; }.dsh-vibeify-social-secret-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-social-secret-actions button:disabled { cursor:not-allowed; opacity:.55; }
 .dsh-vibeify-social-actions { margin-top:16px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-social-actions button { min-height:38px; padding:0 14px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:9px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:12px; font-weight:700; }.dsh-vibeify-social-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-social-actions button:disabled { cursor:not-allowed; opacity:.55; }
 .dsh-vibeify-social-message { margin-top:14px!important; color:var(--dsw-alias-label-primary)!important; font-weight:650; }.dsh-vibeify-social-note { max-width:760px; margin-top:14px!important; font-size:11px!important; }
 @media (max-width:760px) { .dsh-vibeify-social-grid { grid-template-columns:1fr; } }

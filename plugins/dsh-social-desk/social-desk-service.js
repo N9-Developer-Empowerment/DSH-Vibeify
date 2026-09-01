@@ -102,23 +102,34 @@ export function createSocialDeskService({ store, getConfig, connectorFor, now = 
     return { version: 1, items: recent };
   }
 
+  async function officialApiConfigured(channelId) {
+    if (CHANNELS[channelId]?.supportsOfficialApi !== true) return false;
+    const connector = connectorFor(channelId);
+    if (connector === null || connector === undefined) return false;
+    try {
+      return await connector.configured() === true;
+    } catch {
+      return false;
+    }
+  }
+
   async function capabilities() {
     const config = getConfig() ?? {};
     const channels = await Promise.all(channelList().map(async (channel) => {
-      const connector = connectorFor(channel.id);
-      const configured = connector === null || connector === undefined ? false : await connector.configured();
+      const configured = await officialApiConfigured(channel.id);
       return Object.freeze({
         ...channel,
         configured,
-        available: channel.mode === "ready-to-post" || configured,
+        publishingMode: configured ? "official-api" : "composer",
+        available: true,
       });
     }));
     return Object.freeze({
       name: "Vibe Social Desk",
       timezone: typeof config.timezone === "string" && config.timezone !== "" ? config.timezone : "Europe/London",
       channels: Object.freeze(channels),
-      approval: "approve-and-schedule-once",
-      automationDisclosure: "Posts use official APIs where configured. Manual channels remain Ready to post.",
+      approval: "review-and-schedule-once",
+      automationDisclosure: "Every channel works through its normal composer. An explicitly enabled official connection may publish the exact approved copy unattended.",
     });
   }
 
@@ -129,6 +140,10 @@ export function createSocialDeskService({ store, getConfig, connectorFor, now = 
     const channels = cleanChannels(request.channels, config);
     const preparedAt = now();
     const timezone = typeof config.timezone === "string" && config.timezone !== "" ? config.timezone : "Europe/London";
+    const publishingModes = Object.fromEntries(await Promise.all(channels.map(async (channel) => [
+      channel,
+      await officialApiConfigured(channel) ? "official-api" : "composer",
+    ])));
     return mutate((document) => {
       const items = channels.map((channel) => {
         const draft = draftForChannel(snapshot, channel);
@@ -138,7 +153,7 @@ export function createSocialDeskService({ store, getConfig, connectorFor, now = 
           revision: 1,
           channel,
           channelLabel: CHANNELS[channel].label,
-          mode: draft.mode,
+          mode: publishingModes[channel],
           status: "draft",
           text: draft.text,
           maxLength: draft.maxLength,
@@ -170,14 +185,15 @@ export function createSocialDeskService({ store, getConfig, connectorFor, now = 
       const reviewed = typeof request.text === "string" ? request.text.replace(/\r\n/g, "\n").trim() : "";
       if (reviewed.length < 3 || reviewed.length > current.maxLength) throw Object.assign(new TypeError(`Keep this post between 3 and ${current.maxLength} characters.`), { code: "invalid-copy" });
       const at = now();
-      let scheduledAt = null;
-      let status = "ready-to-post";
+      const scheduledAt = iso(request.scheduledAt);
+      let status;
       if (current.mode === "official-api") {
         if (!eligibleForOfficialApi(current.channel, current.snapshot)) throw Object.assign(new TypeError("This channel needs a public article image."), { code: "image-required" });
         const connector = connectorFor(current.channel);
         if (connector === null || connector === undefined || await connector.configured() !== true) throw Object.assign(new TypeError("Connect this channel in Settings before approving it."), { code: "channel-not-configured" });
-        scheduledAt = iso(request.scheduledAt);
         status = Date.parse(scheduledAt) <= at ? "due" : "approved";
+      } else {
+        status = Date.parse(scheduledAt) <= at ? "ready-to-post" : "approved";
       }
       const revision = current.revision + 1;
       const approved = {
@@ -220,7 +236,7 @@ export function createSocialDeskService({ store, getConfig, connectorFor, now = 
   }
 
   async function retry({ id, scheduledAt = null }) {
-    return updateStatus(id, ["failed/retry", "stale/review"], (current) => current.mode === "ready-to-post"
+    return updateStatus(id, ["failed/retry", "stale/review"], (current) => current.mode === "composer"
       ? { status: "ready-to-post", lastError: null }
       : { status: "approved", scheduledAt: iso(scheduledAt ?? now()), nextAttemptAt: null, lastError: null });
   }
@@ -263,7 +279,10 @@ export function createSocialDeskService({ store, getConfig, connectorFor, now = 
     });
     let attempted = 0;
     for (const id of due) {
-      const item = await updateStatus(id, ["approved", "due", "failed/retry"], (current) => ({ status: "posting", postingStartedAt: iso(at), attempts: current.attempts + 1 }));
+      const item = await updateStatus(id, ["approved", "due", "failed/retry"], (current) => current.mode === "composer"
+        ? { status: "ready-to-post", readyAt: iso(at), nextAttemptAt: null, lastError: null }
+        : { status: "posting", postingStartedAt: iso(at), attempts: current.attempts + 1 });
+      if (item.mode === "composer") continue;
       const connector = connectorFor(item.channel);
       if (connector === null || connector === undefined) {
         await updateStatus(id, ["posting"], () => ({ status: "stale/review", lastError: { code: "connector-unavailable", message: "Connect this channel, then review the post again." } }));

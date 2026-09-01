@@ -22,14 +22,13 @@ function QueueItem({ item, channel, busy, onApprove, onCancel, onCopy, onMarkPos
   }, [item.id, item.revision]);
   const reviewable = item.status === "draft" || item.status === "stale/review";
   const manualReady = item.status === "ready-to-post";
-  const composer = manualComposerUrl(item.channel);
-  const configured = channel?.configured === true;
-  const canApprove = item.mode === "ready-to-post" || configured;
+  const composer = manualComposerUrl(item.channel, item);
+  const automatic = item.mode === "official-api";
   return (
     <article className="vfx-social-item" data-status={item.status}>
       <header>
         <div><span>{item.channelLabel}</span><strong>{socialStatusLabel(item.status)}</strong></div>
-        <small>{item.mode === "official-api" ? configured ? "Official API connected" : "Connect in DSH Settings" : "Reviewed manual post"}</small>
+        <small>{automatic ? "Optional automatic posting" : "No connection needed · you make the final click"}</small>
       </header>
       {item.lastError === null ? null : <p className="vfx-social-warning">{item.lastError.message}</p>}
       {reviewable ? (
@@ -38,7 +37,7 @@ function QueueItem({ item, channel, busy, onApprove, onCancel, onCopy, onMarkPos
           <textarea value={text} maxLength={item.maxLength} onChange={(event) => setText(event.target.value)} />
         </label>
       ) : <p className="vfx-social-final">{item.text}</p>}
-      {reviewable && item.mode === "official-api" ? (
+      {reviewable ? (
         <label className="vfx-social-time">
           <span>Publish time</span>
           <input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} />
@@ -48,12 +47,13 @@ function QueueItem({ item, channel, busy, onApprove, onCancel, onCopy, onMarkPos
       {item.scheduledAt === null || reviewable ? null : <p className="vfx-social-schedule">Scheduled for {new Date(item.scheduledAt).toLocaleString()}</p>}
       <div className="vfx-social-actions">
         {reviewable ? (
-          <button type="button" className="is-primary" disabled={busy || !canApprove || text.trim().length < 3} onClick={() => onApprove(item, text, item.mode === "official-api" ? utcDateTime(scheduledAt) : null)}>
-            {item.mode === "official-api" ? "Approve and schedule" : "Approve · Ready to post"}
+          <button type="button" className="is-primary" disabled={busy || text.trim().length < 3 || utcDateTime(scheduledAt) === null} onClick={() => onApprove(item, text, utcDateTime(scheduledAt))}>
+            Approve and schedule
           </button>
         ) : null}
-        {manualReady ? <button type="button" onClick={() => onCopy(item)}>Copy post</button> : null}
-        {manualReady && composer !== null ? <a href={composer} target="_blank" rel="noreferrer">Open {item.channelLabel}</a> : null}
+        {manualReady && composer !== null ? <a className="is-primary" href={composer} target="_blank" rel="noreferrer" onClick={() => onCopy(item)}>Copy and open {item.channelLabel}</a> : null}
+        {manualReady ? <button type="button" onClick={() => onCopy(item)}>Copy only</button> : null}
+        {manualReady && item.snapshot?.visual?.imageUrl ? <a href={item.snapshot.visual.imageUrl} target="_blank" rel="noreferrer">Open article image</a> : null}
         {manualReady ? <button type="button" onClick={() => onMarkPosted(item)}>Mark posted</button> : null}
         {["posted", "cancelled", "posting"].includes(item.status) ? null : <button type="button" className="is-quiet" disabled={busy} onClick={() => onCancel(item)}>Cancel</button>}
         {item.remoteUrl === null ? null : <a href={item.remoteUrl} target="_blank" rel="noreferrer">View post</a>}
@@ -70,12 +70,12 @@ export function SocialDeskPanel({ capability, items, busyId, notice, onApprove, 
       <div className="vfx-social-hero">
         <span>Vibe Social Desk · local and reviewed</span>
         <h1 id="vfx-social-title">One good article. The right words for each room.</h1>
-        <p>Review every post here. Official connections publish only after one explicit <strong>Approve and schedule</strong> action. Reddit, Discord and other community routes wait as <strong>Ready to post</strong>.</p>
+        <p>No developer account is required. Review and schedule each post; when its time arrives, Vibeify makes it <strong>Ready to post</strong>. One button copies your words and opens the real social composer. You make the final public click. Optional official connections can publish unattended after the same explicit approval.</p>
         <div><button type="button" onClick={onBack}>Back to Vibe</button><small>{capability?.timezone ?? "Europe/London"} · missed posts return to review</small></div>
       </div>
       <div className="vfx-social-connections" aria-label="Social channel connection status">
         {(capability?.channels ?? []).map((channel) => (
-          <span key={channel.id} data-connected={channel.available}>{channel.label}<small>{channel.mode === "ready-to-post" ? "Ready to post" : channel.configured ? "Connected" : "Not connected"}</small></span>
+          <span key={channel.id} data-connected="true">{channel.label}<small>{channel.publishingMode === "official-api" ? "Optional automatic posting on" : "No connection needed"}</small></span>
         ))}
       </div>
       {notice === null ? null : <p className="vfx-social-notice" role="status">{notice}</p>}
@@ -89,4 +89,3 @@ export function SocialDeskPanel({ capability, items, busyId, notice, onApprove, 
     </section>
   );
 }
-

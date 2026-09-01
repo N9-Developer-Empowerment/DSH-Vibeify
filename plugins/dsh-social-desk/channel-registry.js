@@ -3,15 +3,15 @@ const MAX_TITLE = 220;
 const MAX_EXCERPT = 720;
 
 export const CHANNELS = Object.freeze({
-  x: Object.freeze({ id: "x", label: "X", mode: "official-api", maxLength: 280 }),
-  bluesky: Object.freeze({ id: "bluesky", label: "Bluesky", mode: "official-api", maxLength: 300 }),
-  threads: Object.freeze({ id: "threads", label: "Threads", mode: "official-api", maxLength: 500 }),
-  "facebook-page": Object.freeze({ id: "facebook-page", label: "Facebook Page", mode: "official-api", maxLength: 5_000 }),
-  instagram: Object.freeze({ id: "instagram", label: "Instagram professional", mode: "official-api", maxLength: 2_200, requiresImage: true }),
-  reddit: Object.freeze({ id: "reddit", label: "Reddit", mode: "ready-to-post", maxLength: 10_000, community: true }),
-  discord: Object.freeze({ id: "discord", label: "Discord", mode: "ready-to-post", maxLength: 2_000, community: true }),
-  "youtube-community": Object.freeze({ id: "youtube-community", label: "YouTube Community", mode: "ready-to-post", maxLength: 1_500 }),
-  "facebook-profile": Object.freeze({ id: "facebook-profile", label: "Facebook profile", mode: "ready-to-post", maxLength: 5_000 }),
+  x: Object.freeze({ id: "x", label: "X", mode: "composer", supportsOfficialApi: true, maxLength: 280 }),
+  bluesky: Object.freeze({ id: "bluesky", label: "Bluesky", mode: "composer", supportsOfficialApi: true, maxLength: 300 }),
+  threads: Object.freeze({ id: "threads", label: "Threads", mode: "composer", supportsOfficialApi: true, maxLength: 500 }),
+  "facebook-page": Object.freeze({ id: "facebook-page", label: "Facebook Page", mode: "composer", supportsOfficialApi: true, maxLength: 5_000 }),
+  instagram: Object.freeze({ id: "instagram", label: "Instagram", mode: "composer", supportsOfficialApi: true, maxLength: 2_200, requiresImage: true }),
+  reddit: Object.freeze({ id: "reddit", label: "Reddit", mode: "composer", supportsOfficialApi: false, maxLength: 10_000, community: true }),
+  discord: Object.freeze({ id: "discord", label: "Discord", mode: "composer", supportsOfficialApi: false, maxLength: 2_000, community: true }),
+  "youtube-community": Object.freeze({ id: "youtube-community", label: "YouTube Community", mode: "composer", supportsOfficialApi: false, maxLength: 1_500 }),
+  "facebook-profile": Object.freeze({ id: "facebook-profile", label: "Facebook profile", mode: "composer", supportsOfficialApi: false, maxLength: 5_000 }),
 });
 
 function text(value, limit) {
@@ -119,7 +119,7 @@ export function draftForChannel(articleInput, channelId) {
 
 export function eligibleForOfficialApi(channelId, articleInput) {
   const channel = CHANNELS[channelId];
-  if (channel?.mode !== "official-api") return false;
+  if (channel?.supportsOfficialApi !== true) return false;
   if (channel.requiresImage !== true) return true;
   const article = "excerpt" in articleInput ? articleInput : cleanSocialSnapshot(articleInput);
   return https(article.visual?.imageUrl) !== null;
@@ -128,4 +128,3 @@ export function eligibleForOfficialApi(channelId, articleInput) {
 export function channelList() {
   return Object.freeze(Object.values(CHANNELS));
 }
-

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
+const META_GRAPH_VERSION = "v26.0";
 
 function clean(value, limit = 240) {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, limit) : "";
@@ -121,7 +122,7 @@ export function createOfficialConnectorRegistry({ getConfig, resolveCredential, 
   const facebookPage = connector({
     channel: "facebook-page", getConfig, resolveCredential, configuredFields: ["pageId"],
     publish: async (item, config, token) => {
-      const result = await fetchJson(`https://graph.facebook.com/v23.0/${encodeURIComponent(clean(config.pageId, 120))}/feed`, {
+      const result = await fetchJson(`https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(clean(config.pageId, 120))}/feed`, {
         method: "POST", headers: { accept: "application/json" }, body: form({ message: item.text, link: item.snapshot.publicUrl, access_token: token }),
       });
       const id = clean(result.id, 120);
@@ -135,11 +136,11 @@ export function createOfficialConnectorRegistry({ getConfig, resolveCredential, 
     publish: async (item, config, token) => {
       const imageUrl = item.snapshot?.visual?.imageUrl;
       if (typeof imageUrl !== "string" || !imageUrl.startsWith("https://")) throw Object.assign(new Error("Instagram needs a public article image."), { code: "image-required" });
-      const creation = await fetchJson(`https://graph.facebook.com/v23.0/${encodeURIComponent(clean(config.userId, 120))}/media`, {
+      const creation = await fetchJson(`https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(clean(config.userId, 120))}/media`, {
         method: "POST", headers: { accept: "application/json" }, body: form({ image_url: imageUrl, caption: item.text, access_token: token }),
       });
       const creationId = clean(creation.id, 120);
-      const result = await fetchJson(`https://graph.facebook.com/v23.0/${encodeURIComponent(clean(config.userId, 120))}/media_publish`, {
+      const result = await fetchJson(`https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(clean(config.userId, 120))}/media_publish`, {
         method: "POST", headers: { accept: "application/json" }, body: form({ creation_id: creationId, access_token: token }),
       });
       const id = clean(result.id, 120);
@@ -150,4 +151,3 @@ export function createOfficialConnectorRegistry({ getConfig, resolveCredential, 
 
   return Object.freeze({ x, bluesky, threads, "facebook-page": facebookPage, instagram });
 }
-

@@ -67,3 +67,27 @@ test("manual channels have no connector and configured checks do not expose cred
   assert.equal(await registry.instagram.configured(), false);
 });
 
+test("Meta Page and Instagram publishing use the current Graph API and keep tokens out of receipts", async () => {
+  const requests = [];
+  const config = {
+    "facebook-page": { enabled: true, pageId: "page-123", tokenRef: "FACEBOOK_PAGE_ACCESS_TOKEN" },
+    instagram: { enabled: true, userId: "ig-456", tokenRef: "INSTAGRAM_ACCESS_TOKEN" },
+  };
+  const registry = createOfficialConnectorRegistry({
+    getConfig: () => config,
+    resolveCredential: async () => "meta-secret-token",
+    fetchJson: async (url, options) => {
+      requests.push({ url: String(url), options });
+      return String(url).endsWith("/media") ? { id: "container-1" } : { id: "post-1" };
+    },
+  });
+
+  const facebook = await registry["facebook-page"].publish(item);
+  const instagram = await registry.instagram.publish(item);
+
+  assert.equal(requests[0].url, "https://graph.facebook.com/v26.0/page-123/feed");
+  assert.equal(requests[1].url, "https://graph.facebook.com/v26.0/ig-456/media");
+  assert.equal(requests[2].url, "https://graph.facebook.com/v26.0/ig-456/media_publish");
+  assert.equal(new URLSearchParams(requests[1].options.body).get("image_url"), item.snapshot.visual.imageUrl);
+  assert.doesNotMatch(JSON.stringify({ facebook, instagram }), /meta-secret-token/);
+});

@@ -363,9 +363,11 @@ window.__ModuleLoader__.load({
 					() => settings.getSnapshot(),
 				);
 				const [drafts, setDrafts] = React.useState({});
+				const [secretDrafts, setSecretDrafts] = React.useState({});
 				const [credentialStatus, setCredentialStatus] = React.useState({});
 				const [channelStatus, setChannelStatus] = React.useState({});
 				const [pending, setPending] = React.useState(false);
+				const [secretPending, setSecretPending] = React.useState(null);
 				const [message, setMessage] = React.useState("");
 				const revision = snapshot.revision;
 
@@ -424,10 +426,46 @@ window.__ModuleLoader__.load({
 					}
 				};
 
+				const saveSecret = async (account) => {
+					const ref = String(drafts[account.credential] ?? account.credentialDefault).trim();
+					const value = String(secretDrafts[account.id] ?? "").trim();
+					if (!/^[A-Z_][A-Z0-9_]*$/.test(ref) || value.length === 0) return;
+					setSecretPending(account.id);
+					setMessage("");
+					try {
+						const response = await api.credentials.set({ ref, value });
+						if (response?.result?.ok !== true) throw new Error("secret write rejected");
+						setSecretDrafts((current) => ({ ...current, [account.id]: "" }));
+						setMessage(`${account.label} credential saved securely.`);
+						await refresh();
+					} catch {
+						setMessage(`${account.label} credential was not saved. The earlier value is unchanged.`);
+					} finally {
+						setSecretPending(null);
+					}
+				};
+
+				const removeSecret = async (account) => {
+					const ref = String(drafts[account.credential] ?? account.credentialDefault).trim();
+					if (!/^[A-Z_][A-Z0-9_]*$/.test(ref)) return;
+					setSecretPending(account.id);
+					setMessage("");
+					try {
+						const response = await api.credentials.unset({ ref });
+						if (response?.result?.ok !== true) throw new Error("secret removal rejected");
+						setMessage(`${account.label} credential removed.`);
+						await refresh();
+					} catch {
+						setMessage(`${account.label} credential could not be removed.`);
+					} finally {
+						setSecretPending(null);
+					}
+				};
+
 				if (snapshot.status !== "ready") {
 					return React.createElement("section", { className: "dsh-vibeify-social-settings" },
 						React.createElement("p", { className: "dsh-vibeify-social-kicker" }, "VIBE SOCIAL DESK"),
-						React.createElement("h2", null, "Social accounts"),
+						React.createElement("h2", null, "Optional automatic posting"),
 						React.createElement("p", null, "The Social Desk settings are not available in this DSH session."),
 					);
 				}
@@ -435,6 +473,7 @@ window.__ModuleLoader__.load({
 				const accountCard = (account) => {
 					const ref = String(drafts[account.credential] ?? account.credentialDefault);
 					const stored = credentialStatus[ref]?.configured === true;
+					const writable = credentialStatus[ref]?.writable !== false;
 					const connected = channelStatus[account.id]?.configured === true;
 					return React.createElement("article", { className: "dsh-vibeify-social-account", key: account.id },
 						React.createElement("div", { className: "dsh-vibeify-social-account-heading" },
@@ -455,14 +494,30 @@ window.__ModuleLoader__.load({
 							React.createElement("span", null, "Credential reference"),
 							React.createElement("input", { type: "text", value: ref, disabled: pending, autoComplete: "off", spellCheck: "false", placeholder: account.credentialDefault, onChange: (event) => setDrafts((current) => ({ ...current, [account.credential]: event.target.value })) }),
 						),
+						React.createElement("label", null,
+							React.createElement("span", null, "New access token or app password"),
+							React.createElement("input", {
+								type: "password",
+								value: secretDrafts[account.id] ?? "",
+								disabled: pending || secretPending !== null || !writable,
+								autoComplete: "off",
+								spellCheck: "false",
+								placeholder: stored ? "Enter a replacement credential" : "Paste token or app password",
+								onChange: (event) => setSecretDrafts((current) => ({ ...current, [account.id]: event.target.value })),
+							}),
+						),
+						React.createElement("div", { className: "dsh-vibeify-social-secret-actions" },
+							React.createElement("button", { type: "button", disabled: pending || secretPending !== null || !writable || String(secretDrafts[account.id] ?? "").trim().length === 0, onClick: () => saveSecret(account) }, secretPending === account.id ? "Saving…" : "Save credential"),
+							stored ? React.createElement("button", { type: "button", className: "is-secondary", disabled: pending || secretPending !== null || !writable, onClick: () => removeSecret(account) }, "Remove credential") : null,
+						),
 					);
 				};
 
 				return React.createElement("section", { className: "dsh-vibeify-social-settings" },
 					React.createElement("div", { className: "dsh-vibeify-social-intro" },
 						React.createElement("p", { className: "dsh-vibeify-social-kicker" }, "VIBE SOCIAL DESK"),
-						React.createElement("h2", null, "Social accounts"),
-						React.createElement("p", null, "Connect only the official posting routes you want. Reddit, Discord, YouTube Community and personal Facebook remain reviewed Ready to post routes."),
+						React.createElement("h2", null, "Optional automatic posting"),
+						React.createElement("p", null, "You do not need to connect any account. By default, Social Desk copies each reviewed post and opens the normal social composer for your final click. Configure an official connection here only if you deliberately want unattended publishing for that channel."),
 					),
 					React.createElement("div", { className: "dsh-vibeify-social-grid" }, ...SOCIAL_DESK_ACCOUNTS.map(accountCard)),
 					React.createElement("div", { className: "dsh-vibeify-social-actions" },
@@ -470,7 +525,7 @@ window.__ModuleLoader__.load({
 						React.createElement("button", { type: "button", className: "is-secondary", disabled: pending, onClick: refresh }, "Refresh connection status"),
 					),
 					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-social-message", role: "status" }, message) : null,
-					React.createElement("p", { className: "dsh-vibeify-social-note" }, "Credential references are names, not secret values. This page never reads or displays a token. A channel is Connected only when its switch, required account identifier and referenced credential are all present."),
+					React.createElement("p", { className: "dsh-vibeify-social-note" }, "Leave every switch off for the simple no-API route. Credential references are names, not secret values. Secrets are write-only: this page can replace or remove one but never reads or displays it. A channel is Connected only when its switch, required account identifier and referenced credential are all present."),
 				);
 			};
 		}
@@ -640,7 +695,8 @@ window.__ModuleLoader__.load({
 .dsh-vibeify-social-account { min-width:0; padding:16px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-layer-1); }
 .dsh-vibeify-social-account-heading { display:flex; align-items:start; justify-content:space-between; gap:14px; }.dsh-vibeify-social-account-heading>div>span { display:inline-block; margin-top:5px; padding:4px 8px; border-radius:999px; background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-secondary); font-size:10px; font-weight:700; }.dsh-vibeify-social-account-heading>div>span.has-credential { color:var(--dsw-alias-label-primary); }.dsh-vibeify-social-account-heading>div>span.is-connected { color:var(--dsw-alias-state-business-primary); background:var(--dsw-alias-state-business-tertiary); }
 .dsh-vibeify-social-enable { display:flex!important; grid-template-columns:auto 1fr!important; align-items:center; gap:7px!important; margin:0!important; color:var(--dsw-alias-label-primary)!important; }.dsh-vibeify-social-enable input { width:16px!important; min-height:16px!important; }
-.dsh-vibeify-social-account>label { margin-top:13px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-social-account>label input[type="text"] { box-sizing:border-box; width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-social-account>label input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-social-account>label { margin-top:13px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-social-account>label input[type="text"],.dsh-vibeify-social-account>label input[type="password"] { box-sizing:border-box; width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-social-account>label input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
+.dsh-vibeify-social-secret-actions { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-social-secret-actions button { min-height:34px; padding:0 11px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:9px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:11px; font-weight:700; }.dsh-vibeify-social-secret-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-social-secret-actions button:disabled { cursor:not-allowed; opacity:.55; }
 .dsh-vibeify-social-actions { margin-top:16px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-social-actions button { min-height:38px; padding:0 14px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:9px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:12px; font-weight:700; }.dsh-vibeify-social-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-social-actions button:disabled { cursor:not-allowed; opacity:.55; }
 .dsh-vibeify-social-message { margin-top:14px!important; color:var(--dsw-alias-label-primary)!important; font-weight:650; }.dsh-vibeify-social-note { max-width:760px; margin-top:14px!important; font-size:11px!important; }
 @media (max-width:760px) { .dsh-vibeify-social-grid { grid-template-columns:1fr; } }

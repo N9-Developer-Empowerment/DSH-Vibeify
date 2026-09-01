@@ -5,6 +5,7 @@ import {
   SOCIAL_DESK_RPC_CHANNEL,
   approveSocialPost,
   loadSocialDesk,
+  manualComposerUrl,
   prepareSocialPosts,
 } from "./client-src/experience/social-desk-client.js";
 
@@ -36,3 +37,19 @@ test("loading and approving preserve the one explicit approve-and-schedule RPC b
   }]);
 });
 
+test("composer hand-offs prefill supported sites and keep the final public click on the social site", () => {
+  const item = {
+    channel: "x",
+    text: "Reviewed words & a link\n\nhttps://share.codingforjustice.org.uk/a/safe",
+    snapshot: { title: "Finished article", publicUrl: "https://share.codingforjustice.org.uk/a/safe" },
+  };
+  const x = new URL(manualComposerUrl("x", item));
+  assert.equal(x.origin, "https://x.com");
+  assert.equal(x.pathname, "/intent/post");
+  assert.equal(x.searchParams.get("text"), item.text);
+
+  const facebook = new URL(manualComposerUrl("facebook-page", { ...item, channel: "facebook-page" }));
+  assert.equal(facebook.origin, "https://www.facebook.com");
+  assert.equal(facebook.searchParams.get("u"), item.snapshot.publicUrl);
+  assert.equal(manualComposerUrl("instagram", { ...item, channel: "instagram" }), "https://www.instagram.com/");
+});

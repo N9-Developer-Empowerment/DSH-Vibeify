@@ -136,6 +136,19 @@ test("public rendering escapes raw HTML while preserving safe article links", ()
   assert.doesNotMatch(page, /private-session|must never cross/);
 });
 
+test("public rendering preserves links nested inside emphasized article copy", () => {
+  const html = markdownToHtml("*This analysis cites the official [Charter Review collection](https://www.gov.uk/government/collections/bbc-charter-review-2025-to-2027).* ");
+  assert.match(html, /<em>This analysis cites the official <a href="https:\/\/www\.gov\.uk\/government\/collections\/bbc-charter-review-2025-to-2027"[^>]*>Charter Review collection<\/a>\.<\/em>/);
+  assert.doesNotMatch(html, /\]\(https:\/\//);
+
+  const strong = markdownToHtml("**Read the [Royal Charter](https://www.bbc.com/aboutthebbc/governance/charter).**");
+  assert.match(strong, /<strong>Read the <a href="https:\/\/www\.bbc\.com\/aboutthebbc\/governance\/charter"[^>]*>Royal Charter<\/a>\.<\/strong>/);
+  assert.doesNotMatch(strong, /\]\(https:\/\//);
+
+  assert.match(APP_JS, /appendInline\(strong, token\.value\)/);
+  assert.match(APP_JS, /appendInline\(emphasis, token\.value\)/);
+});
+
 test("private previews and public pages render pipe tables as responsive tables", () => {
   const markdown = [
     "A public map of circles:",

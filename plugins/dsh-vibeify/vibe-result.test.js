@@ -10,12 +10,31 @@ import {
   installVibeStreamBridge,
   isAssistantAnswer,
   isNativeResultTabList,
+  markdownFragment,
   markdownTableAt,
   markdownHasTable,
   stripDuplicatedLeadTitle,
   namespaceStreamChunks,
   VIBE_CHAT_RESULT_EVENT,
 } from "./client-src/experience/vibe-result.js";
+
+function fakeDocument() {
+  function node(tagName = null, text = "") {
+    return {
+      tagName,
+      childNodes: text === "" ? [] : [{ nodeType: 3, textContent: text }],
+      append(...children) { this.childNodes.push(...children); },
+      setAttribute() {},
+      set textContent(value) { this.childNodes = [{ nodeType: 3, textContent: String(value) }]; },
+      get textContent() { return this.childNodes.map((child) => child.textContent ?? "").join(""); },
+    };
+  }
+  return {
+    createDocumentFragment() { return node(); },
+    createElement(tagName) { return node(tagName.toUpperCase()); },
+    createTextNode(value) { return { nodeType: 3, textContent: String(value) }; },
+  };
+}
 
 function textNode(text) {
   return { nodeType: 3, textContent: text };
@@ -67,6 +86,24 @@ test("malformed generated questionnaires cannot enter the feed", () => {
     title: "Choose the next edit",
     markdown: "Choose what the editor should explore next.\n\n- More tiny filmmaking projects\n- More constrained writing ideas",
   }]);
+});
+
+test("article links remain interactive when DSH wraps their paragraph in emphasis", () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = fakeDocument();
+  try {
+    const fragment = markdownFragment("*Photo: [Martin Belam, via Wikimedia Commons](https://commons.wikimedia.org/wiki/File:BBC_Broadcasting_House_London.jpg), CC BY-SA 2.0.*");
+    const paragraph = fragment.childNodes[0];
+    const emphasis = paragraph.childNodes[0];
+    const link = emphasis.childNodes.find(({ tagName }) => tagName === "A");
+    assert.equal(link?.textContent, "Martin Belam, via Wikimedia Commons");
+    assert.equal(link?.href, "https://commons.wikimedia.org/wiki/File:BBC_Broadcasting_House_London.jpg");
+    assert.equal(link?.target, "_blank");
+    assert.equal(link?.rel, "noreferrer");
+    assert.doesNotMatch(emphasis.textContent, /\]\(https:\/\//);
+  } finally {
+    globalThis.document = previousDocument;
+  }
 });
 
 test("direct Chat publication accepts only explicit chat ids and refill publication stays run-scoped", () => {

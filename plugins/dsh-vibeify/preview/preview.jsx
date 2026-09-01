@@ -156,6 +156,32 @@ Now ask: Pick the third answer. Set twenty minutes. Finish with one photograph, 
     }));
   }));
 }
+if (new URLSearchParams(window.location.search).get("fixture") === "links") {
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+      detail: {
+        runId: "nested-link-preview",
+        durationMs: 0,
+        source: "visual-regression-fixture",
+        chunks: [{
+          id: "nested-link-preview",
+          kind: "article",
+          source: "fresh-stream",
+          title: "The BBC Is About to Be Replatformed in Production",
+          markdown: `*Photo: [Martin Belam, via Wikimedia Commons](https://commons.wikimedia.org/wiki/File:BBC_Broadcasting_House_London.jpg), CC BY-SA 2.0. No changes made.*
+
+The BBC’s current Royal Charter expires at midnight on 31 December 2027.
+
+Ordinary prose still keeps [a normal link](https://www.gov.uk/government/collections/bbc-charter-review-2025-to-2027) interactive.
+
+*This analysis is current to 1 September 2026. The official [Charter Review collection](https://www.gov.uk/government/collections/bbc-charter-review-2025-to-2027) is linked from inside this emphasized paragraph.*`,
+          topicId: null,
+          publishedAt: Date.now(),
+        }],
+      },
+    }));
+  }, 250);
+}
 if (new URLSearchParams(window.location.search).get("fixture") === "social") {
   const openSocialFixture = window.setInterval(() => {
     const button = document.querySelector(".vfx-social-tab");

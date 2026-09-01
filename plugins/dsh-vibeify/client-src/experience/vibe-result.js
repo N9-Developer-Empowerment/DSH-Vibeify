@@ -157,11 +157,11 @@ function appendInline(container, value) {
       container.append(link);
     } else if (token.type === "strong") {
       const strong = document.createElement("strong");
-      strong.textContent = token.value;
+      appendInline(strong, token.value);
       container.append(strong);
     } else if (token.type === "emphasis") {
       const emphasis = document.createElement("em");
-      emphasis.textContent = token.value;
+      appendInline(emphasis, token.value);
       container.append(emphasis);
     } else if (token.type === "code") {
       const code = document.createElement("code");

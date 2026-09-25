@@ -145,30 +145,14 @@ test("optional visual sources expose write-only credential entry and a local fal
   assert.match(client, /The DSH Visuals plugin is not active/);
 });
 
-test("Social Desk defaults to composer hand-off while keeping official credentials optional and write-only", () => {
-  assert.match(client, /Vibe Social Desk/);
-  assert.match(client, /Optional automatic posting/);
-  assert.match(client, /You do not need to connect any account/);
-  assert.match(client, /Leave every switch off for the simple no-API route/);
-  assert.match(client, /dsh-social-desk/);
-  assert.match(client, /X username/);
-  assert.match(client, /Bluesky handle/);
-  assert.match(client, /Threads user ID/);
-  assert.match(client, /Facebook Page ID/);
-  assert.match(client, /Instagram professional user ID/);
-  assert.match(client, /X_USER_ACCESS_TOKEN/);
-  assert.match(client, /BLUESKY_APP_PASSWORD/);
-  assert.match(client, /THREADS_ACCESS_TOKEN/);
-  assert.match(client, /FACEBOOK_PAGE_ACCESS_TOKEN/);
-  assert.match(client, /INSTAGRAM_ACCESS_TOKEN/);
-  assert.match(client, /Credential references are names, not secret values/);
-  assert.match(client, /credentials\.describe/);
-  assert.match(client, /credentials\.set/);
-  assert.match(client, /credentials\.unset/);
-  assert.match(client, /Paste token or app password/);
-  assert.match(client, /secret write rejected/);
-  assert.match(client, /secret removal rejected/);
-  assert.match(client, /Secrets are write-only/);
-  assert.match(client, /settings\.set\(field/);
-  assert.match(client, /void refresh\(\)/);
+test("reader cards expose direct public-link sharing without Social Desk or scheduling UI", () => {
+  assert.match(client, /function PublicLinkShare/);
+  assert.match(client, /Share link/);
+  assert.match(client, /Public link/);
+  assert.match(client, /Copy link/);
+  assert.match(client, /navigator\.share/);
+  assert.match(client, /Copy is unavailable\. Select the link below to copy it\./);
+  assert.doesNotMatch(client, /Vibe Social Desk|dsh-social-desk|X_USER_ACCESS_TOKEN|BLUESKY_APP_PASSWORD/);
+  assert.doesNotMatch(client, /Optional automatic posting|Approve and schedule|Schedule post/);
+  assert.doesNotMatch(client, /setSocialOpen|vfx-social-desk|vfx-social-tab|vfx-social-prepare/);
 });

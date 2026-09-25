@@ -22,16 +22,7 @@ window.__ModuleLoader__.load({
 		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
 		const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
 		const VISUAL_SETTINGS_STYLE_ID = "dsh-vibeify-visual-settings-style";
-		const SOCIAL_DESK_SETTINGS_NAMESPACE = "dsh-social-desk";
-		const SOCIAL_DESK_SETTINGS_STYLE_ID = "dsh-vibeify-social-settings-style";
-		const SOCIAL_DESK_RPC_CHANNEL = "/dsh-social-desk";
-		const SOCIAL_DESK_ACCOUNTS = Object.freeze([
-			Object.freeze({ id: "x", label: "X", enabled: "xEnabled", account: "xUsername", accountLabel: "X username", placeholder: "@username", credential: "xTokenRef", credentialDefault: "X_USER_ACCESS_TOKEN" }),
-			Object.freeze({ id: "bluesky", label: "Bluesky", enabled: "blueskyEnabled", account: "blueskyHandle", accountLabel: "Bluesky handle", placeholder: "name.bsky.social", credential: "blueskyAppPasswordRef", credentialDefault: "BLUESKY_APP_PASSWORD" }),
-			Object.freeze({ id: "threads", label: "Threads", enabled: "threadsEnabled", account: "threadsUserId", accountLabel: "Threads user ID", placeholder: "Numeric API user ID", credential: "threadsTokenRef", credentialDefault: "THREADS_ACCESS_TOKEN" }),
-			Object.freeze({ id: "facebook-page", label: "Facebook Page", enabled: "facebookPageEnabled", account: "facebookPagePageId", accountLabel: "Facebook Page ID", placeholder: "Numeric Page ID", credential: "facebookPageTokenRef", credentialDefault: "FACEBOOK_PAGE_ACCESS_TOKEN" }),
-			Object.freeze({ id: "instagram", label: "Instagram professional", enabled: "instagramEnabled", account: "instagramUserId", accountLabel: "Instagram professional user ID", placeholder: "Numeric API user ID", credential: "instagramTokenRef", credentialDefault: "INSTAGRAM_ACCESS_TOKEN" }),
-		]);
+
 		const VISUAL_CREDENTIALS = Object.freeze({
 			pexels: Object.freeze({ ref: "PEXELS_API_KEY", label: "Pexels", href: "https://www.pexels.com/api/" }),
 			pixabay: Object.freeze({ ref: "PIXABAY_API_KEY", label: "Pixabay", href: "https://pixabay.com/api/docs/" }),
@@ -40,27 +31,27 @@ window.__ModuleLoader__.load({
 			{
 				id: "efficient",
 				label: "Efficient",
-				model: "GPT-5.6 Luna · High",
+				model: "GPT-6 Luna · Low",
 				description: "A lighter Codex governor for routine, highly checkable work.",
 			},
 			{
 				id: "balanced",
 				label: "Balanced",
-				model: "GPT-5.6 Terra · High",
-				description: "Strong planning and verification with a lighter lead model.",
+				model: "GPT-6 Luna · High",
+				description: "Luna with high reasoning for planning and verification.",
 			},
 			{
 				id: "frontier",
-				label: "Frontier",
-				model: "GPT-5.6 Sol · Extra High",
-				description: "Recommended SOTA lead for planning, judgment, integration, and verification.",
+				label: "Luna Max",
+				model: "GPT-6 Luna · Max",
+				description: "Recommended lead; DeepSeek handles routine delegated work.",
 				recommended: true,
 			},
 			{
 				id: "maximum",
 				label: "Maximum",
-				model: "GPT-5.6 Sol · Max",
-				description: "Maximum supported reasoning for the hardest quality-first work.",
+				model: "GPT-6 Luna · Max",
+				description: "Maximum supported reasoning on the Luna lead.",
 			},
 		]);
 		const LIVE_CONTROLS_ID = "dsh-codex-live-controls";
@@ -183,10 +174,9 @@ window.__ModuleLoader__.load({
 				return value.capabilityLevel;
 			}
 			if (value?.capabilityLevel === "custom") return "custom";
-			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "xhigh") return "frontier";
-			if (value?.model === "gpt-5.6-terra" && value?.reasoningEffort === "high") return "balanced";
-			if (value?.model === "gpt-5.6-luna" && value?.reasoningEffort === "high") return "efficient";
-			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "max") return "maximum";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "max") return "frontier";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "high") return "balanced";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "low") return "efficient";
 			return "custom";
 		}
 
@@ -235,7 +225,7 @@ window.__ModuleLoader__.load({
 					),
 					selected === "custom" ? React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Custom model/reasoning values are active. Choose a preset here to manage them as one capability level.") : null,
 					error.length > 0 ? React.createElement("p", { role: "alert", className: "dsh-vibeify-capability-error" }, error) : null,
-					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Frontier is the quality-preserving default. Lower levels are optional trade-offs and should be evaluated on your own work. Changes apply to subsequent Codex turns."),
+					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Luna Max is the default lead. DeepSeek handles eligible delegated work; Terra, Sol and Astra are delegated specialists when needed. Changes apply to subsequent Codex turns."),
 				);
 			};
 		}
@@ -356,179 +346,6 @@ window.__ModuleLoader__.load({
 			};
 		}
 
-		function socialDeskSettingsSection(settings, api, connection) {
-			return function SocialDeskSettingsSection() {
-				const snapshot = React.useSyncExternalStore(
-					(listener) => settings.subscribe(listener),
-					() => settings.getSnapshot(),
-				);
-				const [drafts, setDrafts] = React.useState({});
-				const [secretDrafts, setSecretDrafts] = React.useState({});
-				const [credentialStatus, setCredentialStatus] = React.useState({});
-				const [channelStatus, setChannelStatus] = React.useState({});
-				const [pending, setPending] = React.useState(false);
-				const [secretPending, setSecretPending] = React.useState(null);
-				const [message, setMessage] = React.useState("");
-				const revision = snapshot.revision;
-
-				React.useEffect(() => {
-					if (snapshot.status !== "ready") return;
-					const value = snapshot.value ?? {};
-					setDrafts(Object.fromEntries(SOCIAL_DESK_ACCOUNTS.flatMap((account) => [
-						[account.enabled, value[account.enabled] === true],
-						[account.account, typeof value[account.account] === "string" ? value[account.account] : ""],
-						[account.credential, typeof value[account.credential] === "string" && value[account.credential].length > 0 ? value[account.credential] : account.credentialDefault],
-					])));
-				}, [revision, snapshot.status]);
-
-				const refresh = React.useCallback(async () => {
-					if (snapshot.status !== "ready") return;
-					const value = snapshot.value ?? {};
-					const refs = SOCIAL_DESK_ACCOUNTS.map((account) => {
-						const configured = value[account.credential];
-						return typeof configured === "string" && configured.length > 0 ? configured : account.credentialDefault;
-					});
-					try {
-						const [credentialResponse, capabilityResponse] = await Promise.all([
-							api.credentials.describe({ refs }),
-							connection.rpc.call(SOCIAL_DESK_RPC_CHANNEL, "capabilities", {}),
-						]);
-						if (credentialResponse?.result?.ok === true) setCredentialStatus(credentialResponse.result.value.credentials ?? {});
-						if (capabilityResponse?.ok === true) setChannelStatus(Object.fromEntries((capabilityResponse.value?.channels ?? []).map((channel) => [channel.id, channel])));
-					} catch {
-						setMessage("Connection status could not be refreshed. No account setting was changed.");
-					}
-				}, [api, connection, revision, snapshot.status]);
-
-				React.useEffect(() => { refresh(); }, [refresh]);
-
-				const save = async () => {
-					const invalid = SOCIAL_DESK_ACCOUNTS.find((account) => !/^[A-Z_][A-Z0-9_]*$/.test(String(drafts[account.credential] ?? "")));
-					if (invalid !== undefined) {
-						setMessage(`${invalid.label} needs an uppercase credential reference such as ${invalid.credentialDefault}.`);
-						return;
-					}
-					setPending(true);
-					setMessage("");
-					try {
-						const saveField = (field, value) => settings.set(field, value);
-						for (const account of SOCIAL_DESK_ACCOUNTS) {
-							await saveField(account.enabled, drafts[account.enabled] === true);
-							await saveField(account.account, String(drafts[account.account] ?? "").trim());
-							await saveField(account.credential, String(drafts[account.credential] ?? account.credentialDefault).trim());
-						}
-						setMessage("Social account identifiers and credential references saved locally.");
-						void refresh();
-					} catch {
-						setMessage("The Social Desk settings could not be saved. Review the fields and try again.");
-					} finally {
-						setPending(false);
-					}
-				};
-
-				const saveSecret = async (account) => {
-					const ref = String(drafts[account.credential] ?? account.credentialDefault).trim();
-					const value = String(secretDrafts[account.id] ?? "").trim();
-					if (!/^[A-Z_][A-Z0-9_]*$/.test(ref) || value.length === 0) return;
-					setSecretPending(account.id);
-					setMessage("");
-					try {
-						const response = await api.credentials.set({ ref, value });
-						if (response?.result?.ok !== true) throw new Error("secret write rejected");
-						setSecretDrafts((current) => ({ ...current, [account.id]: "" }));
-						setMessage(`${account.label} credential saved securely.`);
-						await refresh();
-					} catch {
-						setMessage(`${account.label} credential was not saved. The earlier value is unchanged.`);
-					} finally {
-						setSecretPending(null);
-					}
-				};
-
-				const removeSecret = async (account) => {
-					const ref = String(drafts[account.credential] ?? account.credentialDefault).trim();
-					if (!/^[A-Z_][A-Z0-9_]*$/.test(ref)) return;
-					setSecretPending(account.id);
-					setMessage("");
-					try {
-						const response = await api.credentials.unset({ ref });
-						if (response?.result?.ok !== true) throw new Error("secret removal rejected");
-						setMessage(`${account.label} credential removed.`);
-						await refresh();
-					} catch {
-						setMessage(`${account.label} credential could not be removed.`);
-					} finally {
-						setSecretPending(null);
-					}
-				};
-
-				if (snapshot.status !== "ready") {
-					return React.createElement("section", { className: "dsh-vibeify-social-settings" },
-						React.createElement("p", { className: "dsh-vibeify-social-kicker" }, "VIBE SOCIAL DESK"),
-						React.createElement("h2", null, "Optional automatic posting"),
-						React.createElement("p", null, "The Social Desk settings are not available in this DSH session."),
-					);
-				}
-
-				const accountCard = (account) => {
-					const ref = String(drafts[account.credential] ?? account.credentialDefault);
-					const stored = credentialStatus[ref]?.configured === true;
-					const writable = credentialStatus[ref]?.writable !== false;
-					const connected = channelStatus[account.id]?.configured === true;
-					return React.createElement("article", { className: "dsh-vibeify-social-account", key: account.id },
-						React.createElement("div", { className: "dsh-vibeify-social-account-heading" },
-							React.createElement("div", null,
-								React.createElement("h3", null, account.label),
-								React.createElement("span", { className: connected ? "is-connected" : stored ? "has-credential" : "" }, connected ? "Connected" : stored ? "Credential stored" : "Not connected"),
-							),
-							React.createElement("label", { className: "dsh-vibeify-social-enable" },
-								React.createElement("input", { type: "checkbox", checked: drafts[account.enabled] === true, disabled: pending, onChange: (event) => setDrafts((current) => ({ ...current, [account.enabled]: event.target.checked })) }),
-								React.createElement("span", null, "Use official API"),
-							),
-						),
-						React.createElement("label", null,
-							React.createElement("span", null, account.accountLabel),
-							React.createElement("input", { type: "text", value: drafts[account.account] ?? "", disabled: pending, autoComplete: "off", spellCheck: "false", placeholder: account.placeholder, onChange: (event) => setDrafts((current) => ({ ...current, [account.account]: event.target.value })) }),
-						),
-						React.createElement("label", null,
-							React.createElement("span", null, "Credential reference"),
-							React.createElement("input", { type: "text", value: ref, disabled: pending, autoComplete: "off", spellCheck: "false", placeholder: account.credentialDefault, onChange: (event) => setDrafts((current) => ({ ...current, [account.credential]: event.target.value })) }),
-						),
-						React.createElement("label", null,
-							React.createElement("span", null, "New access token or app password"),
-							React.createElement("input", {
-								type: "password",
-								value: secretDrafts[account.id] ?? "",
-								disabled: pending || secretPending !== null || !writable,
-								autoComplete: "off",
-								spellCheck: "false",
-								placeholder: stored ? "Enter a replacement credential" : "Paste token or app password",
-								onChange: (event) => setSecretDrafts((current) => ({ ...current, [account.id]: event.target.value })),
-							}),
-						),
-						React.createElement("div", { className: "dsh-vibeify-social-secret-actions" },
-							React.createElement("button", { type: "button", disabled: pending || secretPending !== null || !writable || String(secretDrafts[account.id] ?? "").trim().length === 0, onClick: () => saveSecret(account) }, secretPending === account.id ? "Saving…" : "Save credential"),
-							stored ? React.createElement("button", { type: "button", className: "is-secondary", disabled: pending || secretPending !== null || !writable, onClick: () => removeSecret(account) }, "Remove credential") : null,
-						),
-					);
-				};
-
-				return React.createElement("section", { className: "dsh-vibeify-social-settings" },
-					React.createElement("div", { className: "dsh-vibeify-social-intro" },
-						React.createElement("p", { className: "dsh-vibeify-social-kicker" }, "VIBE SOCIAL DESK"),
-						React.createElement("h2", null, "Optional automatic posting"),
-						React.createElement("p", null, "You do not need to connect any account. By default, Social Desk copies each reviewed post and opens the normal social composer for your final click. Configure an official connection here only if you deliberately want unattended publishing for that channel."),
-					),
-					React.createElement("div", { className: "dsh-vibeify-social-grid" }, ...SOCIAL_DESK_ACCOUNTS.map(accountCard)),
-					React.createElement("div", { className: "dsh-vibeify-social-actions" },
-						React.createElement("button", { type: "button", disabled: pending || snapshot.writable !== true, onClick: save }, pending ? "Saving…" : "Save social settings"),
-						React.createElement("button", { type: "button", className: "is-secondary", disabled: pending, onClick: refresh }, "Refresh connection status"),
-					),
-					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-social-message", role: "status" }, message) : null,
-					React.createElement("p", { className: "dsh-vibeify-social-note" }, "Leave every switch off for the simple no-API route. Credential references are names, not secret values. Secrets are write-only: this page can replace or remove one but never reads or displays it. A channel is Connected only when its switch, required account identifier and referenced credential are all present."),
-				);
-			};
-		}
 
 		function updateStateCopy(component, kind) {
 			if (component.state === "update-available") return "Update available";
@@ -613,7 +430,6 @@ window.__ModuleLoader__.load({
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
 			const { api } = ctx.get("connection");
 			const visualSettings = ctx.settingsScope.bind({ namespace: VISUAL_SETTINGS_NAMESPACE });
-			const socialDeskSettings = ctx.settingsScope.bind({ namespace: SOCIAL_DESK_SETTINGS_NAMESPACE });
 			ctx.effect(() => {
 				const style = document.createElement("style");
 				style.id = UPDATE_STYLE_ID;
@@ -681,37 +497,7 @@ window.__ModuleLoader__.load({
 				label: "Images",
 			}, visualSourcesSection(visualSettings, api)));
 
-			ctx.effect(() => {
-				const style = document.createElement("style");
-				style.id = SOCIAL_DESK_SETTINGS_STYLE_ID;
-				style.textContent = `
-.dsh-vibeify-social-settings { color:var(--dsw-alias-label-primary); padding:4px 0 28px; }
-.dsh-vibeify-social-intro { max-width:760px; margin-bottom:18px; }
-.dsh-vibeify-social-kicker { margin:0 0 4px!important; color:var(--dsw-alias-state-business-primary)!important; font-size:11px!important; font-weight:750; letter-spacing:.09em; }
-.dsh-vibeify-social-settings h2 { margin:0 0 7px; font-size:22px; line-height:1.25; }
-.dsh-vibeify-social-settings h3 { margin:0; font-size:16px; }
-.dsh-vibeify-social-settings p { margin:0; color:var(--dsw-alias-label-secondary); font-size:13px; line-height:1.55; }
-.dsh-vibeify-social-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-.dsh-vibeify-social-account { min-width:0; padding:16px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-layer-1); }
-.dsh-vibeify-social-account-heading { display:flex; align-items:start; justify-content:space-between; gap:14px; }.dsh-vibeify-social-account-heading>div>span { display:inline-block; margin-top:5px; padding:4px 8px; border-radius:999px; background:var(--dsw-alias-bg-layer-2); color:var(--dsw-alias-label-secondary); font-size:10px; font-weight:700; }.dsh-vibeify-social-account-heading>div>span.has-credential { color:var(--dsw-alias-label-primary); }.dsh-vibeify-social-account-heading>div>span.is-connected { color:var(--dsw-alias-state-business-primary); background:var(--dsw-alias-state-business-tertiary); }
-.dsh-vibeify-social-enable { display:flex!important; grid-template-columns:auto 1fr!important; align-items:center; gap:7px!important; margin:0!important; color:var(--dsw-alias-label-primary)!important; }.dsh-vibeify-social-enable input { width:16px!important; min-height:16px!important; }
-.dsh-vibeify-social-account>label { margin-top:13px; display:grid; gap:6px; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:650; }.dsh-vibeify-social-account>label input[type="text"],.dsh-vibeify-social-account>label input[type="password"] { box-sizing:border-box; width:100%; min-height:40px; padding:0 11px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; outline:0; background:var(--dsw-alias-bg-base); font:inherit; }.dsh-vibeify-social-account>label input:focus { border-color:var(--dsw-alias-state-business-primary); box-shadow:0 0 0 3px var(--dsw-alias-state-business-tertiary); }
-.dsh-vibeify-social-secret-actions { margin-top:10px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-social-secret-actions button { min-height:34px; padding:0 11px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:9px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:11px; font-weight:700; }.dsh-vibeify-social-secret-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-social-secret-actions button:disabled { cursor:not-allowed; opacity:.55; }
-.dsh-vibeify-social-actions { margin-top:16px; display:flex; flex-wrap:wrap; gap:8px; }.dsh-vibeify-social-actions button { min-height:38px; padding:0 14px; border:1px solid var(--dsw-alias-button-primary-fill); border-radius:9px; color:var(--dsw-alias-button-primary-label,#fff); background:var(--dsw-alias-button-primary-fill); cursor:pointer; font:inherit; font-size:12px; font-weight:700; }.dsh-vibeify-social-actions button.is-secondary { color:var(--dsw-alias-label-primary); border-color:var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }.dsh-vibeify-social-actions button:disabled { cursor:not-allowed; opacity:.55; }
-.dsh-vibeify-social-message { margin-top:14px!important; color:var(--dsw-alias-label-primary)!important; font-weight:650; }.dsh-vibeify-social-note { max-width:760px; margin-top:14px!important; font-size:11px!important; }
-@media (max-width:760px) { .dsh-vibeify-social-grid { grid-template-columns:1fr; } }
-`;
-				document.getElementById(SOCIAL_DESK_SETTINGS_STYLE_ID)?.remove();
-				document.head.appendChild(style);
-				return () => style.remove();
-			}, "dsh-vibeify: Social Desk settings styles");
 
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
-				id: "vibeify-social-accounts",
-				order: 18,
-				label: "Social Desk",
-			}, socialDeskSettingsSection(socialDeskSettings, api, ctx.connection)));
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.settingsScope.bind({

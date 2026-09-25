@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { SHARE_ORIGIN, SHARE_SNAPSHOT_VERSION } from "../../shared/vibe-share-contract.js";
 import {
@@ -20,6 +21,8 @@ const snapshot = Object.freeze({
   inlineVisuals: Object.freeze([]),
   contentLink: null,
 });
+
+const shellSource = readFileSync(new URL("./client-src/experience/shell.jsx", import.meta.url), "utf8");
 
 test("DSH sends an article only after the exact share page completes its opener handshake", () => {
   const messages = [];
@@ -167,7 +170,21 @@ test("unsupported URLs are rejected before native share or clipboard access", as
   const navigatorObject = { async share() { shareCalls += 1; } };
   const clipboard = { async writeText() { copyCalls += 1; } };
 
-  for (const url of ["javascript:alert(1)", "http://example.org/public", "https://user:pass@example.org/public", "/article/1", "not a url"]) {
+  for (const url of [
+    "javascript:alert(1)",
+    "http://example.org/public",
+    "https://user:pass@example.org/public",
+    "/article/1",
+    "not a url",
+    "https://localhost/article",
+    "https://vibe.local/article",
+    "https://127.0.0.1/article",
+    "https://10.2.3.4/article",
+    "https://172.16.2.3/article",
+    "https://192.168.2.3/article",
+    "https://169.254.169.254/latest/meta-data",
+    "https://[::1]/article",
+  ]) {
     assert.equal(publicShareUrl(url), null);
     assert.equal(await sharePublicUrl(url, "Article", navigatorObject), "unsupported");
     assert.equal(await copyPublicShareUrl(url, clipboard), false);
@@ -198,4 +215,10 @@ test("native share cancellation is reported as cancellation and does not fall ba
 
   assert.equal(result, "cancelled");
   assert.equal(calls, 1);
+});
+
+test("simple public-link sharing has no legacy Social Desk RPC or schedule path", () => {
+  assert.match(shellSource, /function PublicLinkShare/);
+  assert.match(shellSource, /Share link/);
+  assert.doesNotMatch(shellSource, /social-desk-client|dsh-social-desk|approve-and-schedule|prepareSocialPosts|SocialDeskPanel/);
 });

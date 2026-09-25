@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { apply } from "./index.js";
 import { createSocialDeskService } from "./social-desk-service.js";
 
 const oldQueue = Object.freeze({
@@ -60,4 +61,19 @@ test("returned legacy rows are copies, so reading cannot mutate the stored queue
   result.items[0].status = "posted";
 
   assert.deepEqual(document, oldQueue);
+});
+
+test("plugin startup registers only the read-only RPC surface and starts no worker", () => {
+  const registrations = [];
+  let effects = 0;
+  const ctx = {
+    inject(dependencies, callback) { registrations.push({ dependencies, callback }); },
+    effect() { effects += 1; },
+    get() { assert.fail("the inert plugin must not resolve credentials"); },
+  };
+
+  apply(ctx);
+
+  assert.deepEqual(registrations.map(({ dependencies }) => dependencies), [["connection"]]);
+  assert.equal(effects, 0);
 });

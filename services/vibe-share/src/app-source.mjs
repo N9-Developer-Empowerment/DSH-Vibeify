@@ -151,6 +151,11 @@ function createPublishedShareControls(value, title) {
   input.addEventListener("focus", () => input.select());
   input.addEventListener("click", () => input.select());
   label.append(input);
+  const open = document.createElement("a");
+  open.href = value;
+  open.target = "_blank";
+  open.rel = "noopener noreferrer";
+  open.textContent = "Open public article";
 
   const actions = document.createElement("div");
   actions.className = "published-share-buttons";
@@ -183,7 +188,7 @@ function createPublishedShareControls(value, title) {
     actions.append(share);
   }
 
-  controls.append(label, actions, message);
+  controls.append(label, open, actions, message);
   return controls;
 }
 

@@ -1,4 +1,5 @@
 import { createEditorialProfile } from "./editorial-settings.js";
+import { QUESTIONNAIRE_AUTHORING_CONTRACT } from "../../questionnaire-contract.js";
 
 export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels = [], recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
@@ -58,7 +59,7 @@ Publish each ready item as a commentary update using exactly one closed envelope
 Complete Markdown for this one item, including its relevant source links when claims require them.
 </vibe-chunk>
 
-Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with “${runId}-” and never reuse an id. A questionnaire is content: give it a concise invitation followed by 2–6 Markdown bullet options. It must be optional, enjoyable, answerable in one tap, and useful for shaping a later update. Do not ask the reader to wait or finish a form.
+Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with “${runId}-” and never reuse an id. ${QUESTIONNAIRE_AUTHORING_CONTRACT} It must be optional, enjoyable and useful for shaping a later update. Do not ask the reader to wait or finish a form.
 
 Only close and publish an envelope after that individual chunk is safe to show. Plans, partial paragraphs, raw search notes, unresolved claims, worker prose, citations not yet checked, and tool activity stay outside the envelope. Do not hold an early completed chunk behind a slower lane. Do not split a paragraph, table, quotation, citation cluster, or questionnaire across envelopes.
 

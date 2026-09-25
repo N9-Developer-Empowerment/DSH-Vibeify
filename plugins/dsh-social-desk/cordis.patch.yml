@@ -1,0 +1,6 @@
+# Add the optional host-side Vibe Social Desk. Vibeify discovers it through a
+# loopback-only RPC channel and hides social controls when it is absent.
+- insert:
+    - id: dsh-social-desk
+      name: dsh-social-desk
+

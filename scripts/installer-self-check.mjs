@@ -51,6 +51,9 @@ const requiredFiles = [
   "plugins/dsh-visuals/package.json",
   "plugins/dsh-visuals/index.js",
   "plugins/dsh-visuals/visual-service.js",
+  "plugins/dsh-social-desk/package.json",
+  "plugins/dsh-social-desk/index.js",
+  "plugins/dsh-social-desk/social-desk-service.js",
   "scripts/Install DSH Vibeify.command",
   "scripts/Install DSH Vibeify.ps1",
   "scripts/install-dsh-vibeify-linux.sh",
@@ -64,6 +67,7 @@ for (const relativePath of requiredFiles) await checkFile(relativePath);
 const governedPackage = await readJson("plugins/dsh-vibeify/package.json");
 const neutralPackage = await readJson("plugins/dsh-vibeify-experience/package.json");
 const visualPackage = await readJson("plugins/dsh-visuals/package.json");
+const socialPackage = await readJson("plugins/dsh-social-desk/package.json");
 if (governedPackage && neutralPackage) {
   if (governedPackage.version === neutralPackage.version) {
     console.log(`OK   package versions agree at ${governedPackage.version}`);
@@ -84,6 +88,12 @@ if (visualPackage?.name === "dsh-visuals" && visualPackage.dsh?.bundle?.patch) {
   failures.push("the optional dsh-visuals package manifest is invalid");
   console.log("FAIL optional visual-source package manifest");
 }
+if (socialPackage?.name === "dsh-social-desk" && socialPackage.dsh?.bundle?.patch) {
+  console.log(`OK   optional Vibe Social Desk package declared at ${socialPackage.version}`);
+} else {
+  failures.push("the optional dsh-social-desk package manifest is invalid");
+  console.log("FAIL optional Vibe Social Desk package manifest");
+}
 
 for (const relativePath of [
   "plugins/dsh-vibeify/index.js",
@@ -94,6 +104,13 @@ for (const relativePath of [
   "plugins/dsh-visuals/settings.js",
   "plugins/dsh-visuals/visual-rpc.js",
   "plugins/dsh-visuals/visual-service.js",
+  "plugins/dsh-social-desk/index.js",
+  "plugins/dsh-social-desk/channel-registry.js",
+  "plugins/dsh-social-desk/official-connectors.js",
+  "plugins/dsh-social-desk/settings.js",
+  "plugins/dsh-social-desk/social-desk-service.js",
+  "plugins/dsh-social-desk/social-queue-store.js",
+  "plugins/dsh-social-desk/social-rpc.js",
   "scripts/validate-package-archive.mjs",
 ]) {
   checkJavaScript(relativePath);

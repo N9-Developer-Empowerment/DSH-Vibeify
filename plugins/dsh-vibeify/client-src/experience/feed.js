@@ -1,3 +1,5 @@
+import { questionnaireParts } from "./questionnaire.js";
+
 export const STREAM_BATCH_SIZE = 8;
 export const GENERATED_STREAM_BATCH_SIZE = 6;
 
@@ -132,17 +134,11 @@ export function createBundledStream(catalog, editionKey, count = 36) {
 }
 
 export function questionnaireOptions(markdown) {
-  if (typeof markdown !== "string") return Object.freeze([]);
-  return Object.freeze(markdown
-    .split(/\r?\n/)
-    .map((line) => line.match(/^[-*]\s+(.+)$/)?.[1]?.trim())
-    .filter(Boolean)
-    .slice(0, 6));
+  return Object.freeze(questionnaireParts(markdown).options.slice(0, 6));
 }
 
 export function questionnaireIntroduction(markdown) {
-  if (typeof markdown !== "string") return "";
-  return markdown.split(/\r?\n/).filter((line) => !/^[-*]\s+/.test(line)).join(" ").trim();
+  return markdownWithoutLeadVisual(questionnaireParts(markdown).introduction).trim();
 }
 
 /** Stored chunks stay append-only; presentation reverses arrival order so the latest item is first. */

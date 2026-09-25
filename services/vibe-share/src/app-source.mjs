@@ -235,11 +235,11 @@ function appendInline(parent, value) {
       parent.append(anchor);
     } else if (token.type === "strong") {
       const strong = document.createElement("strong");
-      strong.textContent = token.value;
+      appendInline(strong, token.value);
       parent.append(strong);
     } else if (token.type === "emphasis") {
       const emphasis = document.createElement("em");
-      emphasis.textContent = token.value;
+      appendInline(emphasis, token.value);
       parent.append(emphasis);
     } else if (token.type === "code") {
       const code = document.createElement("code");

@@ -1,0 +1,26 @@
+{
+  "name": "dsh-social-desk",
+  "version": "0.1.0",
+  "description": "Local, reviewed social publishing queue for DSH Vibeify.",
+  "author": {
+    "name": "Errol Elliott and Daniela Elliott",
+    "url": "https://github.com/N9-Developer-Empowerment/DSH-Vibeify"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Vibe Social Desk",
+    "shortDescription": "Prepare, review and schedule social posts from Vibe.",
+    "longDescription": "Turns one cleaned Vibe article into channel-specific drafts, keeps every account and draft local, publishes configured official-API posts after one explicit Approve and schedule action, and holds community channels in a reviewed Ready to post queue.",
+    "developerName": "Errol Elliott & Daniela Elliott",
+    "websiteURL": "https://dsh-vibeify.ezzye.chatgpt.site",
+    "category": "Productivity",
+    "capabilities": ["Social drafts", "Reviewed scheduling", "Official API publishing", "Manual community queue"],
+    "defaultPrompt": [
+      "Open my Vibe Social Desk.",
+      "Prepare social posts from this Vibe article.",
+      "Explain which channels can publish and which are Ready to post."
+    ],
+    "brandColor": "#FF759F"
+  }
+}
+

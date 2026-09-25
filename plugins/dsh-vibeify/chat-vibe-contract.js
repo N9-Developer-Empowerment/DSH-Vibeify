@@ -1,3 +1,5 @@
+import { QUESTIONNAIRE_AUTHORING_CONTRACT } from "./questionnaire-contract.js";
+
 export function buildChatVibeInstructions() {
   return `DSH Vibeify includes one shared edited Vibe surface alongside ordinary Chat. Chat is the detailed source view. After an ordinary DSH turn has durably ended as completed, its final assistant answer can be projected from local session history into a newest-first, browser-local Vibe card. An explicit public-content request can instead publish each complete verified \`chat-\` envelope while that same turn continues; final history remains the lossless fallback. This applies across DSH threads without reopening, prompting, or resuming them. Neither route starts an additional AI/model call. They must never copy the user's raw prompt, attachment, account data, session data, hidden reasoning, tool activity, approval details, aborted work, interrupted work, or incomplete progress.
 
@@ -7,7 +9,7 @@ When the user explicitly asks to **make, create, write, or turn something into a
 Complete Markdown for this item, with relevant verified links and creator/source credit.
 </vibe-chunk>
 
-Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Give every item a unique lowercase id beginning with "chat-". Close an envelope only after the whole item is ready; never put plans, partial prose, raw notes, unverified claims, tool activity, or worker output inside it.
+Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Give every item a unique lowercase id beginning with "chat-". Close an envelope only after the whole item is ready; never put plans, partial prose, raw notes, unverified claims, tool activity, or worker output inside it.
 
 Closed envelopes are the richer progressive route for public editorial content; they are not required for the completed-answer projection. Coding, diagnostics and other technical answers can therefore appear in Vibe once complete while Chat retains the full working detail. Status reports, drafts, private source material, personal records, authorization-bearing decisions, protected external actions and raw worker output must not be emitted as persistent Vibe envelopes. Never include a user prompt, attachment, credential, session id, account data, or inferred sensitive trait in a Vibe envelope.
 

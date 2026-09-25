@@ -108,6 +108,16 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.doesNotMatch(client, /MIN_BACKGROUND_RUNS_PER_VISIT|buffer-low-water|shouldStartStreamRun|continuous-stream/);
 });
 
+test("questionnaires use the shared Markdown renderer before their one-tap choices", () => {
+  const start = client.indexOf("function Questionnaire");
+  const end = client.indexOf("function InlineVisuals", start);
+  assert.ok(start >= 0 && end > start);
+  const questionnaire = client.slice(start, end);
+  assert.match(questionnaire, /createElement\(Markdown/);
+  assert.doesNotMatch(questionnaire, /createElement\("p"/);
+  assert.match(client, /\.vfx-question>\.vfx-markdown\s*\{/);
+});
+
 test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /approval stream watchdog/);
   assert.match(client, /Capability level/);
@@ -133,4 +143,28 @@ test("optional visual sources expose write-only credential entry and a local fal
   assert.match(client, /credential removal rejected/);
   assert.match(client, /Keys are write-only/);
   assert.match(client, /The DSH Visuals plugin is not active/);
+});
+
+test("Social Desk account settings expose identifiers and credential references without secret values", () => {
+  assert.match(client, /Vibe Social Desk/);
+  assert.match(client, /Social accounts/);
+  assert.match(client, /dsh-social-desk/);
+  assert.match(client, /X username/);
+  assert.match(client, /Bluesky handle/);
+  assert.match(client, /Threads user ID/);
+  assert.match(client, /Facebook Page ID/);
+  assert.match(client, /Instagram professional user ID/);
+  assert.match(client, /X_USER_ACCESS_TOKEN/);
+  assert.match(client, /BLUESKY_APP_PASSWORD/);
+  assert.match(client, /THREADS_ACCESS_TOKEN/);
+  assert.match(client, /FACEBOOK_PAGE_ACCESS_TOKEN/);
+  assert.match(client, /INSTAGRAM_ACCESS_TOKEN/);
+  assert.match(client, /Credential references are names, not secret values/);
+  assert.match(client, /credentials\.describe/);
+  assert.match(client, /settings\.set\(field/);
+  assert.match(client, /void refresh\(\)/);
+  const settingsStart = client.indexOf("function socialDeskSettingsSection");
+  const settingsEnd = client.indexOf("function updateStateCopy", settingsStart);
+  assert.ok(settingsStart >= 0 && settingsEnd > settingsStart);
+  assert.doesNotMatch(client.slice(settingsStart, settingsEnd), /credentials\.set/);
 });

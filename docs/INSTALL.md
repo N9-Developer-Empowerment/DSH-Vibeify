@@ -135,6 +135,20 @@ dsh plugin --profile web add --workspace-root ./plugins/dsh-visuals
 
 If `dsh-visuals` is absent or every source is unavailable, Vibeify keeps its built-in unique cover method and remains fully readable.
 
+## Add Vibe Social Desk
+
+The friendly installers also add the optional `dsh-social-desk` package. It remains quiet until Vibeify discovers its loopback capability; removing it simply hides **Prepare social posts** and the **Social Desk** tab.
+
+Open DSH **Settings → Vibe Social Desk** to enable an official connector, enter the public account field it requires, and save its named credential through DSH's write-only credential control. Never put an access token, app password, account id or account metadata in this repository, an article, a screenshot, a support report or an online chat.
+
+Developer or older manual installations can add it separately:
+
+```bash
+dsh plugin --profile web add --workspace-root ./plugins/dsh-social-desk
+```
+
+No official connector is enabled by default. Reddit, Discord, YouTube Community and personal-profile routes need no key because they remain reviewed **Ready to post** items. See [Vibe Social Desk](SOCIAL_DESK.md) for connection, approval, scheduling and restart behaviour.
+
 ## Verify without a paid call
 
 ```bash
@@ -187,6 +201,7 @@ Remove whichever mode is installed:
 dsh plugin --profile web remove --workspace-root dsh-vibeify
 dsh plugin --profile web remove --workspace-root dsh-vibeify-experience
 dsh plugin --profile web remove --workspace-root dsh-visuals
+dsh plugin --profile web remove --workspace-root dsh-social-desk
 ```
 
 Removing Vibeify does not delete DSH sessions, Codex authentication, DeepSeek credentials, or browser-stored Vibe preferences.

@@ -12,8 +12,8 @@ export function escapeHtml(value) {
 function inlineMarkup(value) {
   return parseVibeInline(value).map((token) => {
     if (token.type === "link") return `<a href="${escapeHtml(token.href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(token.value)}</a>`;
-    if (token.type === "strong") return `<strong>${escapeHtml(token.value)}</strong>`;
-    if (token.type === "emphasis") return `<em>${escapeHtml(token.value)}</em>`;
+    if (token.type === "strong") return `<strong>${inlineMarkup(token.value)}</strong>`;
+    if (token.type === "emphasis") return `<em>${inlineMarkup(token.value)}</em>`;
     if (token.type === "code") return `<code>${escapeHtml(token.value)}</code>`;
     return escapeHtml(token.value);
   }).join("");

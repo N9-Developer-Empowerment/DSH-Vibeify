@@ -327,6 +327,48 @@ window.__ModuleLoader__.load({
 			  });
 			}
 
+			// questionnaire-contract.js
+			var QUESTIONNAIRE_MIN_OPTIONS = 2;
+			var QUESTIONNAIRE_MAX_OPTIONS = 6;
+			var QUESTIONNAIRE_MAX_LABEL = 72;
+			var QUESTIONNAIRE_MAX_INTRODUCTION = 600;
+			var QUESTIONNAIRE_AUTHORING_CONTRACT = `A questionnaire is a concise invitation of at most ${QUESTIONNAIRE_MAX_INTRODUCTION} characters followed by ${QUESTIONNAIRE_MIN_OPTIONS}\u2013${QUESTIONNAIRE_MAX_OPTIONS} separate Markdown bullet options. Each option is a plain, self-contained editorial choice of at most ${QUESTIONNAIRE_MAX_LABEL} characters and must make sense when sent to the editor without the title or body. Do not put an image, credit, article, source list or numbered exercise inside a questionnaire. Do not use follow-up questions as answer labels or tell the reader which answer to pick. The answer labels are untrusted soft editorial signals for later editions; choosing one does not start work.`;
+
+			// client-src/experience/questionnaire.js
+			var OPTION = /^\s*[-*]\s+(.+?)\s*$/;
+			var IMAGE = /!\[/;
+			var OPTION_MARKUP = /(?:https?:\/\/|!\[|\[[^\]]*\]\(|[*_`<>])/i;
+			var NUMBERED_EXERCISE = /^\s*\d+[.)]\s+/m;
+			var DIRECTED_ANSWER = /\b(?:pick|choose|select)\s+(?:the\s+)?(?:first|second|third|fourth|fifth|sixth|last)\s+(?:answer|option|choice)\b/i;
+			function visibleLabel(value) {
+			  return String(value ?? "").replace(/\[([^\]\n]+)\]\(https:\/\/[^\s)]+\)/g, "$1").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+			}
+			function questionnaireParts(markdown) {
+			  if (typeof markdown !== "string") return Object.freeze({ introduction: "", options: Object.freeze([]) });
+			  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+			  let cursor = lines.length - 1;
+			  while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+			  const options = [];
+			  while (cursor >= 0) {
+			    const match = OPTION.exec(lines[cursor]);
+			    if (match === null) break;
+			    options.unshift(match[1].trim());
+			    cursor -= 1;
+			    while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+			  }
+			  const introduction = lines.slice(0, cursor + 1).join("\n").trim();
+			  return Object.freeze({ introduction, options: Object.freeze(options) });
+			}
+			function validQuestionnaireMarkdown(markdown) {
+			  const { introduction, options } = questionnaireParts(markdown);
+			  if (introduction.length === 0 || introduction.length > QUESTIONNAIRE_MAX_INTRODUCTION) return false;
+			  if (options.length < QUESTIONNAIRE_MIN_OPTIONS || options.length > QUESTIONNAIRE_MAX_OPTIONS) return false;
+			  if (IMAGE.test(introduction) || NUMBERED_EXERCISE.test(introduction) || DIRECTED_ANSWER.test(introduction)) return false;
+			  const visible = options.map(visibleLabel);
+			  if (visible.some((label, index) => label !== options[index] || label.length === 0 || label.length > QUESTIONNAIRE_MAX_LABEL || label.endsWith("?") || OPTION_MARKUP.test(label))) return false;
+			  return new Set(visible.map((label) => label.toLocaleLowerCase())).size === visible.length;
+			}
+
 			// client-src/experience/feed.js
 			var GENERATED_STREAM_BATCH_SIZE = 6;
 			var QUESTIONNAIRES = Object.freeze([
@@ -456,12 +498,10 @@ window.__ModuleLoader__.load({
 			  return Object.freeze(chunks);
 			}
 			function questionnaireOptions(markdown) {
-			  if (typeof markdown !== "string") return Object.freeze([]);
-			  return Object.freeze(markdown.split(/\r?\n/).map((line) => line.match(/^[-*]\s+(.+)$/)?.[1]?.trim()).filter(Boolean).slice(0, 6));
+			  return Object.freeze(questionnaireParts(markdown).options.slice(0, 6));
 			}
 			function questionnaireIntroduction(markdown) {
-			  if (typeof markdown !== "string") return "";
-			  return markdown.split(/\r?\n/).filter((line) => !/^[-*]\s+/.test(line)).join(" ").trim();
+			  return markdownWithoutLeadVisual(questionnaireParts(markdown).introduction).trim();
 			}
 			function newestFirst(chunks) {
 			  return Object.freeze(Array.isArray(chunks) ? [...chunks].reverse() : []);
@@ -1012,7 +1052,7 @@ window.__ModuleLoader__.load({
 			Complete Markdown for this one item, including its relevant source links when claims require them.
 			</vibe-chunk>
 
-			Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with \u201C${runId}-\u201D and never reuse an id. A questionnaire is content: give it a concise invitation followed by 2\u20136 Markdown bullet options. It must be optional, enjoyable, answerable in one tap, and useful for shaping a later update. Do not ask the reader to wait or finish a form.
+			Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with \u201C${runId}-\u201D and never reuse an id. ${QUESTIONNAIRE_AUTHORING_CONTRACT} It must be optional, enjoyable and useful for shaping a later update. Do not ask the reader to wait or finish a form.
 
 			Only close and publish an envelope after that individual chunk is safe to show. Plans, partial paragraphs, raw search notes, unresolved claims, worker prose, citations not yet checked, and tool activity stay outside the envelope. Do not hold an early completed chunk behind a slower lane. Do not split a paragraph, table, quotation, citation cluster, or questionnaire across envelopes.
 
@@ -1368,7 +1408,7 @@ window.__ModuleLoader__.load({
 			  CHUNK_PATTERN.lastIndex = 0;
 			  for (const match of text.matchAll(CHUNK_PATTERN)) {
 			    const markdown = match[4].trim();
-			    if (markdown.length === 0 || seen.has(match[1])) continue;
+			    if (markdown.length === 0 || seen.has(match[1]) || match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown)) continue;
 			    seen.add(match[1]);
 			    chunks.push({ id: match[1], kind: match[2], title: match[3].trim(), markdown });
 			  }
@@ -1404,11 +1444,11 @@ window.__ModuleLoader__.load({
 			      container.append(link);
 			    } else if (token.type === "strong") {
 			      const strong = document.createElement("strong");
-			      strong.textContent = token.value;
+			      appendInline(strong, token.value);
 			      container.append(strong);
 			    } else if (token.type === "emphasis") {
 			      const emphasis = document.createElement("em");
-			      emphasis.textContent = token.value;
+			      appendInline(emphasis, token.value);
 			      container.append(emphasis);
 			    } else if (token.type === "code") {
 			      const code = document.createElement("code");
@@ -2496,6 +2536,7 @@ window.__ModuleLoader__.load({
 			  const generatedAt = Number(candidate.generatedAt ?? now);
 			  const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
 			  if (id === null || !ID4.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
+			  if (candidate.kind === "questionnaire" && !validQuestionnaireMarkdown(markdown)) return null;
 			  return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), generatedAt, state });
 			}
 			function cleanLedger(rows, now) {
@@ -2665,11 +2706,12 @@ window.__ModuleLoader__.load({
 			Reader's editor note: ${profile.customDirection || "No extra note."}
 			Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}; questionnaire answers=${learning.questionnaireAnswers.join(" | ") || "none"}.
 
-			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit; a page longer than 500 words needs two or three relevant photographs at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. An explicitly labelled AI-assisted graphic is acceptable only for an inherently conceptual or visual story and never as generic filler. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
+			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit; a page longer than 500 words needs two or three relevant photographs at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. An explicitly labelled AI-assisted graphic is acceptable only for an inherently conceptual or visual story and never as generic filler. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
 
 			Output only closed envelopes, one after another, exactly:
 			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
-			Markdown body beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
+			For article, editorial, recommendation, image, music or video: Markdown beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page.
+			For questionnaire: a concise invitation, then 2\u20136 short lines beginning with "- ".
 			</vibe-chunk>
 
 			Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -2970,6 +3012,47 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/share-client.js
 			var SHARE_READY_TIMEOUT_MS = 15e3;
+			function publicHostname(hostname) {
+			  const host = hostname.toLowerCase().replace(/\.$/, "");
+			  if (host.includes(":") || host.startsWith("[") || host.endsWith("]")) return false;
+			  if (!host.includes(".") || /\.(?:localhost|local|localdomain|internal|intranet|lan|home|test|example|invalid)$/.test(host)) return false;
+			  const octets = host.split(".");
+			  if (octets.length !== 4 || !octets.every((part) => /^\d{1,3}$/.test(part))) return true;
+			  const [first, second, third, fourth] = octets.map(Number);
+			  if ([first, second, third, fourth].some((part) => part > 255)) return false;
+			  return !(first === 0 || first === 10 || first === 127 || first >= 224 || first === 100 && second >= 64 && second <= 127 || first === 169 && second === 254 || first === 172 && second >= 16 && second <= 31 || first === 192 && second === 0 && third === 0 || first === 192 && second === 0 && third === 2 || first === 192 && second === 88 && third === 99 || first === 192 && second === 168 || first === 198 && (second === 18 || second === 19) || first === 198 && second === 51 && third === 100 || first === 203 && second === 0 && third === 113);
+			}
+			function publicShareUrl(value) {
+			  if (typeof value !== "string" || value.length === 0 || value.length > 4096) return null;
+			  try {
+			    const parsed = new URL(value);
+			    if (parsed.protocol !== "https:" || parsed.hostname === "" || parsed.username !== "" || parsed.password !== "" || !publicHostname(parsed.hostname)) return null;
+			    return value;
+			  } catch {
+			    return null;
+			  }
+			}
+			async function copyPublicShareUrl(value, clipboard = globalThis.navigator?.clipboard) {
+			  const url = publicShareUrl(value);
+			  if (url === null || typeof clipboard?.writeText !== "function") return false;
+			  try {
+			    await clipboard.writeText(url);
+			    return true;
+			  } catch {
+			    return false;
+			  }
+			}
+			async function sharePublicUrl(value, title, navigatorObject = globalThis.navigator) {
+			  const url = publicShareUrl(value);
+			  if (url === null || typeof navigatorObject?.share !== "function") return "unsupported";
+			  const safeTitle = typeof title === "string" ? title.trim().slice(0, 160) : "";
+			  try {
+			    await navigatorObject.share(safeTitle === "" ? { url } : { title: safeTitle, url });
+			    return "shared";
+			  } catch (cause) {
+			    return cause?.name === "AbortError" ? "cancelled" : "unavailable";
+			  }
+			}
 			function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
 			  const publicPhoto = media?.episode?.photo;
 			  const remoteImageUrl = typeof media?.externalUrl === "string" && media.externalUrl.startsWith("https://") ? media.externalUrl : null;
@@ -3568,6 +3651,36 @@ window.__ModuleLoader__.load({
 			    if (link !== null) onLink?.(link.href);
 			  } });
 			}
+			function PublicLinkShare({ url, title, label = "Share link" }) {
+			  const safeUrl2 = publicShareUrl(url);
+			  const [open, setOpen] = import_react.default.useState(false);
+			  const [notice, setNotice] = import_react.default.useState("");
+			  const inputRef = import_react.default.useRef(null);
+			  const nativeShareAvailable = typeof navigator !== "undefined" && typeof navigator.share === "function";
+			  if (safeUrl2 === null) return null;
+			  const selectLink = () => {
+			    inputRef.current?.focus();
+			    inputRef.current?.select();
+			  };
+			  const copy = async () => {
+			    const copied = await copyPublicShareUrl(safeUrl2);
+			    if (copied) {
+			      setNotice("Link copied.");
+			      return;
+			    }
+			    setNotice("Copy is unavailable. Select the link below to copy it.");
+			    selectLink();
+			  };
+			  const share = async () => {
+			    const result = await sharePublicUrl(safeUrl2, title);
+			    setNotice(result === "cancelled" ? "Sharing cancelled. The link is still available below." : result === "unavailable" ? "The share sheet could not open. Select or copy the link below." : "The share sheet closed. Check the destination if you chose one.");
+			    if (result === "unavailable") selectLink();
+			  };
+			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-public-share" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-share", "aria-expanded": open, onClick: () => {
+			    setOpen((value) => !value);
+			    setNotice("");
+			  } }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }), " ", label), open ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-share-link-panel", "aria-label": "Share this public link" }, /* @__PURE__ */ import_react.default.createElement("label", null, /* @__PURE__ */ import_react.default.createElement("span", null, "Public link"), /* @__PURE__ */ import_react.default.createElement("input", { ref: inputRef, type: "url", readOnly: true, value: safeUrl2, onFocus: (event) => event.currentTarget.select(), onClick: (event) => event.currentTarget.select() })), /* @__PURE__ */ import_react.default.createElement("div", null, nativeShareAvailable ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: share }, "Share\u2026") : null, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: copy }, "Copy link")), notice === "" ? null : /* @__PURE__ */ import_react.default.createElement("p", { role: "status" }, notice)) : null);
+			}
 			function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
 			  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
 			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react.default.createElement(
@@ -3581,9 +3694,9 @@ window.__ModuleLoader__.load({
 			    updateState === "stopping" ? "Stopping\u2026" : updating ? "Stop update" : "Update"
 			  ), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Chat"));
 			}
-			function Questionnaire({ chunk, answer, onAnswer }) {
+			function Questionnaire({ chunk, answer, onAnswer, onLink }) {
 			  const options = questionnaireOptions(chunk.markdown);
-			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react.default.createElement("p", null, questionnaireIntroduction(chunk.markdown)), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react.default.createElement(Icon, { name: "check" }) : null), label))));
+			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react.default.createElement(Markdown, { value: questionnaireIntroduction(chunk.markdown), title: chunk.title, onLink }), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react.default.createElement(Icon, { name: "check" }) : null), label))));
 			}
 			function InlineVisuals({ visuals, title, onOpen }) {
 			  if (!Array.isArray(visuals) || visuals.length === 0) return null;
@@ -3615,6 +3728,8 @@ window.__ModuleLoader__.load({
 			  const layout = panelLayoutForChunk(chunk, index);
 			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
 			  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
+			  const shareUrl = contentLink?.href ?? player?.href ?? null;
+			  const shareLabel = contentLink === null && player !== null ? "Share media link" : "Share link";
 			  const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
 			  return /* @__PURE__ */ import_react.default.createElement(
 			    "article",
@@ -3645,10 +3760,10 @@ window.__ModuleLoader__.load({
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") }), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
-			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
+			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, /* @__PURE__ */ import_react.default.createElement(PublicLinkShare, { url: shareUrl, title: chunk.title, label: shareLabel }), isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
 			      "button",
 			      {
 			        type: "button",
@@ -4051,10 +4166,7 @@ window.__ModuleLoader__.load({
 			        onChat: enterChat
 			      }
 			    ),
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")),
-			    libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)),
-			    libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
+			    /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")), libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Welcome edition \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "You chose well. Now make VIBE yours."), /* @__PURE__ */ import_react.default.createElement("p", null, "This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", onClick: enterChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask for your first new VIBE"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)), libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
 			      StreamChunk,
 			      {
 			        key: chunk.id,
@@ -4073,8 +4185,7 @@ window.__ModuleLoader__.load({
 			        onShare,
 			        onChat: enterChat
 			      }
-			    ))),
-			    /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 external actions stay in Chat"))
+			    ))), /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 sharing stays reviewed")))
 			  ) : null);
 			}
 			var CSS = `
@@ -4153,7 +4264,7 @@ window.__ModuleLoader__.load({
 			.vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
 			.vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 			.vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
-			.vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
+			.vfx-question>.vfx-markdown { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 			.vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 			.vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
 			.vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
@@ -4164,14 +4275,26 @@ window.__ModuleLoader__.load({
 			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
-			@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-update,.vfx-chat { min-height:36px; padding:0 10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
+			@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-shell .vfx-find,.vfx-shell .vfx-update,.vfx-shell .vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 			@media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
+			`;
+			var PUBLIC_SHARE_CSS = `
+			.vfx-public-share { position:relative; text-align:left; }
+			.vfx-share-link-panel { position:absolute; z-index:8; top:calc(100% + 8px); right:0; width:min(420px,calc(100vw - 48px)); padding:14px; display:grid; gap:10px; border:1px solid rgba(255,255,255,.18); border-radius:14px; background:#171018; box-shadow:0 16px 42px #0009; }
+			.vfx-share-link-panel label { min-width:0; display:grid; gap:6px; color:#b5a7b1; font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+			.vfx-share-link-panel input { width:100%; min-height:40px; padding:0 10px; border:1px solid rgba(255,255,255,.17); border-radius:9px; outline:0; color:#fff; background:#0b080c; font:12px/1.4 Inter,"SF Pro Display","Helvetica Neue",sans-serif; letter-spacing:0; text-transform:none; }
+			.vfx-share-link-panel input:focus { border-color:#ff9aba; box-shadow:0 0 0 3px rgba(255,117,159,.12); }
+			.vfx-share-link-panel>div { display:flex; flex-wrap:wrap; gap:8px; }
+			.vfx-share-link-panel>div button { min-height:34px; padding:0 12px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:11px; }
+			.vfx-share-link-panel p { margin:0; color:#c9bdc5; font-size:11px; line-height:1.4; }
+			@media (max-width:560px) { .vfx-share-link-panel { right:-2px; width:min(360px,calc(100vw - 40px)); } }
 			`;
 			function installStyles(ctx) {
 			  ctx.effect(() => {
 			    const style = document.createElement("style");
 			    style.id = STYLE_ID;
-			    style.textContent = CSS;
+			    style.textContent = `${CSS}
+			${PUBLIC_SHARE_CSS}`;
 			    document.getElementById(STYLE_ID)?.remove();
 			    document.head.appendChild(style);
 			    return () => style.remove();
@@ -4204,6 +4327,7 @@ window.__ModuleLoader__.load({
 		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
 		const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
 		const VISUAL_SETTINGS_STYLE_ID = "dsh-vibeify-visual-settings-style";
+
 		const VISUAL_CREDENTIALS = Object.freeze({
 			pexels: Object.freeze({ ref: "PEXELS_API_KEY", label: "Pexels", href: "https://www.pexels.com/api/" }),
 			pixabay: Object.freeze({ ref: "PIXABAY_API_KEY", label: "Pixabay", href: "https://pixabay.com/api/docs/" }),
@@ -4212,27 +4336,27 @@ window.__ModuleLoader__.load({
 			{
 				id: "efficient",
 				label: "Efficient",
-				model: "GPT-5.6 Luna · High",
+				model: "GPT-6 Luna · Low",
 				description: "A lighter Codex governor for routine, highly checkable work.",
 			},
 			{
 				id: "balanced",
 				label: "Balanced",
-				model: "GPT-5.6 Terra · High",
-				description: "Strong planning and verification with a lighter lead model.",
+				model: "GPT-6 Luna · High",
+				description: "Luna with high reasoning for planning and verification.",
 			},
 			{
 				id: "frontier",
-				label: "Frontier",
-				model: "GPT-5.6 Sol · Extra High",
-				description: "Recommended SOTA lead for planning, judgment, integration, and verification.",
+				label: "Luna Max",
+				model: "GPT-6 Luna · Max",
+				description: "Recommended lead; DeepSeek handles routine delegated work.",
 				recommended: true,
 			},
 			{
 				id: "maximum",
 				label: "Maximum",
-				model: "GPT-5.6 Sol · Max",
-				description: "Maximum supported reasoning for the hardest quality-first work.",
+				model: "GPT-6 Luna · Max",
+				description: "Maximum supported reasoning on the Luna lead.",
 			},
 		]);
 		const LIVE_CONTROLS_ID = "dsh-codex-live-controls";
@@ -4355,10 +4479,9 @@ window.__ModuleLoader__.load({
 				return value.capabilityLevel;
 			}
 			if (value?.capabilityLevel === "custom") return "custom";
-			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "xhigh") return "frontier";
-			if (value?.model === "gpt-5.6-terra" && value?.reasoningEffort === "high") return "balanced";
-			if (value?.model === "gpt-5.6-luna" && value?.reasoningEffort === "high") return "efficient";
-			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "max") return "maximum";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "max") return "frontier";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "high") return "balanced";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "low") return "efficient";
 			return "custom";
 		}
 
@@ -4407,7 +4530,7 @@ window.__ModuleLoader__.load({
 					),
 					selected === "custom" ? React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Custom model/reasoning values are active. Choose a preset here to manage them as one capability level.") : null,
 					error.length > 0 ? React.createElement("p", { role: "alert", className: "dsh-vibeify-capability-error" }, error) : null,
-					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Frontier is the quality-preserving default. Lower levels are optional trade-offs and should be evaluated on your own work. Changes apply to subsequent Codex turns."),
+					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Luna Max is the default lead. DeepSeek handles eligible delegated work; Terra, Sol and Astra are delegated specialists when needed. Changes apply to subsequent Codex turns."),
 				);
 			};
 		}
@@ -4527,6 +4650,7 @@ window.__ModuleLoader__.load({
 				);
 			};
 		}
+
 
 		function updateStateCopy(component, kind) {
 			if (component.state === "update-available") return "Update available";
@@ -4677,6 +4801,8 @@ window.__ModuleLoader__.load({
 				order: 16,
 				label: "Images",
 			}, visualSourcesSection(visualSettings, api)));
+
+
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.settingsScope.bind({

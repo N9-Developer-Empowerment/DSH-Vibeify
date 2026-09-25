@@ -13,16 +13,23 @@ import {
   buildDeveloperRoutingInstructions,
   catalogForModel,
   codexAccessPolicy,
+  codexModelId,
+  CODEX_REASONING_CHOICES,
   estimateModelCost,
   formatCostEstimate,
   latestSessionPolicy,
+  listCodexModels,
   liveModelCatalog,
   loadRoutingPolicy,
   modelLabel,
   policyModel,
   reasoningLabel,
+  supportedReasoningEfforts,
   runtimeStatus,
   summarizeTokenUsage,
+  validateCodexRuntimeSettingsAgainstCatalog,
+  CODEX_SPECIALIST_MODEL_IDS,
+  resolveCodexRuntimeSettings,
 } from "./routing-policy.js";
 import { Config, installCodexRuntimeSettings } from "./codex-settings.js";
 import { buildDelegationPacket, delegationResultForCodex } from "./delegation-contract.js";
@@ -36,7 +43,7 @@ import {
 
 const PROVIDER = "codex-chatgpt";
 const MODEL = "chatgpt-account-default";
-const BRIDGE_VERSION = "0.15.6";
+const BRIDGE_VERSION = "0.16.0";
 const DSH_DELEGATION_TIMEOUT_MS = 5 * 60 * 1000;
 const MODEL_CATALOG_TOOL_NAME = "dsh_model_catalog";
 const DSH_DELEGATE_TOOL_NAME = "delegate_to_dsh_model";
@@ -59,7 +66,7 @@ function delegateTool(catalog) {
   return {
     type: "function",
     name: DSH_DELEGATE_TOOL_NAME,
-    description: "Send one bounded execution packet to an available native DSH model. Provide the task, Codex-defined acceptance contract, and required evidence separately. The worker may implement or analyze, but Codex must inspect artifacts/evidence, validate acceptance, integrate, and answer. The call may incur separate provider charges.",
+  description: "Send one bounded execution packet to an available DeepSeek worker or Codex specialist. Provide the task, Codex-defined acceptance contract, and required evidence separately. The worker may implement or analyze, but Codex must inspect artifacts/evidence, validate acceptance, integrate, and answer. DeepSeek calls may incur separate provider charges.",
     inputSchema: {
       type: "object",
       properties: {
@@ -252,7 +259,7 @@ function restoredConversation(messages) {
 }
 
 class CodexWire {
-  constructor(child, cwd, developerInstructions, requestApproval, requestProtectedApproval, delegateToDsh, getModelCatalog, getRuntimeSettings, getAccessPolicy, logger) {
+  constructor(child, cwd, developerInstructions, requestApproval, requestProtectedApproval, delegateToDsh, getModelCatalog, getRuntimeSettings, setCodexModels, getAccessPolicy, logger, allowDelegation = true) {
     this.child = child;
     this.cwd = cwd;
     this.developerInstructions = developerInstructions;
@@ -261,7 +268,10 @@ class CodexWire {
     this.delegateToDsh = delegateToDsh;
     this.getModelCatalog = getModelCatalog;
     this.getRuntimeSettings = getRuntimeSettings;
+    this.setCodexModels = setCodexModels;
     this.getAccessPolicy = getAccessPolicy;
+    this.allowDelegation = allowDelegation;
+    this.codexModels = [];
     this.dshCatalog = undefined;
     this.logger = logger;
     this.transport = new JsonRpcLineTransport(child.stdout, child.stdin);
@@ -339,38 +349,24 @@ class CodexWire {
     }
     this.planType = typeof accountDetails.planType === "string" ? accountDetails.planType : "unknown";
 
-    const listing = asObject(
-      await this.guarded(this.transport.request("model/list", { includeHidden: false }, signal), signal),
-      "model/list response",
-    );
-    const models = Array.isArray(listing.data) ? listing.data : [];
-    const imageModels = models.filter((entry) =>
-      entry !== null
-      && typeof entry === "object"
-      && Array.isArray(entry.inputModalities)
-      && entry.inputModalities.includes("image")
-    );
+    const models = await this.refreshCodexModels(signal);
     const runtime = this.getRuntimeSettings();
-    const selected = imageModels.find((entry) => (entry.model ?? entry.id) === runtime.model);
-    if (selected === undefined) {
+    let selected;
+    try {
+      selected = validateCodexRuntimeSettingsAgainstCatalog(runtime, models);
+    } catch (error) {
+      throw new LlmError(String(error?.message ?? error), "UNKNOWN_MODEL", { cause: error });
+    }
+    if (!Array.isArray(selected.inputModalities) || !selected.inputModalities.includes("image")) {
       throw new LlmError(
         `codex-chatgpt: configured model ${runtime.model} is not available with image input on this ChatGPT account`,
         "UNKNOWN_MODEL",
       );
     }
-    this.codexModel = asString(selected.model ?? selected.id, "image-capable model id");
-    const supportedEfforts = Array.isArray(selected.supportedReasoningEfforts)
-      ? selected.supportedReasoningEfforts.map((entry) => entry?.reasoningEffort).filter(Boolean)
-      : [];
-    if (supportedEfforts.length > 0 && !supportedEfforts.includes(runtime.reasoningEffort)) {
-      throw new LlmError(
-        `codex-chatgpt: ${this.codexModel} does not support reasoning effort ${runtime.reasoningEffort}`,
-        "UNKNOWN_MODEL",
-      );
-    }
+    this.codexModel = asString(codexModelId(selected), "image-capable model id");
     this.reasoningEffort = runtime.reasoningEffort;
     this.access = this.getAccessPolicy();
-    this.dshCatalog = await this.guarded(this.getModelCatalog(), signal);
+    this.dshCatalog = await this.guarded(this.getModelCatalog(models, runtime), signal);
 
     const started = asObject(
       await this.guarded(this.transport.request("thread/start", {
@@ -381,7 +377,10 @@ class CodexWire {
         sandbox: this.access.sandboxMode,
         config: { model_reasoning_effort: this.reasoningEffort },
         developerInstructions: this.developerInstructions,
-        dynamicTools: [MODEL_CATALOG_TOOL, delegateTool(this.dshCatalog)],
+        dynamicTools: [
+          MODEL_CATALOG_TOOL,
+          ...(this.allowDelegation ? [delegateTool(this.dshCatalog)] : []),
+        ],
       }, signal), signal),
       "thread/start response",
     );
@@ -394,6 +393,16 @@ class CodexWire {
     if (thread.ephemeral !== true) {
       throw new LlmError("codex-chatgpt: app-server did not create an ephemeral thread", "PROTOCOL");
     }
+  }
+
+  async refreshCodexModels(signal) {
+    const models = await listCodexModels((params) => this.guarded(
+      this.transport.request("model/list", params, signal),
+      signal,
+    ));
+    this.codexModels = models;
+    this.setCodexModels(models);
+    return models;
   }
 
   startTurn(input, signal, images = []) {
@@ -782,7 +791,8 @@ class CodexWire {
             if (Object.keys(args).length !== 0) {
               return { success: false, contentItems: [{ type: "inputText", text: "dsh_model_catalog accepts no arguments." }] };
             }
-            this.dshCatalog = await this.getModelCatalog();
+            const models = await this.refreshCodexModels(this.turnSignal);
+            this.dshCatalog = await this.getModelCatalog(models, this.getRuntimeSettings());
             return {
               success: true,
               contentItems: [{ type: "inputText", text: catalogForModel(this.dshCatalog) }],
@@ -807,7 +817,8 @@ class CodexWire {
             return { success: false, contentItems: [{ type: "inputText", text: "DSH delegation evidence request is too long." }] };
           }
           const route = asString(args.route, "DSH model route");
-          this.dshCatalog = await this.getModelCatalog();
+          const models = await this.refreshCodexModels(this.turnSignal);
+          this.dshCatalog = await this.getModelCatalog(models, this.getRuntimeSettings());
           const selected = this.dshCatalog.models.find((model) =>
             model.route === route && model.subagentFromCurrentCodex
           );
@@ -820,7 +831,7 @@ class CodexWire {
           if (this.delegationsThisTurn >= ROUTING_POLICY.qualityPolicy.maximumDelegationsPerTurn) {
             return {
               success: false,
-              contentItems: [{ type: "inputText", text: `The governance policy permits at most ${ROUTING_POLICY.qualityPolicy.maximumDelegationsPerTurn} DeepSeek execution packets per turn. Continue with Codex and do not manufacture further model calls.` }],
+              contentItems: [{ type: "inputText", text: `The governance policy permits at most ${ROUTING_POLICY.qualityPolicy.maximumDelegationsPerTurn} worker packets per turn. Continue with Codex and do not manufacture further model calls.` }],
             };
           }
           const includeCurrentImages = args.include_current_images === true;
@@ -847,14 +858,15 @@ class CodexWire {
           const packet = buildDelegationPacket({ task, acceptance, evidence });
           this.delegationsThisTurn += 1;
           this.emitProgress(images.length === 0
-            ? `DeepSeek is executing “${label}” (${route}); Codex will verify it…\n`
-            : `Sending ${images.length} current ${images.length === 1 ? "image" : "images"} to DeepSeek for “${label}” (${route}); Codex will verify it…\n`);
+            ? `A bounded worker is executing “${label}” (${route}); Codex will verify it…\n`
+            : `Sending ${images.length} current ${images.length === 1 ? "image" : "images"} to ${route} for “${label}”; Codex will verify it…\n`);
           try {
             const result = await this.delegateToDsh({
               task: packet,
               label,
               provider: selected.provider,
               model: selected.id,
+              reasoningEffort: selected.defaultReasoningEffort,
               maxTokens: selected.delegatedMaxTokensPerStep,
               images,
               signal: this.turnSignal,
@@ -862,7 +874,7 @@ class CodexWire {
             const output = renderSubagentOutput(result.output);
             const outputDetail = output.length === 0 ? "no text" : `${output.length} characters`;
             const recoveryDetail = result.recoveredFromSession === true ? ", recovered from the child session" : "";
-            this.emitProgress(`DeepSeek worker finished (${result.stopReason}; ${outputDetail}${recoveryDetail}). Codex is validating the acceptance contract. ${result.costSummary}\n`);
+            this.emitProgress(`${selected.name} worker finished (${result.stopReason}; ${outputDetail}${recoveryDetail}). Codex is validating the acceptance contract. ${result.costSummary}\n`);
             if (result.stopReason !== "completed") {
               const diagnostic = typeof result.diagnostic === "string" && result.diagnostic.length > 0
                 ? result.diagnostic
@@ -1052,6 +1064,7 @@ class CodexChatGptAdapter extends LlmAdapter {
     this.ctx = ctx;
     this.getRuntimeSettings = getRuntimeSettings;
     this.connections = new Map();
+    this.codexModels = [];
   }
 
   providerInfo() {
@@ -1069,30 +1082,72 @@ class CodexChatGptAdapter extends LlmAdapter {
     }]);
   }
 
-  resolveModel() {
+  resolveModel(provider, model) {
+    if (model !== MODEL) {
+      const entry = this.codexModels.find((candidate) => codexModelId(candidate) === model);
+      if (entry === undefined || !CODEX_SPECIALIST_MODEL_IDS.includes(model)) {
+        throw new LlmError(`codex-chatgpt: specialist model ${model} is not available in the authenticated catalogue`, "UNKNOWN_MODEL");
+      }
+      const efforts = supportedReasoningEfforts(entry);
+      return Promise.resolve({
+        provider,
+        id: model,
+        name: entry.displayName ?? entry.name ?? model,
+        description: entry.description,
+        inputModalities: Array.isArray(entry.inputModalities) ? entry.inputModalities : ["text"],
+        context: { contextWindow: 200000 },
+        ...(efforts.length === 0 ? {} : {
+          reasoning: {
+            efforts: efforts.map((id) => ({
+              id,
+              name: CODEX_REASONING_CHOICES.find((choice) => choice.id === id)?.label ?? id,
+              description: entry.supportedReasoningEfforts.find((effort) => effort.reasoningEffort === id)?.description,
+            })),
+            ...(typeof entry.defaultReasoningEffort === "string"
+              ? { defaultEffort: entry.defaultReasoningEffort }
+              : {}),
+          },
+        }),
+      });
+    }
     const runtime = this.getRuntimeSettings();
     return Promise.resolve({
       provider: PROVIDER,
-      id: MODEL,
+      id: model,
       name: `${modelLabel(runtime.model)} · ${reasoningLabel(runtime.reasoningEffort)} (ChatGPT)`,
       inputModalities: ["text", "image"],
       context: { contextWindow: 200000 },
     });
   }
 
-  modelCatalog() {
-    return liveModelCatalog(this.ctx.llm, ROUTING_POLICY);
+  modelCatalog(codexModels = this.codexModels, leadSettings = this.getRuntimeSettings()) {
+    return liveModelCatalog(this.ctx.llm, ROUTING_POLICY, { codexModels, leadSettings });
   }
 
-  async delegateToDsh(agent, { task, label, provider, model, maxTokens, images = [], signal }) {
+  runtimeSettingsForModel(model, reasoningEffort) {
+    if (model === undefined || model === MODEL) {
+      const configured = this.getRuntimeSettings();
+      return reasoningEffort === undefined || reasoningEffort === configured.reasoningEffort
+        ? configured
+        : resolveCodexRuntimeSettings({ ...configured, capabilityLevel: "custom", reasoningEffort });
+    }
+    const entry = this.codexModels.find((candidate) => codexModelId(candidate) === model);
+    if (entry === undefined || !CODEX_SPECIALIST_MODEL_IDS.includes(model)) {
+      throw new LlmError(`codex-chatgpt: specialist model ${model} is not available in the authenticated catalogue`, "UNKNOWN_MODEL");
+    }
+    return resolveCodexRuntimeSettings({
+      capabilityLevel: "custom",
+      model,
+      reasoningEffort: reasoningEffort ?? entry.defaultReasoningEffort,
+    });
+  }
+
+  async delegateToDsh(agent, { task, label, provider, model, reasoningEffort, maxTokens, images = [], signal }) {
     if (agent === undefined) {
       throw new LlmError("codex-chatgpt: DSH delegation requires a live parent agent", "CONFLICT");
     }
     if (!this.ctx.subagents.list().includes("spawn")) {
       throw new LlmError("codex-chatgpt: DSH spawn subagent provider is unavailable", "PROVIDER_ERROR");
-    }
-    if (provider === PROVIDER) {
-      throw new LlmError("codex-chatgpt: use Codex's native subagents instead of recursively delegating to the current DSH route", "CONFLICT");
     }
     const resolved = await this.ctx.llm.resolveModelInfo(provider, model, signal);
     if (images.length > 0 && !resolved.inputModalities?.includes("image")) {
@@ -1121,11 +1176,12 @@ class CodexChatGptAdapter extends LlmAdapter {
         agentOptions: {
           provider,
           model,
+          ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
           ...(delegatedMaxTokens === undefined ? {} : { maxTokens: delegatedMaxTokens }),
         },
         maxDepth: 1,
       });
-      const result = await raceAbort(run.result, signal);
+      const result = await raceAbort(run.result, delegationSignal);
       const captured = recoveredSubagentOutput(run, result);
       const usage = summarizeTokenUsage(run.localAgent?.session.events ?? []);
       const costEstimate = estimateModelCost(ROUTING_POLICY, provider, model, usage);
@@ -1167,6 +1223,8 @@ class CodexChatGptAdapter extends LlmAdapter {
   }
 
   async createConnection(options, signal) {
+    const requestedModel = options.model === MODEL ? undefined : options.model;
+    const runtime = this.runtimeSettingsForModel(requestedModel, options.reasoningEffort);
     const session = options.sessionId === undefined ? undefined : this.ctx.sessions.get(options.sessionId);
     const agent = options.sessionId === undefined ? undefined : this.ctx.agents.get(options.sessionId);
     const getAccessPolicy = () => codexAccessPolicy({
@@ -1245,10 +1303,14 @@ class CodexChatGptAdapter extends LlmAdapter {
         }
       },
       async (request) => this.delegateToDsh(agent, request),
-      async () => this.modelCatalog(),
-      () => this.getRuntimeSettings(),
+      async (models, leadSettings) => this.modelCatalog(models, leadSettings),
+      () => runtime,
+      (models) => {
+        this.codexModels = models;
+      },
       getAccessPolicy,
       this.ctx.logger,
+      requestedModel === undefined,
     );
     try {
       await wire.open(signal);

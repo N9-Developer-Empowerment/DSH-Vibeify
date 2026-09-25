@@ -18,18 +18,18 @@ import {
 
 const policy = loadRoutingPolicy();
 
-test("DSH settings select GPT-5.6 Sol with Extra High reasoning", () => {
+test("DSH settings select GPT-6 Luna Max by default", () => {
   assert.deepEqual(DEFAULT_CODEX_RUNTIME_SETTINGS, {
     capabilityLevel: "frontier",
-    model: "gpt-5.6-sol",
-    reasoningEffort: "xhigh",
+    model: "gpt-6-luna",
+    reasoningEffort: "max",
   });
   assert.deepEqual(runtimeSettingsFromYaml(`
 permission:
   defaultPreset: danger-full-access
 llm-codex-chatgpt:
-  model: gpt-5.6-sol
-  reasoningEffort: xhigh
+  model: gpt-6-luna
+  reasoningEffort: max
 agent-presets:
   default: chatgpt-agent
 `), DEFAULT_CODEX_RUNTIME_SETTINGS);
@@ -47,7 +47,7 @@ test("DSH Full Access suppresses command prompts but retains app confirmations",
     label: "Full Access",
   });
   assert.equal(runtimeStatus({ ...DEFAULT_CODEX_RUNTIME_SETTINGS, access }),
-    "Frontier (recommended) · GPT-5.6 Sol · Extra High · Full Access");
+    "Luna Max (recommended) · GPT-6 Luna · Max · Full Access");
 });
 
 test("connected-app confirmations accept only deterministic form values", () => {
@@ -100,14 +100,31 @@ test("the newest DSH session permission event wins", () => {
 test("policy contains every installed native DeepSeek route", () => {
   assert.deepEqual(
     policy.models.map((model) => model.id),
-    ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-v4-flash-vision-exp"],
+    ["deepseek-flash", "deepseek-v4-pro"],
   );
+  assert.equal(policy.models[0].name, "DeepSeek V4.1 Flash");
+  assert.deepEqual(policy.models[0].modalities, ["text", "image"]);
+  assert.deepEqual(policy.models[0].pricing, {
+    inputCacheHit: 0.006,
+    inputCacheMiss: 0.30,
+    output: 1.20,
+  });
+  assert.deepEqual(policy.models[0].offPeakPricing, {
+    inputCacheHit: 0.003,
+    inputCacheMiss: 0.15,
+    output: 0.60,
+  });
+  assert.deepEqual(policy.models[1].pricing, {
+    inputCacheHit: 0.044,
+    inputCacheMiss: 1.32,
+    output: 3.96,
+  });
 });
 
 test("developer instructions preserve Codex leadership, quota, quality, and billing distinctions", () => {
   const text = buildDeveloperRoutingInstructions(policy);
   assert.match(text, /DeepSeek-first execution under Codex governance/);
-  assert.match(text, /Use DeepSeek for an eligible execution packet by default/);
+  assert.match(text, /Use a bounded DeepSeek worker for eligible execution by default/);
   assert.match(text, /A worker's prose is not acceptance/);
   assert.match(text, /Passing work should be reused/);
   assert.match(text, /always remains the lead agent/);
@@ -115,27 +132,49 @@ test("developer instructions preserve Codex leadership, quota, quality, and bill
   assert.match(text, /removes OpenAI API keys/);
   assert.match(text, /DeepSeek is separately API-billed/);
   assert.match(text, /Never hand leadership to another model/);
-  assert.match(text, /at most 4 execution packets per user turn/);
+  assert.match(text, /Prefer deepseek-flash \(DeepSeek V4.1 Flash\)/);
+  assert.match(text, /at most 2 execution packets per user turn/);
+  assert.match(text, /use peak rates unless the provider confirms the exact pricing window/i);
 });
 
-test("live catalogue merges registered routes with verified policy", async () => {
+test("live catalogue uses authenticated Codex models and verified DeepSeek routes", async () => {
   const llm = {
     listProviders: () => [
       { id: "codex-chatgpt", name: "Codex" },
       { id: "deepseek-official", name: "DeepSeek" },
     ],
-    listModels: async (provider) => provider === "codex-chatgpt"
-      ? [{ id: "chatgpt-account-default", name: "ChatGPT account default", inputModalities: ["text", "image"] }]
-      : [{ id: "deepseek-v4-flash", name: "DeepSeek-V4-Flash", inputModalities: ["text"] }],
+    listModels: async () => [{
+      id: "deepseek-flash",
+      name: "DeepSeek V4.1 Flash",
+      inputModalities: ["text", "image"],
+    }],
   };
-  const catalog = await liveModelCatalog(llm, policy);
-  assert.equal(catalog.models.length, 2);
+  const codexModels = ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra", "gpt-5.6-terra"].map((model) => ({
+    id: model,
+    model,
+    displayName: model,
+    inputModalities: ["text", "image"],
+    defaultReasoningEffort: model === "gpt-6-luna" ? "max" : "high",
+    supportedReasoningEfforts: ["high", "max", "ultra"].map((reasoningEffort) => ({
+      reasoningEffort,
+      description: reasoningEffort,
+    })),
+  }));
+  const catalog = await liveModelCatalog(llm, policy, {
+    codexModels,
+    leadSettings: DEFAULT_CODEX_RUNTIME_SETTINGS,
+  });
+  assert.equal(catalog.models.length, 5);
   assert.equal(catalog.models[0].subagentFromCurrentCodex, false);
   assert.equal(catalog.models[0].leadAllowedByPolicy, true);
-  assert.equal(catalog.models[1].subagentFromCurrentCodex, true);
+  assert.equal(catalog.models[0].route, "codex-chatgpt/gpt-6-luna");
+  assert.equal(catalog.models[0].defaultReasoningEffort, "max");
+  assert.deepEqual(catalog.models.slice(1, 4).map((model) => model.subagentFromCurrentCodex), [true, true, true]);
   assert.equal(catalog.models[1].primaryForNewSession, false);
   assert.equal(catalog.models[1].leadAllowedByPolicy, false);
-  assert.equal(catalog.models[1].pricing.inputCacheMiss, 0.14);
+  assert.equal(catalog.models[4].subagentFromCurrentCodex, true);
+  assert.equal(catalog.models[4].pricing.inputCacheMiss, 0.30);
+  assert.deepEqual(catalog.models[4].offPeakPricing, policy.models[0].offPeakPricing);
 });
 
 test("reported usage produces the official Flash estimate", () => {
@@ -148,20 +187,22 @@ test("reported usage produces the official Flash estimate", () => {
       cacheWriteTokens: 0,
     } },
   }]);
-  const estimate = estimateModelCost(policy, "deepseek-official", "deepseek-v4-flash", usage);
+  const estimate = estimateModelCost(policy, "deepseek-official", "deepseek-flash", usage);
   assert.equal(estimate.known, true);
-  assert.equal(estimate.amount, 0.4228);
-  assert.match(formatCostEstimate(estimate), /\$0\.4228/);
+  assert.equal(estimate.amount, 1.506);
+  assert.match(formatCostEstimate(estimate), /conservative peak rates/);
+  assert.match(formatCostEstimate(estimate), /\$1\.506/);
 });
 
-test("experimental vision never invents a price", () => {
-  const estimate = estimateModelCost(policy, "deepseek-official", "deepseek-v4-flash-vision-exp", {
+test("DeepSeek Pro fallback uses verified conservative peak rates", () => {
+  const estimate = estimateModelCost(policy, "deepseek-official", "deepseek-v4-pro", {
     inputTokens: 10,
     outputTokens: 10,
     cacheReadTokens: 0,
     cacheWriteTokens: 0,
     reportingSteps: 1,
   });
-  assert.equal(estimate.known, false);
-  assert.match(formatCostEstimate(estimate), /Official pricing was not found/);
+  assert.equal(estimate.known, true);
+  assert.equal(estimate.amount, 0.0000528);
+  assert.match(formatCostEstimate(estimate), /peak rates/);
 });

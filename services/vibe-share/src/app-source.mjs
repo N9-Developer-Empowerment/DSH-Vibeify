@@ -115,22 +115,81 @@ async function prepareUniquePreview(value) {
     : "Private preview ready. This public cover is unique to the article.";
 }
 
-async function copyPublicLink(value) {
+async function copyPublicLink(value, input) {
   try {
     await navigator.clipboard.writeText(value);
     return true;
   } catch {
-    const fallback = document.createElement("textarea");
-    fallback.value = value;
-    fallback.readOnly = true;
-    fallback.style.position = "fixed";
-    fallback.style.opacity = "0";
-    document.body.append(fallback);
-    fallback.select();
-    const copied = document.execCommand("copy");
-    fallback.remove();
-    return copied;
+    input?.focus();
+    input?.select();
+    return false;
   }
+}
+
+async function sharePublicLink(value, title) {
+  if (typeof navigator.share !== "function") return "unsupported";
+  try {
+    await navigator.share({ title, url: value });
+    return "shared";
+  } catch (error) {
+    return error?.name === "AbortError" ? "cancelled" : "unavailable";
+  }
+}
+
+function createPublishedShareControls(value, title) {
+  const controls = document.createElement("section");
+  controls.className = "published-actions";
+  controls.setAttribute("aria-label", "Share the published article");
+  const label = document.createElement("label");
+  label.className = "published-link-label";
+  label.textContent = "Public link";
+  const input = document.createElement("input");
+  input.type = "url";
+  input.readOnly = true;
+  input.value = value;
+  input.setAttribute("aria-label", "Published public link");
+  input.addEventListener("focus", () => input.select());
+  input.addEventListener("click", () => input.select());
+  label.append(input);
+  const open = document.createElement("a");
+  open.href = value;
+  open.target = "_blank";
+  open.rel = "noopener noreferrer";
+  open.textContent = "Open public article";
+
+  const actions = document.createElement("div");
+  actions.className = "published-share-buttons";
+  const message = document.createElement("p");
+  message.className = "published-share-status";
+  message.setAttribute("role", "status");
+  message.textContent = "The public article is ready to share.";
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.textContent = "Copy link";
+  copy.addEventListener("click", async () => {
+    const copied = await copyPublicLink(value, input);
+    message.textContent = copied ? "Link copied." : "Copy is unavailable. Select the link above to copy it.";
+  });
+  actions.append(copy);
+
+  if (typeof navigator.share === "function") {
+    const share = document.createElement("button");
+    share.type = "button";
+    share.textContent = "Share…";
+    share.addEventListener("click", async () => {
+      const outcome = await sharePublicLink(value, title);
+      message.textContent = outcome === "cancelled"
+        ? "Sharing cancelled. The public link is still available above."
+        : outcome === "unavailable"
+          ? "The share sheet could not open. Select or copy the link above."
+          : "The share sheet closed. Check the destination if you chose one.";
+      if (outcome === "unavailable") { input.focus(); input.select(); }
+    });
+    actions.append(share);
+  }
+
+  controls.append(label, open, actions, message);
+  return controls;
 }
 
 function renderVisual(visual, className = "lead") {
@@ -235,11 +294,11 @@ function appendInline(parent, value) {
       parent.append(anchor);
     } else if (token.type === "strong") {
       const strong = document.createElement("strong");
-      strong.textContent = token.value;
+      appendInline(strong, token.value);
       parent.append(strong);
     } else if (token.type === "emphasis") {
       const emphasis = document.createElement("em");
-      emphasis.textContent = token.value;
+      appendInline(emphasis, token.value);
       parent.append(emphasis);
     } else if (token.type === "code") {
       const code = document.createElement("code");
@@ -409,27 +468,14 @@ publish?.addEventListener("click", async () => {
     const deleteTokens = JSON.parse(localStorage.getItem("vibe-share.delete-tokens.v1") ?? "{}");
     deleteTokens[result.slug] = result.deleteToken;
     localStorage.setItem("vibe-share.delete-tokens.v1", JSON.stringify(deleteTokens));
-    const copied = await copyPublicLink(result.url);
-    status.replaceChildren(copied ? "Published. Copied to clipboard: " : "Published. Copy this link: ");
-    const link = document.createElement("a");
-    link.href = result.url;
-    link.textContent = result.url;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    status.append(link);
+    status.textContent = "Published. Choose how to share your public link below.";
     publish.textContent = "Published";
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.textContent = "Copy link";
-    publish.after(copy);
+    const shareControls = createPublishedShareControls(result.url, snapshot.title);
+    publish.after(shareControls);
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "Remove public page";
-    copy.after(remove);
-    copy.addEventListener("click", async () => {
-      const copiedAgain = await copyPublicLink(result.url);
-      status.replaceChildren(copiedAgain ? "Copied to clipboard: " : "Copy this link: ", link.cloneNode(true));
-    });
+    shareControls.after(remove);
     remove.addEventListener("click", async () => {
       if (!window.confirm("Remove this public article? The link will stop working.")) return;
       remove.disabled = true;
@@ -443,7 +489,7 @@ publish?.addEventListener("click", async () => {
       delete deleteTokens[result.slug];
       localStorage.setItem("vibe-share.delete-tokens.v1", JSON.stringify(deleteTokens));
       status.textContent = "Public page removed. Your local Vibe article is unchanged.";
-      copy.remove();
+      shareControls.remove();
       remove.remove();
     });
   } catch (error) {

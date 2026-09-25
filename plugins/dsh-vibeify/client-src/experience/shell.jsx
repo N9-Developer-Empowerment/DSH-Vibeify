@@ -74,7 +74,13 @@ import {
   markVibeActivity,
 } from "./reserve-store.js";
 import { clickToLoadMedia } from "./media-embed.js";
-import { beginSharePreview, shareSnapshotForChunk } from "./share-client.js";
+import {
+  beginSharePreview,
+  copyPublicShareUrl,
+  publicShareUrl,
+  sharePublicUrl,
+  shareSnapshotForChunk,
+} from "./share-client.js";
 import {
   mediaFromVisualCandidate,
   publicVisualBriefForChunk,
@@ -139,6 +145,59 @@ function Markdown({ value, title, onLink }) {
   }} />;
 }
 
+function PublicLinkShare({ url, title, label = "Share link" }) {
+  const safeUrl = publicShareUrl(url);
+  const [open, setOpen] = React.useState(false);
+  const [notice, setNotice] = React.useState("");
+  const inputRef = React.useRef(null);
+  const nativeShareAvailable = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  if (safeUrl === null) return null;
+
+  const selectLink = () => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  };
+  const copy = async () => {
+    const copied = await copyPublicShareUrl(safeUrl);
+    if (copied) {
+      setNotice("Link copied.");
+      return;
+    }
+    setNotice("Copy is unavailable. Select the link below to copy it.");
+    selectLink();
+  };
+  const share = async () => {
+    const result = await sharePublicUrl(safeUrl, title);
+    setNotice(result === "cancelled"
+      ? "Sharing cancelled. The link is still available below."
+      : result === "unavailable"
+        ? "The share sheet could not open. Select or copy the link below."
+        : "The share sheet closed. Check the destination if you chose one.");
+    if (result === "unavailable") selectLink();
+  };
+
+  return (
+    <div className="vfx-public-share">
+      <button type="button" className="vfx-share" aria-expanded={open} onClick={() => { setOpen((value) => !value); setNotice(""); }}>
+        <Icon name="share" /> {label}
+      </button>
+      {open ? (
+        <div className="vfx-share-link-panel" aria-label="Share this public link">
+          <label>
+            <span>Public link</span>
+            <input ref={inputRef} type="url" readOnly value={safeUrl} onFocus={(event) => event.currentTarget.select()} onClick={(event) => event.currentTarget.select()} />
+          </label>
+          <div>
+            {nativeShareAvailable ? <button type="button" onClick={share}>Share…</button> : null}
+            <button type="button" onClick={copy}>Copy link</button>
+          </div>
+          {notice === "" ? null : <p role="status">{notice}</p>}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
   const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
   return (
@@ -161,11 +220,11 @@ function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFi
   );
 }
 
-function Questionnaire({ chunk, answer, onAnswer }) {
+function Questionnaire({ chunk, answer, onAnswer, onLink }) {
   const options = questionnaireOptions(chunk.markdown);
   return (
     <section className="vfx-question" aria-labelledby={`vfx-title-${chunk.id}`}>
-      <p>{questionnaireIntroduction(chunk.markdown)}</p>
+      <Markdown value={questionnaireIntroduction(chunk.markdown)} title={chunk.title} onLink={onLink} />
       <div className="vfx-question-options">
         {options.map((label) => (
           <button key={label} type="button" aria-pressed={answer === label} onClick={() => onAnswer(chunk.id, label)}>
@@ -212,6 +271,8 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
   const layout = panelLayoutForChunk(chunk, index);
   const [playerOpen, setPlayerOpen] = React.useState(false);
   const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
+  const shareUrl = contentLink?.href ?? player?.href ?? null;
+  const shareLabel = contentLink === null && player !== null ? "Share media link" : "Share link";
   const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
   return (
     <article
@@ -254,7 +315,7 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
           )}
         </div>
         {chunk.kind === "questionnaire"
-          ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} />
+          ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} onLink={() => onEngage(chunk, "opened")} />
           : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} onLink={() => onEngage(chunk, "opened")} />}
         {chunk.kind === "questionnaire" ? null : <InlineVisuals visuals={inlineVisuals} title={chunk.title} onOpen={() => onEngage(chunk, "opened")} />}
         {player === null ? null : playerOpen ? (
@@ -274,6 +335,7 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
               </a>
             )}
             <div className="vfx-reader-actions">
+              <PublicLinkShare url={shareUrl} title={chunk.title} label={shareLabel} />
               {isWelcome ? <button type="button" className="vfx-chat-cta" onClick={onChat}><Icon name="chat" /> Ask Chat to make a Vibe</button> : null}
               <button
                 type="button"
@@ -674,7 +736,6 @@ function ExperienceShell({ codexFeatures, connection }) {
     "timed-out": "Magazine update reached its time limit and stopped.",
     error: "The magazine could not update. Your existing edition is unchanged.",
   }[updateState];
-
   return (
     <div className="vfx-shell" data-view={state.view}>
       {state.view === "home" ? (
@@ -697,10 +758,11 @@ function ExperienceShell({ codexFeatures, connection }) {
             onStop={stopRun}
             onChat={enterChat}
           />
-          <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
-            <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
-          </div>
-          {libraryOpen ? (
+          <>
+            <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
+              <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
+            </div>
+            {libraryOpen ? (
             <section className="vfx-library" aria-labelledby="vfx-library-title">
               <div className="vfx-library-heading">
                 <span>Your local library</span>
@@ -726,30 +788,31 @@ function ExperienceShell({ codexFeatures, connection }) {
               <button type="button" className="vfx-intro-cta" onClick={enterChat}><Icon name="chat" /> Ask for your first new VIBE</button>
               {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
             </section>
-          )}
-          {libraryOpen && displayChunks.length === 0 ? <p className="vfx-library-empty">No saved Vibes match that search yet.</p> : null}
-          <div className="vfx-chunks">
-            {displayChunks.map((chunk, index) => (
-              <StreamChunk
-                key={chunk.id}
-                chunk={chunk}
-                index={index}
-                visualOverride={visualOverrides.get(chunk.id)}
-                saved={state.savedChunkIds.includes(chunk.id)}
-                answer={answers[chunk.id]}
-                skipped={skipped.has(chunk.id)}
-                shareStatus={shareState.chunkId === chunk.id ? shareState.status : "idle"}
-                clickToLoad={editorialProfile.clickToLoadMedia}
-                onSave={onSave}
-                onAnswer={onAnswer}
-                onEngage={onEngage}
-                onSkip={onSkip}
-                onShare={onShare}
-                onChat={enterChat}
-              />
-            ))}
-          </div>
-          <footer className="vfx-footer"><span>{libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."}</span><span>Creators credited · external actions stay in Chat</span></footer>
+            )}
+            {libraryOpen && displayChunks.length === 0 ? <p className="vfx-library-empty">No saved Vibes match that search yet.</p> : null}
+            <div className="vfx-chunks">
+              {displayChunks.map((chunk, index) => (
+                <StreamChunk
+                  key={chunk.id}
+                  chunk={chunk}
+                  index={index}
+                  visualOverride={visualOverrides.get(chunk.id)}
+                  saved={state.savedChunkIds.includes(chunk.id)}
+                  answer={answers[chunk.id]}
+                  skipped={skipped.has(chunk.id)}
+                  shareStatus={shareState.chunkId === chunk.id ? shareState.status : "idle"}
+                  clickToLoad={editorialProfile.clickToLoadMedia}
+                  onSave={onSave}
+                  onAnswer={onAnswer}
+                  onEngage={onEngage}
+                  onSkip={onSkip}
+                  onShare={onShare}
+                  onChat={enterChat}
+                />
+              ))}
+            </div>
+            <footer className="vfx-footer"><span>{libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."}</span><span>Creators credited · sharing stays reviewed</span></footer>
+          </>
         </main>
       ) : null}
     </div>
@@ -832,7 +895,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 .vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
 .vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 .vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
-.vfx-question>p { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
+.vfx-question>.vfx-markdown { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
 .vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
 .vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
@@ -843,15 +906,27 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 @media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
 @media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
 @media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
-@media (max-width:560px) { .vfx-header { height:66px; padding:0 16px; gap:9px; }.vfx-wordmark small { display:none; }.vfx-find,.vfx-update,.vfx-chat { min-height:36px; padding:0 10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
+@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-shell .vfx-find,.vfx-shell .vfx-update,.vfx-shell .vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 @media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
+`;
+
+const PUBLIC_SHARE_CSS = `
+.vfx-public-share { position:relative; text-align:left; }
+.vfx-share-link-panel { position:absolute; z-index:8; top:calc(100% + 8px); right:0; width:min(420px,calc(100vw - 48px)); padding:14px; display:grid; gap:10px; border:1px solid rgba(255,255,255,.18); border-radius:14px; background:#171018; box-shadow:0 16px 42px #0009; }
+.vfx-share-link-panel label { min-width:0; display:grid; gap:6px; color:#b5a7b1; font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+.vfx-share-link-panel input { width:100%; min-height:40px; padding:0 10px; border:1px solid rgba(255,255,255,.17); border-radius:9px; outline:0; color:#fff; background:#0b080c; font:12px/1.4 Inter,"SF Pro Display","Helvetica Neue",sans-serif; letter-spacing:0; text-transform:none; }
+.vfx-share-link-panel input:focus { border-color:#ff9aba; box-shadow:0 0 0 3px rgba(255,117,159,.12); }
+.vfx-share-link-panel>div { display:flex; flex-wrap:wrap; gap:8px; }
+.vfx-share-link-panel>div button { min-height:34px; padding:0 12px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:11px; }
+.vfx-share-link-panel p { margin:0; color:#c9bdc5; font-size:11px; line-height:1.4; }
+@media (max-width:560px) { .vfx-share-link-panel { right:-2px; width:min(360px,calc(100vw - 40px)); } }
 `;
 
 function installStyles(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = CSS;
+    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}`;
     document.getElementById(STYLE_ID)?.remove();
     document.head.appendChild(style);
     return () => style.remove();

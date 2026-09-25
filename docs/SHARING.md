@@ -4,11 +4,14 @@ Vibe is one private, browser-local magazine across all DSH threads. Sharing does
 
 ## What the reader experiences
 
-1. Choose **Preview and share** on a finished Vibe article.
-2. A separate Coding for Justice page opens, checks the proposed public images against the permanent public-use register, and displays the exact article, fresh images or unique editorial cover, credits, supported embedded media, and source link that are eligible to leave DSH.
-3. Nothing is public yet. Read the preview and close it if it is not right.
-4. Choose **Publish public link** on the preview page.
-5. The resulting `share.codingforjustice.org.uk/a/...` link is copied to the clipboard automatically. A visible **Copy link** button remains available if the browser blocks clipboard access or the reader wants to copy it again. The recipient needs only a web browser.
+1. For a link that is already public, choose **Share link** on the Vibe card. When the browser supports native sharing, **Share…** opens its share sheet; **Copy link** and the selectable URL remain available everywhere.
+2. To make a private Vibe article public, choose **Preview and share** on the finished article.
+3. A separate Coding for Justice page opens, checks the proposed public images against the permanent public-use register, and displays the exact article, fresh images or unique editorial cover, credits, supported embedded media, and source link that are eligible to leave DSH.
+4. Nothing is public yet. Read the preview and close it if it is not right.
+5. Choose **Publish public link** on the preview page.
+6. After publishing succeeds, the page shows the `share.codingforjustice.org.uk/a/...` URL in a selectable field with **Copy link** and, when supported, **Share…**. Copy failure selects the URL so it can be copied manually. Publishing does not post to a social network; any social post still needs the reader's separate action in that service.
+
+Opening a native share sheet is not evidence that a social post went live. The share page treats cancelling the sheet as normal and keeps the public URL available. Vibeify never schedules, queues or automatically posts a shared link.
 
 Every new public page must include a visual that has never appeared on another Vibeify public page. This is deliberately stricter than personal reading: the local magazine may reuse its small offline catalogue, but the public publisher may not. It removes crop and resize query strings before comparing URLs, permanently reserves each published visual, and does not release that reservation when an article expires or is removed.
 

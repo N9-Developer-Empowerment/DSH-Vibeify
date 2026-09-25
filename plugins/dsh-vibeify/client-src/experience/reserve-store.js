@@ -1,3 +1,5 @@
+import { validQuestionnaireMarkdown } from "./questionnaire.js";
+
 export const RESERVE_STORE_KEY = "dsh-vibeify.reserve.v1";
 export const RESERVE_STORE_VERSION = 1;
 export const RESERVE_SIGNAL_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -44,6 +46,7 @@ function cleanPage(candidate, now, state) {
   const generatedAt = Number(candidate.generatedAt ?? now);
   const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
   if (id === null || !ID.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
+  if (candidate.kind === "questionnaire" && !validQuestionnaireMarkdown(markdown)) return null;
   return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), generatedAt, state });
 }
 

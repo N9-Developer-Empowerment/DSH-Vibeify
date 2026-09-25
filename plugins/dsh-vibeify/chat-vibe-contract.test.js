@@ -17,6 +17,9 @@ test("completed Chat answers share one local magazine while explicit updates rem
   assert.match(contract, /commentary/i);
   assert.match(contract, /<vibe-chunk/i);
   assert.match(contract, /complete closed envelope/i);
+  assert.match(contract, /questionnaire.*concise invitation.*2–6 separate Markdown bullet options/i);
+  assert.match(contract, /self-contained editorial choice of at most 72 characters/i);
+  assert.match(contract, /choosing one does not start work/i);
   assert.match(contract, /first bounded complete item.+before researching the whole series/i);
   assert.match(contract, /one envelope per commentary update/i);
   assert.match(contract, /slower research.+continue/i);

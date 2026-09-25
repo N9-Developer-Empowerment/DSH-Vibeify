@@ -22,6 +22,7 @@ window.__ModuleLoader__.load({
 		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
 		const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
 		const VISUAL_SETTINGS_STYLE_ID = "dsh-vibeify-visual-settings-style";
+
 		const VISUAL_CREDENTIALS = Object.freeze({
 			pexels: Object.freeze({ ref: "PEXELS_API_KEY", label: "Pexels", href: "https://www.pexels.com/api/" }),
 			pixabay: Object.freeze({ ref: "PIXABAY_API_KEY", label: "Pixabay", href: "https://pixabay.com/api/docs/" }),
@@ -30,27 +31,27 @@ window.__ModuleLoader__.load({
 			{
 				id: "efficient",
 				label: "Efficient",
-				model: "GPT-5.6 Luna · High",
+				model: "GPT-6 Luna · Low",
 				description: "A lighter Codex governor for routine, highly checkable work.",
 			},
 			{
 				id: "balanced",
 				label: "Balanced",
-				model: "GPT-5.6 Terra · High",
-				description: "Strong planning and verification with a lighter lead model.",
+				model: "GPT-6 Luna · High",
+				description: "Luna with high reasoning for planning and verification.",
 			},
 			{
 				id: "frontier",
-				label: "Frontier",
-				model: "GPT-5.6 Sol · Extra High",
-				description: "Recommended SOTA lead for planning, judgment, integration, and verification.",
+				label: "Luna Max",
+				model: "GPT-6 Luna · Max",
+				description: "Recommended lead; DeepSeek handles routine delegated work.",
 				recommended: true,
 			},
 			{
 				id: "maximum",
 				label: "Maximum",
-				model: "GPT-5.6 Sol · Max",
-				description: "Maximum supported reasoning for the hardest quality-first work.",
+				model: "GPT-6 Luna · Max",
+				description: "Maximum supported reasoning on the Luna lead.",
 			},
 		]);
 		const LIVE_CONTROLS_ID = "dsh-codex-live-controls";
@@ -173,10 +174,9 @@ window.__ModuleLoader__.load({
 				return value.capabilityLevel;
 			}
 			if (value?.capabilityLevel === "custom") return "custom";
-			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "xhigh") return "frontier";
-			if (value?.model === "gpt-5.6-terra" && value?.reasoningEffort === "high") return "balanced";
-			if (value?.model === "gpt-5.6-luna" && value?.reasoningEffort === "high") return "efficient";
-			if (value?.model === "gpt-5.6-sol" && value?.reasoningEffort === "max") return "maximum";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "max") return "frontier";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "high") return "balanced";
+			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "low") return "efficient";
 			return "custom";
 		}
 
@@ -225,7 +225,7 @@ window.__ModuleLoader__.load({
 					),
 					selected === "custom" ? React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Custom model/reasoning values are active. Choose a preset here to manage them as one capability level.") : null,
 					error.length > 0 ? React.createElement("p", { role: "alert", className: "dsh-vibeify-capability-error" }, error) : null,
-					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Frontier is the quality-preserving default. Lower levels are optional trade-offs and should be evaluated on your own work. Changes apply to subsequent Codex turns."),
+					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Luna Max is the default lead. DeepSeek handles eligible delegated work; Terra, Sol and Astra are delegated specialists when needed. Changes apply to subsequent Codex turns."),
 				);
 			};
 		}
@@ -345,6 +345,7 @@ window.__ModuleLoader__.load({
 				);
 			};
 		}
+
 
 		function updateStateCopy(component, kind) {
 			if (component.state === "update-available") return "Update available";
@@ -495,6 +496,8 @@ window.__ModuleLoader__.load({
 				order: 16,
 				label: "Images",
 			}, visualSourcesSection(visualSettings, api)));
+
+
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.settingsScope.bind({

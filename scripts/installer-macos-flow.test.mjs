@@ -44,7 +44,7 @@ test("macOS installer completes against the current checkout with all mutations 
 import { appendFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 const args=process.argv.slice(2);appendFileSync(process.env.OPERATIONS,\`npm \${args.join(" ")}\\n\`);
-if(args[0]==="view"){console.log("0.1.1-rc.2");process.exit(0)}
+if(args[0]==="view"){console.log("0.1.5-rc.3");process.exit(0)}
 if(args[0]==="install")process.exit(0);
 if(args[0]==="pack"){const r=spawnSync(process.env.REAL_NPM,args,{stdio:"inherit",env:process.env});process.exit(r.status??1)}
 if(args[0]==="--version"){console.log("11.6.2");process.exit(0)}
@@ -54,10 +54,10 @@ process.exit(0);
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 const args=process.argv.slice(2);appendFileSync(process.env.OPERATIONS,\`dsh \${args.join(" ")}\\n\`);
-if(args.includes("--version")){console.log("0.1.1-rc.2");process.exit(0)}
+if(args.includes("--version")){console.log("0.1.5-rc.3");process.exit(0)}
 if(args[0]==="plugin"&&args.includes("add")){
  const profile=args[args.indexOf("--profile")+1]||"web";const source=args[args.indexOf("--workspace-root")+1]||"";
- const name=source.includes("dsh-visuals")?"dsh-visuals":source.includes("dsh-vibeify-experience")?"dsh-vibeify-experience":"dsh-vibeify";
+ const name=source.includes("dsh-social-desk")?"dsh-social-desk":source.includes("dsh-visuals")?"dsh-visuals":source.includes("dsh-vibeify-experience")?"dsh-vibeify-experience":"dsh-vibeify";
  const dir=path.join(process.env.DSH_HOME,"profiles",profile);mkdirSync(dir,{recursive:true});
  const manifest=path.join(dir,"package.json");const current=existsSync(manifest)?JSON.parse(readFileSync(manifest,"utf8")):{dependencies:{},dsh:{profile:{bundles:[]}}};
  current.dependencies[name]=source;if(!current.dsh.profile.bundles.includes(name))current.dsh.profile.bundles.push(name);
@@ -99,14 +99,17 @@ exec "$REAL_CURL" "$@"
     assert.match(result.stdout, /DSH Vibeify is ready/);
     const startPattern = new RegExp(`dsh --profile web --no-open --host 127\\.0\\.0\\.1 --port ${expectedPort}`);
     const log = await waitForOperation(operations, startPattern);
-    assert.match(log, /npm view @deepseek-ai\/dsh@latest version/);
+    assert.doesNotMatch(log, /npm view @deepseek-ai\/dsh@latest version/);
+    assert.match(log, /dsh --version/);
     assert.match(log, /npm pack .*dsh-vibeify-experience/);
     assert.match(log, /npm pack .*dsh-visuals/);
+    assert.match(log, /npm pack .*dsh-social-desk/);
     assert.match(log, /dsh plugin --profile web add --workspace-root file:/);
     assert.match(log, startPattern);
     const profile = JSON.parse(await readFile(path.join(dshHome, "profiles", "web", "package.json"), "utf8"));
     assert.ok(profile.dependencies["dsh-vibeify-experience"]);
     assert.ok(profile.dependencies["dsh-visuals"]);
+    assert.ok(profile.dependencies["dsh-social-desk"]);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

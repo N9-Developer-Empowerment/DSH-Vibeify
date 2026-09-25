@@ -118,6 +118,8 @@ try {
         "plugins\dsh-vibeify-experience\client.js",
         "plugins\dsh-visuals\package.json",
         "plugins\dsh-visuals\index.js",
+        "plugins\dsh-social-desk\package.json",
+        "plugins\dsh-social-desk\index.js",
         "scripts\install-dsh.sh",
         "scripts\install-vibeify.sh",
         "scripts\validate-package-archive.mjs"
@@ -169,8 +171,7 @@ try {
       }
     }
 
-    $TargetVersion = (& npm view "@deepseek-ai/dsh@latest" version | Out-String).Trim()
-    Assert-Native "Finding the latest official DSH version"
+    $TargetVersion = "0.1.5-rc.3" # Qualified with this Vibeify compatibility bundle
     if (-not $TargetVersion) { throw "The official npm registry did not return a DSH version." }
     $CurrentVersion = $null
     if (Get-Command dsh -ErrorAction SilentlyContinue) {
@@ -195,6 +196,8 @@ try {
     $PluginDirectory = Join-Path $ProjectDirectory "plugins\$PluginName"
     $VisualPluginName = "dsh-visuals"
     $VisualPluginDirectory = Join-Path $ProjectDirectory "plugins\$VisualPluginName"
+    $SocialPluginName = "dsh-social-desk"
+    $SocialPluginDirectory = Join-Path $ProjectDirectory "plugins\$SocialPluginName"
 
     if (Test-Path -LiteralPath $ProfilePackage) {
       $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
@@ -209,6 +212,7 @@ try {
     New-Item -ItemType Directory -Path $PackDirectory | Out-Null
     Install-ImmutableDshPlugin $ProjectDirectory $PluginName $PluginDirectory $DshHome $PackDirectory $ProfileName
     Install-ImmutableDshPlugin $ProjectDirectory $VisualPluginName $VisualPluginDirectory $DshHome $PackDirectory $ProfileName
+    Install-ImmutableDshPlugin $ProjectDirectory $SocialPluginName $SocialPluginDirectory $DshHome $PackDirectory $ProfileName
     $ConfigDump = (& dsh --profile $ProfileName --dump-config | Out-String)
     Assert-Native "Checking the composed DSH profile"
 
@@ -219,6 +223,9 @@ try {
     $hasVisualDependency = $installedProfile.dependencies.PSObject.Properties.Name -contains $VisualPluginName
     $hasVisualBundle = @($installedProfile.dsh.profile.bundles) -contains $VisualPluginName
     if (-not ($hasVisualDependency -and $hasVisualBundle)) { throw "$VisualPluginName is not active in the DSH profile." }
+    $hasSocialDependency = $installedProfile.dependencies.PSObject.Properties.Name -contains $SocialPluginName
+    $hasSocialBundle = @($installedProfile.dsh.profile.bundles) -contains $SocialPluginName
+    if (-not ($hasSocialDependency -and $hasSocialBundle)) { throw "$SocialPluginName is not active in the DSH profile." }
     if ($ProviderMode -eq "chatgpt" -and $ConfigDump -notlike "*provider: codex-chatgpt*") {
       throw "Vibeify was installed but Codex is not the composed default provider."
     }
@@ -250,6 +257,7 @@ try {
       Write-Host "You can browse Vibe now. Connect DeepSeek or ChatGPT before asking the agent to work."
     }
     Write-Host "Wikimedia Commons and Openverse image search are ready. Add optional Pexels and Pixabay keys under Settings > Images."
+    Write-Host "Vibe Social Desk is ready. Connect official social APIs under Settings > Vibe Social Desk; community routes remain Ready to post."
     Write-Host "Updates are safe to run again; an open DSH task is never stopped silently."
     Show-HelpLinks
   } finally {

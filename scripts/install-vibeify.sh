@@ -32,6 +32,12 @@ if ! command -v dsh >/dev/null 2>&1; then
   exit 1
 fi
 
+qualified_dsh_version="0.1.5-rc.3"
+if [[ "$(dsh --version)" != "$qualified_dsh_version" ]]; then
+  echo "This Vibeify bundle requires the qualified DSH $qualified_dsh_version runtime. Run scripts/install-dsh.sh --replace first." >&2
+  exit 2
+fi
+
 codex_authenticated=false
 if command -v codex >/dev/null 2>&1; then
   login_status="$(codex login status 2>&1 || true)"
@@ -58,8 +64,10 @@ fi
 plugin_directory="$repository_root/plugins/$plugin_name"
 visual_plugin_name="dsh-visuals"
 visual_plugin_directory="$repository_root/plugins/$visual_plugin_name"
+social_plugin_name="dsh-social-desk"
+social_plugin_directory="$repository_root/plugins/$social_plugin_name"
 
-for required_plugin_directory in "$plugin_directory" "$visual_plugin_directory"; do
+for required_plugin_directory in "$plugin_directory" "$visual_plugin_directory" "$social_plugin_directory"; do
   if [[ ! -f "$required_plugin_directory/package.json" ]]; then
     echo "The $(basename "$required_plugin_directory") package is missing from this Vibeify checkout." >&2
     exit 1
@@ -107,6 +115,13 @@ install_immutable_plugin() {
 
 install_immutable_plugin "$plugin_name" "$plugin_directory"
 install_immutable_plugin "$visual_plugin_name" "$visual_plugin_directory"
+install_immutable_plugin "$social_plugin_name" "$social_plugin_directory"
+if [[ -f "$profile_directory/package.json" ]] && node -e '
+  const p=require(process.argv[1]);
+  process.exit(p.dependencies?.["@deepseek-ai/dsh-subagent-codex"] ? 0 : 1);
+' "$profile_directory/package.json"; then
+  dsh plugin --profile "$profile" add --workspace-root "@deepseek-ai/dsh-subagent-codex@$qualified_dsh_version"
+fi
 dsh --profile "$profile" --dump-config >"$config_dump"
 
 if [[ "$provider_mode" == "chatgpt" ]] && ! grep -q "provider: codex-chatgpt" "$config_dump"; then
@@ -133,6 +148,14 @@ if ! node -e '
   echo "The optional DSH Visuals image-source package is not active in the DSH profile." >&2
   exit 1
 fi
+if ! node -e '
+  const p=require(process.argv[1]);
+  const n=process.argv[2];
+  if (!p.dependencies?.[n] || !p.dsh?.profile?.bundles?.includes(n)) process.exit(1);
+' "$profile_directory/package.json" "$social_plugin_name"; then
+  echo "Vibe Social Desk is not active in the DSH profile." >&2
+  exit 1
+fi
 
 printf 'Vibeify mode: %s\n' "$provider_mode"
 if [[ "$provider_mode" == "deepseek" ]]; then
@@ -141,6 +164,7 @@ else
   echo "Codex will lead. A DeepSeek key remains optional and can add lower-cost worker routes."
 fi
 echo "Wikimedia Commons and Openverse image search are ready. Add optional Pexels and Pixabay keys under Settings → Images."
+echo "Manual link sharing is ready. Copy a link or open a sharing composer; you make the final post. No social account setup or schedule is required."
 
 if lsof -nP -iTCP:"${DSH_PORT:-3080}" -sTCP:LISTEN >/dev/null 2>&1; then
   echo "Vibeify is staged. A running DSH process still uses its previously loaded code."

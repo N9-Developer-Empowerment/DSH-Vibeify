@@ -1,7 +1,6 @@
 import z from "@deepseek-ai/schemastery";
-import { installSettingsSection, settingsNamespace } from "@deepseek-ai/dsh-settings";
 
-export const VISUAL_SETTINGS_NAMESPACE = settingsNamespace("dsh-visuals");
+export const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
 
 export const Config = z.object({
   wikimedia: z.boolean().default(true),
@@ -15,9 +14,9 @@ export const Config = z.object({
 export function installVisualSettings(ctx, entry) {
   const base = entry ?? {};
   let source = () => base;
-  installSettingsSection(ctx, VISUAL_SETTINGS_NAMESPACE, Config, base, {
+  ctx.inject(["settings"], (settingsCtx) => settingsCtx.settings.installSection(ctx, VISUAL_SETTINGS_NAMESPACE, Config, base, {
     setSource: (next) => { source = next; },
     onChange: () => {},
-  });
+  }));
   return () => source();
 }

@@ -1,8 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { SHARE_ORIGIN, SHARE_SNAPSHOT_VERSION } from "../../shared/vibe-share-contract.js";
-import { beginSharePreview, shareSnapshotForChunk } from "./client-src/experience/share-client.js";
+import {
+  beginSharePreview,
+  copyPublicShareUrl,
+  publicShareUrl,
+  sharePublicUrl,
+  shareSnapshotForChunk,
+} from "./client-src/experience/share-client.js";
 
 const snapshot = Object.freeze({
   version: SHARE_SNAPSHOT_VERSION,
@@ -14,6 +21,8 @@ const snapshot = Object.freeze({
   inlineVisuals: Object.freeze([]),
   contentLink: null,
 });
+
+const shellSource = readFileSync(new URL("./client-src/experience/shell.jsx", import.meta.url), "utf8");
 
 test("DSH sends an article only after the exact share page completes its opener handshake", () => {
   const messages = [];
@@ -141,4 +150,75 @@ test("a card's fixed-provider player is preserved without transferring iframe so
     href: "https://soundcloud.com/the-orca-band/i-know-you-better",
   });
   assert.doesNotMatch(JSON.stringify(result), /private-client-state|w\.soundcloud/);
+});
+
+test("native sharing preserves the exact public URL encoding and never reports a post", async () => {
+  const url = "https://soundcloud.com/the-orca-band/track?ref=a%2Fb&title=one%20two%2Bthree#part-2";
+  const calls = [];
+  const result = await sharePublicUrl(url, "A finished Vibe", {
+    async share(value) { calls.push(value); },
+  });
+
+  assert.equal(result, "shared");
+  assert.deepEqual(calls, [{ title: "A finished Vibe", url }]);
+  assert.equal(publicShareUrl(url), url);
+});
+
+test("unsupported URLs are rejected before native share or clipboard access", async () => {
+  let shareCalls = 0;
+  let copyCalls = 0;
+  const navigatorObject = { async share() { shareCalls += 1; } };
+  const clipboard = { async writeText() { copyCalls += 1; } };
+
+  for (const url of [
+    "javascript:alert(1)",
+    "http://example.org/public",
+    "https://user:pass@example.org/public",
+    "/article/1",
+    "not a url",
+    "https://localhost/article",
+    "https://vibe.local/article",
+    "https://127.0.0.1/article",
+    "https://10.2.3.4/article",
+    "https://172.16.2.3/article",
+    "https://192.168.2.3/article",
+    "https://169.254.169.254/latest/meta-data",
+    "https://[::1]/article",
+  ]) {
+    assert.equal(publicShareUrl(url), null);
+    assert.equal(await sharePublicUrl(url, "Article", navigatorObject), "unsupported");
+    assert.equal(await copyPublicShareUrl(url, clipboard), false);
+  }
+
+  assert.equal(shareCalls, 0);
+  assert.equal(copyCalls, 0);
+});
+
+test("clipboard failure leaves the ordinary selectable URL fallback available", async () => {
+  const url = "https://example.org/article?id=a%2Fb&next=one%20two";
+  let copiedValue = null;
+  assert.equal(await copyPublicShareUrl(url, {
+    async writeText(value) { copiedValue = value; throw new Error("clipboard denied"); },
+  }), false);
+  assert.equal(copiedValue, url);
+  assert.equal(await copyPublicShareUrl(url, null), false);
+});
+
+test("native share cancellation is reported as cancellation and does not fall back to posting", async () => {
+  const url = "https://example.org/article";
+  const error = new Error("reader closed the share sheet");
+  error.name = "AbortError";
+  let calls = 0;
+  const result = await sharePublicUrl(url, "Article", {
+    async share() { calls += 1; throw error; },
+  });
+
+  assert.equal(result, "cancelled");
+  assert.equal(calls, 1);
+});
+
+test("simple public-link sharing has no legacy Social Desk RPC or schedule path", () => {
+  assert.match(shellSource, /function PublicLinkShare/);
+  assert.match(shellSource, /Share link/);
+  assert.doesNotMatch(shellSource, /social-desk-client|dsh-social-desk|approve-and-schedule|prepareSocialPosts|SocialDeskPanel/);
 });

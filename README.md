@@ -6,7 +6,7 @@ DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://git
 
 [![Watch the real DSH Vibeify welcome edition and finished walkthrough](docs/assets/dsh-vibeify-magazine-social.png)](https://youtu.be/jda4uplWsiI)
 
-[Download Vibeify 0.15.6](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.15.6) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
+[Download Vibeify 0.16.0](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.16.0) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
 
 The real 2:24 demonstration opens Vibe with content, turns a Chat request into a visual card, uses an explicit Update, then previews one article privately before optional publication. [Watch it on YouTube.](https://youtu.be/jda4uplWsiI)
 
@@ -98,7 +98,7 @@ For the developer route you need Node.js 22.19+ in the 22.x line, or Node.js 24+
 ```bash
 git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
 cd DSH-Vibeify
-./scripts/install-dsh.sh --latest
+./scripts/install-dsh.sh --replace
 ./scripts/install-vibeify.sh --provider deepseek   # or chatgpt / auto
 ./scripts/doctor.sh
 dsh web
@@ -124,11 +124,12 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **Optional image-source plugin.** The separate `dsh-visuals` package is auto-discovered and keeps Vibeify usable when absent. Wikimedia Commons and Openverse work without keys; optional Pexels and Pixabay keys are entered under **Settings → Images** and stay in DSH's write-only credential store. Only a short explicit-magazine title is searched—never ordinary Chat copy, prompts, attachments, history or settings—and every accepted result keeps its creator, licence and original source.
 - **Useful exits from every panel.** Visual credits stay attached to their images. Every generated non-questionnaire panel carries a separate, relevant content destination in the article copy—for example the story, original work, official creator page, paper, video, music or useful service—and Vibe repeats that destination as a compact **Read source** action. Image files and visual-credit pages are never presented as the article link.
 - **Review before sharing.** Every finished non-questionnaire card has **Preview and share**. It opens the fixed first-party share origin, waits for an exact-origin handshake, and transfers only that card's title, rendered Markdown, selected public images, credits, source link, kind, publication time and—when present—one allow-listed YouTube, Vimeo, Spotify or SoundCloud destination. The preview reconstructs that media as click-to-load, with no autoplay or arbitrary embed code, and the public article preserves the same experience. The preview cannot publish automatically: the reader must inspect it and choose **Publish public link**. Every new public article requires an image; the first becomes its responsive cover and social preview. After publication the public URL is copied automatically, with **Copy link** kept as a fallback. Recipients need no AI account. See [Sharing one Vibe article](docs/SHARING.md).
+- **Simple manual link sharing.** Copy an existing public link or use your device’s share action, then make the final post yourself. Private Vibe articles retain their separate preview and explicit **Publish public link** step. No social account setup, scheduling or automatic posting. See [Sharing](docs/SHARING.md).
 - **Provider-neutral Vibe.** `dsh-vibeify-experience` supplies Vibe without installing a Codex provider, so native DSH/DeepSeek remains in control.
 - **Optional governed mode.** `dsh-vibeify` uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process. In this mode Codex remains the lead.
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
 - **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
-- **A Codex capability setting.** Open **Settings → Codex** to choose Efficient, Balanced, Frontier, or Maximum. Frontier—GPT-5.6 Sol with Extra High reasoning—is the quality-preserving default.
+- **A Codex capability setting.** Open **Settings → Codex** to choose Luna Max (recommended), Balanced, or Efficient. GPT-6 Luna with Max reasoning is the default lead; DeepSeek Flash handles eligible bounded work, with stronger Codex models reserved for justified specialist delegation.
 - **A safe update centre.** Open **Settings → Updates** to check the installed DSH, Vibeify, and bundled Codex agent separately. A newer Codex release is not labelled installable until Vibeify has qualified it. The updater route is platform-aware: macOS opens the verified friendly updater, while Windows and Linux open their clearly labelled preview/help route until real-machine qualification is complete.
 - **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and explicit magazine updates or public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose. Vibeify opens the current Think disclosure while work is live, then closes that same disclosure once when the final answer settles; the reader can reopen it without the interface fighting back.
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
@@ -184,6 +185,7 @@ DSH-Vibeify/
 │   └── skills/dsh-vibeify/SKILL.md    # Codex operational guidance
 ├── plugins/dsh-vibeify-experience/    # provider-neutral DSH client package
 ├── plugins/dsh-visuals/               # optional public-image search and secure key references
+├── plugins/dsh-social-desk/           # optional reviewed local social queue and official API adapters
 ├── services/vibe-share/               # optional account-free public article host
 ├── shared/vibe-share-contract.js      # allow-list boundary shared by DSH and host
 └── scripts/                            # macOS, Windows and Linux installers, migration, doctor and safe support report
@@ -191,9 +193,9 @@ DSH-Vibeify/
 
 The bridge currently pins:
 
-- `@deepseek-ai/dsh` `0.1.1-rc.2`
-- `@openai/codex` `0.147.0`
-- DSH Vibeify `0.15.6`
+- `@deepseek-ai/dsh` `0.1.5-rc.3`
+- `@openai/codex` `0.157.0`
+- DSH Vibeify `0.16.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

@@ -4,6 +4,7 @@ import {
   parseVibeMarkdown,
   stripDuplicatedLeadTitle as sharedStripDuplicatedLeadTitle,
 } from "../../../../shared/vibe-markdown.js";
+import { validQuestionnaireMarkdown } from "./questionnaire.js";
 
 const TAB_ID = "dsh-vibeify-vibe-tab";
 const TAB_STYLE_ID = "dsh-vibeify-vibe-tab-style";
@@ -24,7 +25,7 @@ export function extractPublishedChunks(value) {
   CHUNK_PATTERN.lastIndex = 0;
   for (const match of text.matchAll(CHUNK_PATTERN)) {
     const markdown = match[4].trim();
-    if (markdown.length === 0 || seen.has(match[1])) continue;
+    if (markdown.length === 0 || seen.has(match[1]) || (match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown))) continue;
     seen.add(match[1]);
     chunks.push({ id: match[1], kind: match[2], title: match[3].trim(), markdown });
   }
@@ -156,11 +157,11 @@ function appendInline(container, value) {
       container.append(link);
     } else if (token.type === "strong") {
       const strong = document.createElement("strong");
-      strong.textContent = token.value;
+      appendInline(strong, token.value);
       container.append(strong);
     } else if (token.type === "emphasis") {
       const emphasis = document.createElement("em");
-      emphasis.textContent = token.value;
+      appendInline(emphasis, token.value);
       container.append(emphasis);
     } else if (token.type === "code") {
       const code = document.createElement("code");

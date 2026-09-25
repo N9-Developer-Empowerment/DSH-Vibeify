@@ -108,6 +108,16 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.doesNotMatch(client, /MIN_BACKGROUND_RUNS_PER_VISIT|buffer-low-water|shouldStartStreamRun|continuous-stream/);
 });
 
+test("questionnaires use the shared Markdown renderer before their one-tap choices", () => {
+  const start = client.indexOf("function Questionnaire");
+  const end = client.indexOf("function InlineVisuals", start);
+  assert.ok(start >= 0 && end > start);
+  const questionnaire = client.slice(start, end);
+  assert.match(questionnaire, /createElement\(Markdown/);
+  assert.doesNotMatch(questionnaire, /createElement\("p"/);
+  assert.match(client, /\.vfx-question>\.vfx-markdown\s*\{/);
+});
+
 test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /approval stream watchdog/);
   assert.match(client, /Capability level/);
@@ -133,4 +143,16 @@ test("optional visual sources expose write-only credential entry and a local fal
   assert.match(client, /credential removal rejected/);
   assert.match(client, /Keys are write-only/);
   assert.match(client, /The DSH Visuals plugin is not active/);
+});
+
+test("reader cards expose direct public-link sharing without Social Desk or scheduling UI", () => {
+  assert.match(client, /function PublicLinkShare/);
+  assert.match(client, /Share link/);
+  assert.match(client, /Public link/);
+  assert.match(client, /Copy link/);
+  assert.match(client, /navigator\.share/);
+  assert.match(client, /Copy is unavailable\. Select the link below to copy it\./);
+  assert.doesNotMatch(client, /Vibe Social Desk|dsh-social-desk|X_USER_ACCESS_TOKEN|BLUESKY_APP_PASSWORD/);
+  assert.doesNotMatch(client, /Optional automatic posting|Approve and schedule|Schedule post/);
+  assert.doesNotMatch(client, /setSocialOpen|vfx-social-desk|vfx-social-tab|vfx-social-prepare/);
 });

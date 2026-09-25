@@ -23,7 +23,7 @@ Every installer supports a non-installing check mode: macOS and Linux accept `--
 3. Double-click **Install DSH Vibeify.command**. If macOS blocks an unsigned community script, right-click it, choose **Open**, and review the prompt.
 4. Choose DeepSeek, ChatGPT, both, or connect later.
 
-The helper checks Node.js, downloads the public GitHub repository, installs or updates the latest official `@deepseek-ai/dsh` release, installs an immutable Vibeify snapshot, runs non-billing checks, and opens the local Web UI. It never requests an API key or account password.
+The helper checks Node.js, downloads the public GitHub repository, installs or updates the qualified `@deepseek-ai/dsh` version pinned by this compatibility bundle, installs an immutable Vibeify snapshot, runs non-billing checks, and opens the local Web UI. It never requests an API key or account password.
 
 If a supported Node.js is missing, the helper opens the official Node.js download page and stops. DSH currently requires Node.js 22.19 or later in the 22.x line, or Node.js 24 or later. Install Node, then run it again.
 
@@ -68,15 +68,17 @@ Requirements:
 
 The currently tested combination is:
 
-- `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
-- `@openai/codex` `0.147.0` inside the governed bridge;
-- DSH Vibeify `0.15.6`.
+- `@deepseek-ai/dsh` `0.1.5-rc.3` (also the official `latest` dist-tag at the time of this release);
+- `@openai/codex` `0.157.0` inside the governed bridge;
+- DSH Vibeify `0.16.0`.
+
+The optional native `@deepseek-ai/dsh-subagent-codex` worker is a separate DSH route. If it is already enabled in the profile, the installer keeps it at the DSH-matched `0.1.5-rc.3` package; that upstream package declares its own `@openai/codex` dependency at `0.153.4`. The Vibeify lead bridge uses its separately pinned `0.157.0` dependency.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.15.6&path:/plugins/dsh-vibeify-experience'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.16.0&path:/plugins/dsh-vibeify-experience'
 ```
 
 This keeps native DSH/DeepSeek in the lead. Use the friendly installer or the
@@ -88,7 +90,7 @@ Clone and install:
 ```bash
 git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
 cd DSH-Vibeify
-./scripts/install-dsh.sh --latest
+./scripts/install-dsh.sh --replace
 ./scripts/install-vibeify.sh --provider deepseek
 ./scripts/doctor.sh
 dsh web
@@ -119,7 +121,7 @@ codex login status
 
 Complete the browser login with the ChatGPT account whose Codex access you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
 
-In DSH, open **Settings → Codex** to choose Frontier, Maximum, Balanced, or Efficient. This page exists only in ChatGPT/combined mode. Frontier—GPT-5.6 Sol with Extra High reasoning—is the default quality-preserving lead.
+In DSH, open **Settings → Codex** to choose Luna Max (recommended), Maximum, Balanced, Efficient, or Custom. This page exists only in ChatGPT/combined mode. GPT-6 Luna with Max reasoning is the default lead; Terra, Sol and Astra are available for justified specialist delegation.
 
 ## Add optional image-source keys
 
@@ -134,6 +136,12 @@ dsh plugin --profile web add --workspace-root ./plugins/dsh-visuals
 ```
 
 If `dsh-visuals` is absent or every source is unavailable, Vibeify keeps its built-in unique cover method and remains fully readable.
+
+## Manual link sharing
+
+The relaunch requires no social account setup. Copy a public link or use the device’s share action, and make the final post yourself. A private article still requires preview and **Publish public link** before its URL becomes public.
+
+The installer updates the legacy `dsh-social-desk` compatibility package so previous scheduled jobs cannot resume. Historical queue data and credentials are preserved; automatic publishing and schedule controls are disabled. See [Sharing](SHARING.md).
 
 ## Verify without a paid call
 
@@ -163,7 +171,7 @@ Choose the platform-appropriate updater or download and run the current friendly
 
 ```bash
 git pull --ff-only
-./scripts/install-dsh.sh --latest
+./scripts/install-dsh.sh --replace
 ./scripts/install-vibeify.sh --provider auto
 ./scripts/doctor.sh
 ```
@@ -187,6 +195,7 @@ Remove whichever mode is installed:
 dsh plugin --profile web remove --workspace-root dsh-vibeify
 dsh plugin --profile web remove --workspace-root dsh-vibeify-experience
 dsh plugin --profile web remove --workspace-root dsh-visuals
+dsh plugin --profile web remove --workspace-root dsh-social-desk
 ```
 
 Removing Vibeify does not delete DSH sessions, Codex authentication, DeepSeek credentials, or browser-stored Vibe preferences.

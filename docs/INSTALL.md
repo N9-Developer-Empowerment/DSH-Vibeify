@@ -69,8 +69,10 @@ Requirements:
 The currently tested combination is:
 
 - `@deepseek-ai/dsh` `0.1.5-rc.3` (also the official `latest` dist-tag at the time of this release);
-- `@openai/codex` `0.147.0` inside the governed bridge;
+- `@openai/codex` `0.157.0` inside the governed bridge;
 - DSH Vibeify `0.16.0`.
+
+The optional native `@deepseek-ai/dsh-subagent-codex` worker is a separate DSH route. If it is already enabled in the profile, the installer keeps it at the DSH-matched `0.1.5-rc.3` package; that upstream package declares its own `@openai/codex` dependency at `0.153.4`. The Vibeify lead bridge uses its separately pinned `0.157.0` dependency.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
@@ -119,7 +121,7 @@ codex login status
 
 Complete the browser login with the ChatGPT account whose Codex access you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
 
-In DSH, open **Settings → Codex** to choose Frontier, Maximum, Balanced, or Efficient. This page exists only in ChatGPT/combined mode. GPT-6 Luna with Max reasoning is the default lead; Terra, Sol and Astra are available for justified specialist delegation.
+In DSH, open **Settings → Codex** to choose Luna Max (recommended), Maximum, Balanced, Efficient, or Custom. This page exists only in ChatGPT/combined mode. GPT-6 Luna with Max reasoning is the default lead; Terra, Sol and Astra are available for justified specialist delegation.
 
 ## Add optional image-source keys
 

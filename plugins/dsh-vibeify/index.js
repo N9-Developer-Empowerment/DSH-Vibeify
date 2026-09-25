@@ -43,7 +43,7 @@ import {
 
 const PROVIDER = "codex-chatgpt";
 const MODEL = "chatgpt-account-default";
-const BRIDGE_VERSION = "0.15.6";
+const BRIDGE_VERSION = "0.16.0";
 const DSH_DELEGATION_TIMEOUT_MS = 5 * 60 * 1000;
 const MODEL_CATALOG_TOOL_NAME = "dsh_model_catalog";
 const DSH_DELEGATE_TOOL_NAME = "delegate_to_dsh_model";
@@ -1181,7 +1181,7 @@ class CodexChatGptAdapter extends LlmAdapter {
         },
         maxDepth: 1,
       });
-      const result = await raceAbort(run.result, signal);
+      const result = await raceAbort(run.result, delegationSignal);
       const captured = recoveredSubagentOutput(run, result);
       const usage = summarizeTokenUsage(run.localAgent?.session.events ?? []);
       const costEstimate = estimateModelCost(ROUTING_POLICY, provider, model, usage);

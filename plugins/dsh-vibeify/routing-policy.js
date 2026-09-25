@@ -243,7 +243,7 @@ export async function liveModelCatalog(llm, policy, options = {}) {
         } : {}),
         primaryForNewSession: isCurrentLead,
         leadAllowedByPolicy: isCurrentLead,
-        subagentFromCurrentCodex: isCodexProvider ? specialist : true,
+        subagentFromCurrentCodex: isCodexProvider ? specialist : configured !== undefined,
         credentialCheckedOnUse: true,
         ...(configured === undefined ? {
           ...(isCodexProvider ? {

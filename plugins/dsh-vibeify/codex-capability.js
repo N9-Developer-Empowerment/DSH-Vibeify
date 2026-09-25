@@ -115,6 +115,7 @@ export async function listCodexModels(requestPage, { limit = 100, maxPages = MAX
   }
 
   const models = [];
+  const modelIds = new Set();
   const cursors = new Set();
   let cursor;
   for (let page = 0; page < maxPages; page += 1) {
@@ -136,6 +137,10 @@ export async function listCodexModels(requestPage, { limit = 100, maxPages = MAX
       if (typeof codexModelId(entry) !== "string" || codexModelId(entry).length === 0) {
         throw new Error("codex-chatgpt: model/list returned a model without an id");
       }
+      if (modelIds.has(codexModelId(entry))) {
+        throw new Error(`codex-chatgpt: model/list returned duplicate model ${codexModelId(entry)}`);
+      }
+      modelIds.add(codexModelId(entry));
       models.push(entry);
       if (models.length > MAX_MODELS) {
         throw new Error(`codex-chatgpt: model/list exceeded the ${MAX_MODELS} model safety limit`);

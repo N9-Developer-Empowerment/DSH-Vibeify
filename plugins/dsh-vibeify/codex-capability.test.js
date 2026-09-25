@@ -48,7 +48,11 @@ test("existing exact DSH model settings remain compatible", () => {
 llm-codex-chatgpt:
   model: gpt-5.6-sol
   reasoningEffort: xhigh
-`), DEFAULT_CODEX_RUNTIME_SETTINGS);
+`), {
+    capabilityLevel: "custom",
+    model: "gpt-5.6-sol",
+    reasoningEffort: "xhigh",
+  });
   assert.deepEqual(runtimeSettingsFromYaml(`
 llm-codex-chatgpt:
   capabilityLevel: custom
@@ -134,8 +138,13 @@ test("authenticated model discovery rejects repeated cursors and runaway paginat
     data: [],
     nextCursor: params.cursor ?? "stuck",
   })), /invalid or repeated pagination cursor/);
+  let page = 0;
   await assert.rejects(() => listCodexModels(async () => ({
     data: [],
-    nextCursor: "next",
+    nextCursor: `page-${page++}`,
   }), { maxPages: 2 }), /exceeded the 2 page safety limit/);
+  await assert.rejects(() => listCodexModels(async (params) => ({
+    data: [{ id: "gpt-6-luna", model: "gpt-6-luna" }],
+    nextCursor: params.cursor === undefined ? "page-2" : null,
+  })), /duplicate model gpt-6-luna/);
 });

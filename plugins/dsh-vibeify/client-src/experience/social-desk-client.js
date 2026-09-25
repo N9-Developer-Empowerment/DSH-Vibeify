@@ -53,12 +53,27 @@ export function socialStatusLabel(status) {
   }[status] ?? "Unknown";
 }
 
-export function manualComposerUrl(channel) {
-  return {
-    reddit: "https://www.reddit.com/submit",
-    discord: "https://discord.com/channels/@me",
-    "youtube-community": "https://www.youtube.com/",
-    "facebook-profile": "https://www.facebook.com/",
-  }[channel] ?? null;
+function composerUrl(base, values = {}) {
+  const url = new URL(base);
+  for (const [key, value] of Object.entries(values)) {
+    if (typeof value === "string" && value.length > 0) url.searchParams.set(key, value);
+  }
+  return url.href;
 }
 
+export function manualComposerUrl(channel, item = {}) {
+  const text = typeof item.text === "string" ? item.text : "";
+  const publicUrl = typeof item.snapshot?.publicUrl === "string" ? item.snapshot.publicUrl : "";
+  const title = typeof item.snapshot?.title === "string" ? item.snapshot.title : "";
+  if (channel === "x") return composerUrl("https://x.com/intent/post", { text });
+  if (channel === "bluesky") return composerUrl("https://bsky.app/intent/compose", { text });
+  if (channel === "threads") return composerUrl("https://www.threads.net/intent/post", { text });
+  if (channel === "facebook-page" || channel === "facebook-profile") {
+    return publicUrl === "" ? "https://www.facebook.com/" : composerUrl("https://www.facebook.com/sharer/sharer.php", { u: publicUrl });
+  }
+  if (channel === "reddit") return composerUrl("https://www.reddit.com/submit", { url: publicUrl, title });
+  if (channel === "discord") return "https://discord.com/channels/@me";
+  if (channel === "youtube-community") return "https://www.youtube.com/";
+  if (channel === "instagram") return "https://www.instagram.com/";
+  return null;
+}

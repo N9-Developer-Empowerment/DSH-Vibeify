@@ -10,15 +10,16 @@ const article = Object.freeze({
   visual: null,
 });
 
-test("the initial channel catalogue is honest about official API and reviewed manual modes", () => {
-  assert.equal(CHANNELS.x.mode, "official-api");
-  assert.equal(CHANNELS.bluesky.mode, "official-api");
-  assert.equal(CHANNELS.threads.mode, "official-api");
-  assert.equal(CHANNELS["facebook-page"].mode, "official-api");
-  assert.equal(CHANNELS.instagram.mode, "official-api");
-  assert.equal(CHANNELS.reddit.mode, "ready-to-post");
-  assert.equal(CHANNELS.discord.mode, "ready-to-post");
-  assert.equal(CHANNELS["youtube-community"].mode, "ready-to-post");
+test("every channel defaults to a reviewed composer hand-off and marks optional API support separately", () => {
+  assert.equal(Object.values(CHANNELS).every(({ mode }) => mode === "composer"), true);
+  assert.equal(CHANNELS.x.supportsOfficialApi, true);
+  assert.equal(CHANNELS.bluesky.supportsOfficialApi, true);
+  assert.equal(CHANNELS.threads.supportsOfficialApi, true);
+  assert.equal(CHANNELS["facebook-page"].supportsOfficialApi, true);
+  assert.equal(CHANNELS.instagram.supportsOfficialApi, true);
+  assert.equal(CHANNELS.reddit.supportsOfficialApi, false);
+  assert.equal(CHANNELS.discord.supportsOfficialApi, false);
+  assert.equal(CHANNELS["youtube-community"].supportsOfficialApi, false);
 });
 
 test("community drafts are substantial and channel-specific rather than generic link drops", () => {
@@ -39,4 +40,3 @@ test("Instagram official publishing requires a public image while text channels 
     visual: { imageUrl: "https://images.example.org/article.jpg" },
   }), true);
 });
-

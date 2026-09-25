@@ -171,8 +171,7 @@ try {
       }
     }
 
-    $TargetVersion = (& npm view "@deepseek-ai/dsh@latest" version | Out-String).Trim()
-    Assert-Native "Finding the latest official DSH version"
+    $TargetVersion = "0.1.5-rc.3" # Qualified with this Vibeify compatibility bundle
     if (-not $TargetVersion) { throw "The official npm registry did not return a DSH version." }
     $CurrentVersion = $null
     if (Get-Command dsh -ErrorAction SilentlyContinue) {

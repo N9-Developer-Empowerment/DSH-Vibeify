@@ -3,14 +3,24 @@ export {
   CODEX_CAPABILITY_CHOICES,
   CODEX_CAPABILITY_PRESETS,
   CODEX_MODEL_CHOICES,
+  CODEX_SPECIALIST_MODEL_IDS,
   CODEX_REASONING_CHOICES,
   DEFAULT_CODEX_RUNTIME_SETTINGS,
   capabilityLabel,
+  codexModelId,
+  listCodexModels,
   modelLabel,
   reasoningLabel,
   resolveCodexRuntimeSettings,
   runtimeSettingsFromYaml,
   runtimeStatus,
+  supportedReasoningEfforts,
+  validateCodexRuntimeSettingsAgainstCatalog,
+} from "./codex-capability.js";
+import {
+  CODEX_SPECIALIST_MODEL_IDS,
+  codexModelId,
+  supportedReasoningEfforts,
 } from "./codex-capability.js";
 
 const DEFAULT_POLICY_URL = new URL("./model-routing-policy.json", import.meta.url);
@@ -135,9 +145,13 @@ function validatePricing(pricing, label) {
   requireNumber(value.output, `${label}.output`);
 }
 
+function validateOptionalPricing(pricing, label) {
+  if (pricing !== undefined) validatePricing(pricing, label);
+}
+
 function validatePolicy(policy) {
   const value = requireObject(policy, "root");
-  if (value.schemaVersion !== 2) throw new Error("model routing policy: unsupported schemaVersion");
+  if (value.schemaVersion !== 3) throw new Error("model routing policy: unsupported schemaVersion");
   requireString(value.verifiedAt, "verifiedAt");
   requireString(value.currency, "currency");
   requireString(value.pricingUnit, "pricingUnit");
@@ -182,6 +196,7 @@ function validatePolicy(policy) {
       throw new Error(`model routing policy: ${route} delegatedMaxTokensPerStep must be positive`);
     }
     validatePricing(model.pricing, `${route}.pricing`);
+    validateOptionalPricing(model.offPeakPricing, `${route}.offPeakPricing`);
   }
   return value;
 }
@@ -194,36 +209,61 @@ export function policyModel(policy, provider, model) {
   return policy.models.find((entry) => entry.provider === provider && entry.id === model);
 }
 
-export async function liveModelCatalog(llm, policy) {
+export async function liveModelCatalog(llm, policy, options = {}) {
+  const runtimeModels = options.codexModels;
+  const currentLead = {
+    provider: policy.lead.provider,
+    model: options.leadSettings?.model ?? policy.lead.model,
+    ...(options.leadSettings?.reasoningEffort === undefined
+      ? policy.lead.reasoningEffort === undefined ? {} : { reasoningEffort: policy.lead.reasoningEffort }
+      : { reasoningEffort: options.leadSettings.reasoningEffort }),
+  };
   const models = [];
   for (const provider of llm.listProviders()) {
-    const advertised = await llm.listModels(provider.id);
+    const isCodexProvider = provider.id === policy.lead.provider;
+    const advertised = isCodexProvider && Array.isArray(runtimeModels)
+      ? runtimeModels
+      : await llm.listModels(provider.id);
     for (const entry of advertised) {
-      const configured = policyModel(policy, provider.id, entry.id);
+      const id = isCodexProvider ? codexModelId(entry) : entry.id;
+      const configured = policyModel(policy, provider.id, id);
+      const specialist = isCodexProvider && CODEX_SPECIALIST_MODEL_IDS.includes(id);
+      const isCurrentLead = provider.id === currentLead.provider && id === currentLead.model;
       models.push({
-        route: `${provider.id}/${entry.id}`,
+        route: `${provider.id}/${id}`,
         provider: provider.id,
         providerName: provider.name,
-        id: entry.id,
-        name: entry.name ?? entry.id,
+        id,
+        name: entry.displayName ?? entry.name ?? id,
         description: entry.description,
         modalities: entry.inputModalities ?? ["text"],
-        primaryForNewSession: provider.id === policy.lead.provider && entry.id === policy.lead.model,
-        leadAllowedByPolicy: provider.id === policy.lead.provider && entry.id === policy.lead.model,
-        subagentFromCurrentCodex: provider.id !== policy.lead.provider,
+        ...(isCodexProvider && Array.isArray(entry.supportedReasoningEfforts) ? {
+          supportedReasoningEfforts: supportedReasoningEfforts(entry),
+          defaultReasoningEffort: entry.defaultReasoningEffort,
+        } : {}),
+        primaryForNewSession: isCurrentLead,
+        leadAllowedByPolicy: isCurrentLead,
+        subagentFromCurrentCodex: isCodexProvider ? specialist : true,
         credentialCheckedOnUse: true,
         ...(configured === undefined ? {
-          pricing: null,
-          pricingStatus: "No verified local price policy; do not choose this route for claimed savings.",
+          ...(isCodexProvider ? {
+            delegatedMaxTokensPerStep: specialist ? 16384 : undefined,
+            pricing: null,
+            pricingStatus: "Uses the ChatGPT-authenticated Codex route; subscription usage is separate from DeepSeek API estimates.",
+          } : {
+            pricing: null,
+            pricingStatus: "No verified local price policy; do not choose this route for claimed savings.",
+          }),
         } : {
           tier: configured.tier,
           useFor: configured.useFor,
           avoidFor: configured.avoidFor,
           delegatedMaxTokensPerStep: configured.delegatedMaxTokensPerStep,
           pricing: configured.pricing,
+          ...(configured.offPeakPricing === undefined ? {} : { offPeakPricing: configured.offPeakPricing }),
           pricingStatus: configured.pricing === null
             ? "Official pricing was not found; do not choose this model purely on cost."
-            : `${policy.currency} ${policy.pricingUnit}; verified ${policy.verifiedAt}`,
+            : `${policy.currency} ${policy.pricingUnit}; conservative peak rates used; verified ${policy.verifiedAt}`,
         }),
       });
     }
@@ -233,12 +273,15 @@ export async function liveModelCatalog(llm, policy) {
     pricingVerifiedAt: policy.verifiedAt,
     pricingCurrency: policy.currency,
     pricingUnit: policy.pricingUnit,
-    currentLead: policy.lead,
+    currentLead,
     qualityPolicy: policy.qualityPolicy,
     notes: [
       "This routing policy always keeps ChatGPT Codex as the lead agent.",
       "DeepSeek routes are workers only: Codex delegates bounded work, verifies it, and owns the final answer.",
       "The Codex bridge can delegate only routes marked subagentFromCurrentCodex; do not recommend a worker as the primary model.",
+      "Codex model rows come from the authenticated app-server model/list response. Reasoning efforts are model-specific; use only efforts that the selected row advertises.",
+      "Codex specialists are the explicitly listed GPT-6 Sol, GPT-6 Astra, and GPT-5.6 Terra routes. They are bounded workers, never the lead.",
+      "DeepSeek API estimates use official peak rates as a conservative assumption because the current pricing window is not known. The catalogue also shows official off-peak rates when available.",
       "Registered catalogue presence does not prove that a provider credential has funds; authentication is checked on use."
     ],
     models,
@@ -265,12 +308,12 @@ export function buildDeveloperRoutingInstructions(policy) {
     `- DeepSeek worker responsibilities: ${policy.qualityPolicy.workerResponsibilities.join("; ")}.`,
     `- Never delegate: ${policy.qualityPolicy.neverDelegate.join("; ")}.`,
     `- ${policy.qualityPolicy.verificationContract}`,
-    `- Prefer DeepSeek-V4-Flash for routine execution packets. Use Pro only when Flash's likely rework or reasoning risk outweighs the price difference. Use the experimental vision route only when the user explicitly asks to forward current images.`,
+    `- Prefer deepseek-flash (DeepSeek V4.1 Flash) for routine execution packets. Use DeepSeek V4 Pro only when Flash's likely rework or reasoning risk outweighs the price difference. Use a Codex specialist only for a bounded packet where its model-specific ability is likely to avoid rework.`,
     `- Keep planning, final synthesis, acceptance, authorization-bearing decisions, and uncertain semantic judgment with Codex. Do not lower tests, review depth, evidence requirements, or safety boundaries to save quota.`,
     `- Delegate at most ${policy.qualityPolicy.maximumDelegationsPerTurn} execution packets per user turn. Decompose clean independent packets, but do not split work merely to manufacture model calls and do not run Flash and Pro gratuitously.`,
     `- This Codex route uses ChatGPT authentication and removes OpenAI API keys. The optimization target is the user's finite Codex plan quota. DeepSeek is separately API-billed, so use it when its low measured API cost and demonstrable quality parity justify moving bounded worker effort away from Codex.`,
     `- Never hand leadership to another model. Use delegate_to_dsh_model for worker tasks, then independently assess the evidence and deliver the answer as Codex lead.`,
-    `- Tell the user which model is delegated, why it is suitable, and how its output will be verified. Treat returned cost as an estimate from provider-reported token counts and the dated local price policy.`,
+    `- Tell the user which model is delegated, why it is suitable, and how its output will be verified. Treat returned DeepSeek cost as an estimate from provider-reported token counts and the dated local price policy; use peak rates unless the provider confirms the exact pricing window.`,
   ].join("\n");
 }
 
@@ -333,7 +376,7 @@ export function formatCostEstimate(estimate) {
   if (!estimate.known) return `Estimated model cost unavailable: ${estimate.reason}`;
   const usage = estimate.usage;
   return [
-    `Estimated DeepSeek API cost: ${estimate.currency} $${money(estimate.amount)}`,
-    `(input ${usage.inputTokens}, cache read ${usage.cacheReadTokens}, cache write ${usage.cacheWriteTokens}, output ${usage.outputTokens} tokens; rates verified ${estimate.verifiedAt}).`,
+    `Estimated DeepSeek API cost at conservative peak rates: ${estimate.currency} $${money(estimate.amount)}`,
+    `(input ${usage.inputTokens}, cache read ${usage.cacheReadTokens}, cache write ${usage.cacheWriteTokens}, output ${usage.outputTokens} tokens; peak rates verified ${estimate.verifiedAt}; off-peak eligibility not checked).`,
   ].join(" ");
 }

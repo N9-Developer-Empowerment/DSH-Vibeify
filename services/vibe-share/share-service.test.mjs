@@ -209,10 +209,20 @@ test("an inline photograph becomes the lead when an older snapshot has no lead i
   assert.doesNotMatch(page, /<div class="gallery"><figure class="inline">/);
 });
 
-test("publishing copies the final link and keeps an explicit copy control", () => {
-  assert.match(APP_JS, /await copyPublicLink\(result\.url\)/);
-  assert.match(APP_JS, /Copied to clipboard/);
-  assert.match(APP_JS, /Copy link/);
+test("publishing exposes selectable, copy, and native-share controls only after explicit Publish succeeds", () => {
+  const publishClick = APP_JS.indexOf('publish?.addEventListener("click"');
+  const successfulResponse = APP_JS.indexOf("if (!response.ok) throw new Error(result.error ?? \"Publishing failed\")", publishClick);
+  const shareControls = APP_JS.indexOf("createPublishedShareControls(result.url, snapshot.title)", publishClick);
+  assert.ok(publishClick >= 0);
+  assert.ok(successfulResponse > publishClick);
+  assert.ok(shareControls > successfulResponse);
+  assert.match(APP_JS, /input\.readOnly = true/);
+  assert.match(APP_JS, /input\.addEventListener\("focus", \(\) => input\.select\(\)\)/);
+  assert.match(APP_JS, /navigator\.clipboard\.writeText\(value\)/);
+  assert.match(APP_JS, /Copy is unavailable\. Select the link above to copy it\./);
+  assert.match(APP_JS, /navigator\.share\(\{ title, url: value \}\)/);
+  assert.match(APP_JS, /error\?\.name === "AbortError" \? "cancelled" : "unavailable"/);
+  assert.doesNotMatch(APP_JS, /window\.setInterval|setTimeout\(/);
 });
 
 test("private previews and public articles preserve fixed-provider media as click-to-load embeds", async () => {

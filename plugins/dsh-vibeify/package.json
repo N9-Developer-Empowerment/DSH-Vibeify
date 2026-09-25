@@ -1,6 +1,6 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.15.6",
+  "version": "0.16.0",
   "description": "The Codex-governed Vibe experience for DeepSeek Harness, with optional bounded DeepSeek execution.",
   "type": "module",
   "main": "index.js",
@@ -66,7 +66,7 @@
     }
   },
   "dependencies": {
-    "@openai/codex": "0.147.0"
+    "@openai/codex": "0.157.0"
   },
   "devDependencies": {
     "esbuild": "0.25.9",
@@ -74,13 +74,13 @@
     "react-dom": "18.3.1"
   },
   "peerDependencies": {
-    "@deepseek-ai/dsh-agent": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-llm": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-settings": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-sdk-protocol": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-subagent": "^0.1.1-rc.2",
-    "@deepseek-ai/dsh-user-approval": "^0.1.1-rc.2",
-    "@deepseek-ai/schemastery": "^3.18.1"
+    "@deepseek-ai/dsh-agent": "0.1.5-rc.3",
+    "@deepseek-ai/dsh-llm": "0.1.5-rc.3",
+    "@deepseek-ai/dsh-settings": "0.1.5-rc.3",
+    "@deepseek-ai/dsh-sdk-protocol": "0.1.5-rc.3",
+    "@deepseek-ai/dsh-subagent": "0.1.5-rc.3",
+    "@deepseek-ai/dsh-user-approval": "0.1.5-rc.3",
+    "@deepseek-ai/schemastery": "3.18.2"
   },
   "engines": {
     "node": ">=22"

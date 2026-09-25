@@ -89,7 +89,7 @@ if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
   fi
 fi
 say "Installing or updating DeepSeek Harness..."
-"$project_directory/scripts/install-dsh.sh" --latest || fail "DeepSeek Harness could not be installed. The FAQ explains Node and npm permission problems."
+"$project_directory/scripts/install-dsh.sh" --replace || fail "DeepSeek Harness could not be installed. The FAQ explains Node and npm permission problems."
 
 say "Installing or updating Vibeify..."
 "$project_directory/scripts/install-vibeify.sh" --provider "$provider_mode" || fail "Vibeify could not be added to the DSH profile."

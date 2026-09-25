@@ -7,7 +7,7 @@ function requiredText(value, label) {
 
 export function buildDelegationPacket({ task, acceptance, evidence }) {
   return [
-    "WORKER ROLE: Execute this bounded packet as a DeepSeek worker behind the Codex lead.",
+    "WORKER ROLE: Execute this bounded packet as a specialist worker behind the Codex lead.",
     "Do not redefine the plan, broaden scope, make authorization-bearing decisions, or claim final acceptance.",
     "Codex alone accepts, integrates, and reports the finished result to the user.",
     "",

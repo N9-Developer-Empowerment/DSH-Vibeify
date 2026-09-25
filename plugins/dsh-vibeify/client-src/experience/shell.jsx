@@ -74,16 +74,13 @@ import {
   markVibeActivity,
 } from "./reserve-store.js";
 import { clickToLoadMedia } from "./media-embed.js";
-import { beginSharePreview, shareSnapshotForChunk } from "./share-client.js";
 import {
-  approveSocialPost,
-  cancelSocialPost,
-  loadSocialDesk,
-  prepareSocialPosts,
-  recordManualSocialPost,
-  socialDeskCapabilities,
-} from "./social-desk-client.js";
-import { SocialDeskPanel } from "./social-desk-panel.jsx";
+  beginSharePreview,
+  copyPublicShareUrl,
+  publicShareUrl,
+  sharePublicUrl,
+  shareSnapshotForChunk,
+} from "./share-client.js";
 import {
   mediaFromVisualCandidate,
   publicVisualBriefForChunk,
@@ -149,7 +146,60 @@ function Markdown({ value, title, onLink }) {
   }} />;
 }
 
-function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, socialOpen, socialReadyCount, onChat, onHome, onFind, onSocial, onUpdate, onStop }) {
+function PublicLinkShare({ url, title, label = "Share link" }) {
+  const safeUrl = publicShareUrl(url);
+  const [open, setOpen] = React.useState(false);
+  const [notice, setNotice] = React.useState("");
+  const inputRef = React.useRef(null);
+  const nativeShareAvailable = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  if (safeUrl === null) return null;
+
+  const selectLink = () => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  };
+  const copy = async () => {
+    const copied = await copyPublicShareUrl(safeUrl);
+    if (copied) {
+      setNotice("Link copied.");
+      return;
+    }
+    setNotice("Copy is unavailable. Select the link below to copy it.");
+    selectLink();
+  };
+  const share = async () => {
+    const result = await sharePublicUrl(safeUrl, title);
+    setNotice(result === "cancelled"
+      ? "Sharing cancelled. The link is still available below."
+      : result === "unavailable"
+        ? "The share sheet could not open. Select or copy the link below."
+        : "The share sheet closed. Check the destination if you chose one.");
+    if (result === "unavailable") selectLink();
+  };
+
+  return (
+    <div className="vfx-public-share">
+      <button type="button" className="vfx-share" aria-expanded={open} onClick={() => { setOpen((value) => !value); setNotice(""); }}>
+        <Icon name="share" /> {label}
+      </button>
+      {open ? (
+        <div className="vfx-share-link-panel" aria-label="Share this public link">
+          <label>
+            <span>Public link</span>
+            <input ref={inputRef} type="url" readOnly value={safeUrl} onFocus={(event) => event.currentTarget.select()} onClick={(event) => event.currentTarget.select()} />
+          </label>
+          <div>
+            {nativeShareAvailable ? <button type="button" onClick={share}>Share…</button> : null}
+            <button type="button" onClick={copy}>Copy link</button>
+          </div>
+          {notice === "" ? null : <p role="status">{notice}</p>}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
   const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
   return (
     <header className="vfx-header">
@@ -158,7 +208,6 @@ function Header({ editorialLabel, updateState, libraryOpen, socialAvailable, soc
       </button>
       <span className="vfx-edition">{editorialLabel} · {CATALOG.editorial.label}</span>
       <button type="button" className="vfx-find" aria-pressed={libraryOpen} onClick={onFind}><Icon name="search" /> Find Vibes</button>
-      {socialAvailable ? <button type="button" className="vfx-social-tab" aria-pressed={socialOpen} onClick={onSocial}><Icon name="social" /> Social Desk{socialReadyCount > 0 ? <strong aria-label={`${socialReadyCount} posts ready`}>{socialReadyCount}</strong> : null}</button> : null}
       <button
         type="button"
         className={`vfx-update${updating ? " is-active" : ""}`}
@@ -209,7 +258,7 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, socialAvailable, socialStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onSocial, onChat }) {
+function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
   const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
   const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
   const media = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
@@ -223,6 +272,8 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
   const layout = panelLayoutForChunk(chunk, index);
   const [playerOpen, setPlayerOpen] = React.useState(false);
   const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
+  const shareUrl = contentLink?.href ?? player?.href ?? null;
+  const shareLabel = contentLink === null && player !== null ? "Share media link" : "Share link";
   const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
   return (
     <article
@@ -285,6 +336,7 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
               </a>
             )}
             <div className="vfx-reader-actions">
+              <PublicLinkShare url={shareUrl} title={chunk.title} label={shareLabel} />
               {isWelcome ? <button type="button" className="vfx-chat-cta" onClick={onChat}><Icon name="chat" /> Ask Chat to make a Vibe</button> : null}
               <button
                 type="button"
@@ -295,17 +347,6 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
                 <Icon name="share" />
                 {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
               </button>
-              {socialAvailable ? (
-                <button
-                  type="button"
-                  className="vfx-social-prepare"
-                  disabled={socialStatus === "preparing"}
-                  onClick={() => onSocial(chunk, { media, inlineVisuals, contentLink, embeddedMedia: player })}
-                >
-                  <Icon name="social" />
-                  {socialStatus === "preparing" ? "Preparing…" : socialStatus === "error" ? "Try Social Desk again" : "Prepare social posts"}
-                </button>
-              ) : null}
               {isChatResult || isWelcome ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
             </div>
           </div>
@@ -323,12 +364,6 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
-  const [socialCapability, setSocialCapability] = React.useState(null);
-  const [socialOpen, setSocialOpen] = React.useState(false);
-  const [socialItems, setSocialItems] = React.useState([]);
-  const [socialBusyId, setSocialBusyId] = React.useState(null);
-  const [socialNotice, setSocialNotice] = React.useState(null);
-  const [socialPrepareState, setSocialPrepareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
   const [visualOverrides, setVisualOverrides] = React.useState(() => readVisualCache(browserStorage()));
   const [libraryOpen, setLibraryOpen] = React.useState(false);
   const [libraryQuery, setLibraryQuery] = React.useState("");
@@ -342,7 +377,6 @@ function ExperienceShell({ codexFeatures, connection }) {
   const answersRef = React.useRef(answers);
   const editorialProfileRef = React.useRef(editorialProfile);
   const scheduler = React.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
-  const socialReadyRef = React.useRef(0);
   const touchPull = React.useRef(createPullRefreshState());
   const trackpadPull = React.useRef(createTrackpadPullRefreshState());
   const trackpadSettleTimer = React.useRef(null);
@@ -468,39 +502,6 @@ function ExperienceShell({ codexFeatures, connection }) {
     run();
     return () => { active = false; };
   }, [chunks, connection, state.view]);
-
-  React.useEffect(() => {
-    if (state.view !== "home" || connection?.rpc?.call === undefined) return undefined;
-    let active = true;
-    const discover = async () => {
-      try {
-        const capability = await socialDeskCapabilities(connection);
-        if (!active) return;
-        setSocialCapability(capability);
-        const queue = await loadSocialDesk(connection);
-        if (active) {
-          const next = Array.isArray(queue?.items) ? queue.items : [];
-          socialReadyRef.current = next.filter(({ status }) => status === "ready-to-post").length;
-          setSocialItems(next);
-        }
-      } catch {
-        if (active) setSocialCapability(null);
-      }
-    };
-    void discover();
-    const timer = window.setInterval(() => {
-      if (!active) return;
-      void loadSocialDesk(connection).then((queue) => {
-        if (!active) return;
-        const next = Array.isArray(queue?.items) ? queue.items : [];
-        const ready = next.filter(({ status }) => status === "ready-to-post").length;
-        if (ready > socialReadyRef.current) setSocialNotice(`${ready - socialReadyRef.current} scheduled ${ready - socialReadyRef.current === 1 ? "post is" : "posts are"} ready for your final click.`);
-        socialReadyRef.current = ready;
-        setSocialItems(next);
-      }).catch(() => {});
-    }, 15_000);
-    return () => { active = false; window.clearInterval(timer); };
-  }, [connection, state.view]);
 
   React.useEffect(() => {
     saveExperienceState(browserStorage(), state);
@@ -715,104 +716,18 @@ function ExperienceShell({ codexFeatures, connection }) {
       },
     });
   }, []);
-  const socialSnapshot = React.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => shareSnapshotForChunk({
-    chunk,
-    markdown: markdownWithoutLeadVisual(chunk.markdown),
-    media,
-    inlineVisuals,
-    contentLink,
-    embeddedMedia,
-  }), []);
-  const onPrepareSocial = React.useCallback(async (chunk, details) => {
-    const snapshot = socialSnapshot(chunk, details);
-    if (snapshot === null) {
-      setSocialPrepareState({ chunkId: chunk.id, status: "error" });
-      return;
-    }
-    setSocialPrepareState({ chunkId: chunk.id, status: "preparing" });
-    try {
-      const prepared = await prepareSocialPosts(connection, snapshot);
-      const queue = await loadSocialDesk(connection);
-      setSocialItems(Array.isArray(queue?.items) ? queue.items : (prepared?.items ?? []));
-      setSocialPrepareState({ chunkId: chunk.id, status: "ready" });
-      setSocialNotice(`Prepared ${prepared?.items?.length ?? 0} reviewed channel drafts from “${chunk.title}”.`);
-      setLibraryOpen(false);
-      setSocialOpen(true);
-      window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-    } catch (cause) {
-      setSocialPrepareState({ chunkId: chunk.id, status: "error" });
-      setSocialNotice(cause?.message ?? "Social Desk could not prepare this article.");
-    }
-  }, [connection, socialSnapshot]);
-  const onApproveSocial = React.useCallback(async (item, text, scheduledAt) => {
-    setSocialBusyId(item.id);
-    try {
-      const updated = await approveSocialPost(connection, { id: item.id, revision: item.revision, text, scheduledAt });
-      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
-      setSocialNotice(updated.status === "ready-to-post"
-        ? `${updated.channelLabel} is ready. Copy it, open the composer and make the final public click.`
-        : updated.mode === "official-api"
-          ? `${updated.channelLabel} is approved for optional automatic publishing.`
-          : `${updated.channelLabel} is scheduled locally. Vibeify will mark it Ready to post at that time.`);
-    } catch (cause) {
-      setSocialNotice(cause?.message ?? "That post could not be approved.");
-    } finally {
-      setSocialBusyId(null);
-    }
-  }, [connection]);
-  const onCancelSocial = React.useCallback(async (item) => {
-    setSocialBusyId(item.id);
-    try {
-      const updated = await cancelSocialPost(connection, item.id);
-      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
-      setSocialNotice(`${updated.channelLabel} was removed from the active queue.`);
-    } catch (cause) {
-      setSocialNotice(cause?.message ?? "That post could not be cancelled.");
-    } finally {
-      setSocialBusyId(null);
-    }
-  }, [connection]);
-  const onCopySocial = React.useCallback(async (item) => {
-    try {
-      await navigator.clipboard.writeText(item.text);
-      setSocialNotice(`${item.channelLabel} copy is on your clipboard. Check the real composer, then make the final public click.`);
-    } catch {
-      setSocialNotice("Your browser did not allow clipboard access. Select the post text and copy it manually.");
-    }
-  }, []);
-  const onMarkSocialPosted = React.useCallback(async (item) => {
-    setSocialBusyId(item.id);
-    try {
-      const updated = await recordManualSocialPost(connection, item.id);
-      setSocialItems((current) => current.map((candidate) => candidate.id === updated.id ? updated : candidate));
-      setSocialNotice(`${updated.channelLabel} is recorded as posted.`);
-    } catch (cause) {
-      setSocialNotice(cause?.message ?? "That post could not be marked posted.");
-    } finally {
-      setSocialBusyId(null);
-    }
-  }, [connection]);
   const newestChunks = newestFirst(chunks);
   const librarySummary = vibeLibrarySummary(newestChunks);
   const displayChunks = libraryOpen ? searchableVibeChunks(newestChunks, libraryQuery) : newestChunks;
   const goHome = React.useCallback(() => {
-    setSocialOpen(false);
     setLibraryOpen(false);
     setLibraryQuery("");
     streamRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
   const openLibrary = React.useCallback(() => {
-    setSocialOpen(false);
     setLibraryOpen(true);
     window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
   }, []);
-  const openSocialDesk = React.useCallback(() => {
-    setLibraryOpen(false);
-    setSocialOpen(true);
-    setSocialNotice(null);
-    void loadSocialDesk(connection).then((queue) => setSocialItems(Array.isArray(queue?.items) ? queue.items : [])).catch(() => setSocialNotice("Social Desk could not refresh its local queue."));
-    window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
-  }, [connection]);
   const enterChat = React.useCallback(() => {
     dispatch({ type: "enter-chat" });
     window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
@@ -823,8 +738,6 @@ function ExperienceShell({ codexFeatures, connection }) {
     "timed-out": "Magazine update reached its time limit and stopped.",
     error: "The magazine could not update. Your existing edition is unchanged.",
   }[updateState];
-  const socialReadyCount = socialItems.filter(({ status }) => status === "ready-to-post").length;
-
   return (
     <div className="vfx-shell" data-view={state.view}>
       {state.view === "home" ? (
@@ -841,29 +754,13 @@ function ExperienceShell({ codexFeatures, connection }) {
             editorialLabel={editorialProfile.label}
             updateState={updateState}
             libraryOpen={libraryOpen}
-            socialAvailable={socialCapability !== null}
-            socialOpen={socialOpen}
-            socialReadyCount={socialReadyCount}
             onHome={goHome}
             onFind={openLibrary}
-            onSocial={openSocialDesk}
             onUpdate={startRun}
             onStop={stopRun}
             onChat={enterChat}
           />
-          {socialOpen ? (
-            <SocialDeskPanel
-              capability={socialCapability}
-              items={socialItems}
-              busyId={socialBusyId}
-              notice={socialNotice}
-              onApprove={onApproveSocial}
-              onCancel={onCancelSocial}
-              onCopy={onCopySocial}
-              onMarkPosted={onMarkSocialPosted}
-              onBack={goHome}
-            />
-          ) : <>
+          <>
             <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
               <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
             </div>
@@ -906,21 +803,18 @@ function ExperienceShell({ codexFeatures, connection }) {
                   answer={answers[chunk.id]}
                   skipped={skipped.has(chunk.id)}
                   shareStatus={shareState.chunkId === chunk.id ? shareState.status : "idle"}
-                  socialAvailable={socialCapability !== null}
-                  socialStatus={socialPrepareState.chunkId === chunk.id ? socialPrepareState.status : "idle"}
                   clickToLoad={editorialProfile.clickToLoadMedia}
                   onSave={onSave}
                   onAnswer={onAnswer}
                   onEngage={onEngage}
                   onSkip={onSkip}
                   onShare={onShare}
-                  onSocial={onPrepareSocial}
                   onChat={enterChat}
                 />
               ))}
             </div>
             <footer className="vfx-footer"><span>{libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."}</span><span>Creators credited · sharing stays reviewed</span></footer>
-          </>}
+          </>
         </main>
       ) : null}
     </div>
@@ -1031,11 +925,23 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
 @media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 `;
 
+const PUBLIC_SHARE_CSS = `
+.vfx-public-share { position:relative; text-align:left; }
+.vfx-share-link-panel { position:absolute; z-index:8; top:calc(100% + 8px); right:0; width:min(420px,calc(100vw - 48px)); padding:14px; display:grid; gap:10px; border:1px solid rgba(255,255,255,.18); border-radius:14px; background:#171018; box-shadow:0 16px 42px #0009; }
+.vfx-share-link-panel label { min-width:0; display:grid; gap:6px; color:#b5a7b1; font-size:10px; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+.vfx-share-link-panel input { width:100%; min-height:40px; padding:0 10px; border:1px solid rgba(255,255,255,.17); border-radius:9px; outline:0; color:#fff; background:#0b080c; font:12px/1.4 Inter,"SF Pro Display","Helvetica Neue",sans-serif; letter-spacing:0; text-transform:none; }
+.vfx-share-link-panel input:focus { border-color:#ff9aba; box-shadow:0 0 0 3px rgba(255,117,159,.12); }
+.vfx-share-link-panel>div { display:flex; flex-wrap:wrap; gap:8px; }
+.vfx-share-link-panel>div button { min-height:34px; padding:0 12px; border:1px solid rgba(255,255,255,.18); border-radius:999px; background:rgba(255,255,255,.06); cursor:pointer; font-size:11px; }
+.vfx-share-link-panel p { margin:0; color:#c9bdc5; font-size:11px; line-height:1.4; }
+@media (max-width:560px) { .vfx-share-link-panel { right:-2px; width:min(360px,calc(100vw - 40px)); } }
+`;
+
 function installStyles(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = CSS;
+    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}`;
     document.getElementById(STYLE_ID)?.remove();
     document.head.appendChild(style);
     return () => style.remove();

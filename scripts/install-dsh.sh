@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-tested_version="0.1.1-rc.2"
+tested_version="0.1.5-rc.3"
 target_version="${DSH_VERSION:-$tested_version}"
 replace=false
 use_latest=false

@@ -23,7 +23,7 @@ Every installer supports a non-installing check mode: macOS and Linux accept `--
 3. Double-click **Install DSH Vibeify.command**. If macOS blocks an unsigned community script, right-click it, choose **Open**, and review the prompt.
 4. Choose DeepSeek, ChatGPT, both, or connect later.
 
-The helper checks Node.js, downloads the public GitHub repository, installs or updates the latest official `@deepseek-ai/dsh` release, installs an immutable Vibeify snapshot, runs non-billing checks, and opens the local Web UI. It never requests an API key or account password.
+The helper checks Node.js, downloads the public GitHub repository, installs or updates the qualified `@deepseek-ai/dsh` version pinned by this compatibility bundle, installs an immutable Vibeify snapshot, runs non-billing checks, and opens the local Web UI. It never requests an API key or account password.
 
 If a supported Node.js is missing, the helper opens the official Node.js download page and stops. DSH currently requires Node.js 22.19 or later in the 22.x line, or Node.js 24 or later. Install Node, then run it again.
 
@@ -68,15 +68,15 @@ Requirements:
 
 The currently tested combination is:
 
-- `@deepseek-ai/dsh` `0.1.1-rc.2` (also the official `latest` dist-tag at the time of this release);
+- `@deepseek-ai/dsh` `0.1.5-rc.3` (also the official `latest` dist-tag at the time of this release);
 - `@openai/codex` `0.147.0` inside the governed bridge;
-- DSH Vibeify `0.15.6`.
+- DSH Vibeify `0.16.0`.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.15.6&path:/plugins/dsh-vibeify-experience'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.16.0&path:/plugins/dsh-vibeify-experience'
 ```
 
 This keeps native DSH/DeepSeek in the lead. Use the friendly installer or the
@@ -88,7 +88,7 @@ Clone and install:
 ```bash
 git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
 cd DSH-Vibeify
-./scripts/install-dsh.sh --latest
+./scripts/install-dsh.sh --replace
 ./scripts/install-vibeify.sh --provider deepseek
 ./scripts/doctor.sh
 dsh web
@@ -119,7 +119,7 @@ codex login status
 
 Complete the browser login with the ChatGPT account whose Codex access you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
 
-In DSH, open **Settings → Codex** to choose Frontier, Maximum, Balanced, or Efficient. This page exists only in ChatGPT/combined mode. Frontier—GPT-5.6 Sol with Extra High reasoning—is the default quality-preserving lead.
+In DSH, open **Settings → Codex** to choose Frontier, Maximum, Balanced, or Efficient. This page exists only in ChatGPT/combined mode. GPT-6 Luna with Max reasoning is the default lead; Terra, Sol and Astra are available for justified specialist delegation.
 
 ## Add optional image-source keys
 
@@ -135,21 +135,11 @@ dsh plugin --profile web add --workspace-root ./plugins/dsh-visuals
 
 If `dsh-visuals` is absent or every source is unavailable, Vibeify keeps its built-in unique cover method and remains fully readable.
 
-## Add Vibe Social Desk
+## Manual link sharing
 
-The friendly installers also add the optional `dsh-social-desk` package. It remains quiet until Vibeify discovers its loopback capability; removing it simply hides **Prepare social posts** and the **Social Desk** tab.
+The relaunch requires no social account setup. Copy a public link or use the device’s share action, and make the final post yourself. A private article still requires preview and **Publish public link** before its URL becomes public.
 
-No social account connection is needed. Review and schedule a post; when it becomes **Ready to post**, Vibeify copies the reviewed words and opens the real social composer for the reader's final public click.
-
-Optional unattended posting remains available for advanced owners. Open DSH **Settings → Vibe Social Desk** only to enable a specific official connector, enter the public account field it requires, and save its credential through the write-only password field. The field clears after saving and DSH never reads the secret back into the browser. Never put an access token, app password, account id or account metadata in this repository, an article, a screenshot, a support report or an online chat. Follow [Vibe Social Desk](SOCIAL_DESK.md).
-
-Developer or older manual installations can add it separately:
-
-```bash
-dsh plugin --profile web add --workspace-root ./plugins/dsh-social-desk
-```
-
-No official connector is enabled by default, and every channel works through the reviewed composer hand-off without a key. See [Vibe Social Desk](SOCIAL_DESK.md) for approval, local scheduling, optional connections and restart behaviour.
+The installer updates the legacy `dsh-social-desk` compatibility package so previous scheduled jobs cannot resume. Historical queue data and credentials are preserved; automatic publishing and schedule controls are disabled. See [Sharing](SHARING.md).
 
 ## Verify without a paid call
 
@@ -179,7 +169,7 @@ Choose the platform-appropriate updater or download and run the current friendly
 
 ```bash
 git pull --ff-only
-./scripts/install-dsh.sh --latest
+./scripts/install-dsh.sh --replace
 ./scripts/install-vibeify.sh --provider auto
 ./scripts/doctor.sh
 ```

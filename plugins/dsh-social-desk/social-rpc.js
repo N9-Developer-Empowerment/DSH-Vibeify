@@ -31,6 +31,7 @@ export function registerSocialDeskRpc(ctx, service) {
       } catch (cause) {
         const code = typeof cause?.code === "string" && /^[a-z0-9-]{3,80}$/i.test(cause.code) ? cause.code : cause instanceof TypeError ? "invalid-request" : "social-desk-failed";
         const publicMessages = {
+          disabled: "Legacy Social Desk publishing is disabled. Share a public link instead.",
           "not-found": "That Social Desk item was not found.",
           "invalid-state": "That post has changed state. Refresh Social Desk and review it again.",
           "revision-conflict": "That draft changed. Review the latest copy before approval.",
@@ -44,4 +45,3 @@ export function registerSocialDeskRpc(ctx, service) {
     { authority: "loopback" },
   ));
 }
-

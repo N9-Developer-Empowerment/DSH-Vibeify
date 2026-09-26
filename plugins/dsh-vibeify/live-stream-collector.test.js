@@ -128,6 +128,20 @@ test("current DSH follow releases a closed article before its turn ends", async 
   assert.equal(called.signal.aborted, true);
 });
 
+test("a stalled current-DSH subscription releases the update to submit", async () => {
+  let followSignal;
+  const remote = {
+    async *follow(_request, signal) {
+      followSignal = signal;
+      await new Promise(() => {});
+    },
+  };
+  const live = openLiveChunkStream({ remote, sessionId: "stalled", runId: "refill-stalled", onChunks() {}, subscribeTimeoutMs: 20 });
+  assert.equal(await live.ready, false);
+  assert.equal(followSignal.aborted, true);
+  live.close();
+});
+
 test("ordinary Chat publishes each closed semantic chunk before its turn ends", async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const originalWebSocket = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");

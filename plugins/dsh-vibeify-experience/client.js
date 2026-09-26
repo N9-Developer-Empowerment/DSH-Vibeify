@@ -1841,16 +1841,21 @@ window.__ModuleLoader__.load({
 			  return Object.freeze({ ready: Promise.resolve(false), close() {
 			  } });
 			}
-			function openRemoteStream(remote, sessionId, onFrame) {
+			function openRemoteStream(remote, sessionId, onFrame, timeoutMs) {
 			  const controller = new AbortController();
 			  let resolveReady;
 			  let settled = false;
 			  const ready = new Promise((resolve) => {
 			    resolveReady = resolve;
 			  });
+			  const timer = setTimeout(() => {
+			    controller.abort();
+			    settle(false);
+			  }, timeoutMs);
 			  const settle = (value) => {
 			    if (!settled) {
 			      settled = true;
+			      clearTimeout(timer);
 			      resolveReady(value);
 			    }
 			  };
@@ -1872,6 +1877,7 @@ window.__ModuleLoader__.load({
 			  void run();
 			  return Object.freeze({ ready, close() {
 			    controller.abort();
+			    settle(false);
 			  } });
 			}
 			function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
@@ -1919,13 +1925,13 @@ window.__ModuleLoader__.load({
 			    }
 			  });
 			}
-			function openLiveChunkStream({ remote = null, sessionId, runId, onChunks }) {
+			function openLiveChunkStream({ remote = null, sessionId, runId, onChunks, subscribeTimeoutMs = SUBSCRIBE_TIMEOUT_MS }) {
 			  if (typeof onChunks !== "function") return unavailableStream();
 			  const collector = createLiveChunkCollector({ runId });
 			  if (remote?.follow) return openRemoteStream(remote, sessionId, (frame) => {
 			    const chunks = collector.push(frame);
 			    if (chunks.length > 0) onChunks(chunks);
-			  });
+			  }, subscribeTimeoutMs);
 			  return openMuxStream({
 			    readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
 			    onFrame(frame) {
@@ -1997,19 +2003,34 @@ window.__ModuleLoader__.load({
 			function signal() {
 			  return new AbortController().signal;
 			}
-			async function openingSnapshot(remote, sessionId, maxMessages) {
+			var SESSION_HISTORY_OPEN_TIMEOUT_MS = 1500;
+			async function openingSnapshot(remote, sessionId, maxMessages, timeoutMs) {
 			  const controller = new AbortController();
 			  const iterator = remote.follow({ address: { kind: "session", sessionId }, maxMessages }, controller.signal)[Symbol.asyncIterator]();
+			  let timer;
 			  try {
-			    const first = await iterator.next();
+			    const first = await Promise.race([
+			      iterator.next(),
+			      new Promise((_, reject) => {
+			        timer = setTimeout(() => {
+			          controller.abort();
+			          reject(new Error("Session history opening timed out"));
+			        }, timeoutMs);
+			      })
+			    ]);
 			    if (first.done || first.value?.type !== "snapshot") throw new Error("Session history has no opening snapshot");
 			    return first.value;
 			  } finally {
+			    clearTimeout(timer);
 			    controller.abort();
-			    await iterator.return?.();
+			    try {
+			      void Promise.resolve(iterator.return?.()).catch(() => {
+			      });
+			    } catch {
+			    }
 			  }
 			}
-			function createSessionApi(ctx) {
+			function createSessionApi(ctx, { historyOpenTimeoutMs = SESSION_HISTORY_OPEN_TIMEOUT_MS } = {}) {
 			  const remote = ctx.remote?.session;
 			  if (remote?.create && remote?.prompt && remote?.page && remote?.follow) {
 			    return Object.freeze({
@@ -2024,7 +2045,7 @@ window.__ModuleLoader__.load({
 			      }),
 			      history: ({ sessionId, maxMessages = 50, beforeSeq, throughSeq }) => call(async () => {
 			        if (throughSeq === void 0) {
-			          const opening = await openingSnapshot(remote, sessionId, maxMessages);
+			          const opening = await openingSnapshot(remote, sessionId, maxMessages, historyOpenTimeoutMs);
 			          return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor } };
 			        }
 			        const page = await remote.page({ address: { kind: "session", sessionId }, throughSeq, ...beforeSeq === void 0 ? {} : { beforeSeq }, maxMessages }, signal());

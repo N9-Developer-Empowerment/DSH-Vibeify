@@ -15,20 +15,30 @@ async function call(operation) {
 
 function signal() { return new AbortController().signal; }
 
-async function openingSnapshot(remote, sessionId, maxMessages) {
+export const SESSION_HISTORY_OPEN_TIMEOUT_MS = 1_500;
+
+async function openingSnapshot(remote, sessionId, maxMessages, timeoutMs) {
   const controller = new AbortController();
   const iterator = remote.follow({ address: { kind: "session", sessionId }, maxMessages }, controller.signal)[Symbol.asyncIterator]();
+  let timer;
   try {
-    const first = await iterator.next();
+    const first = await Promise.race([
+      iterator.next(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => { controller.abort(); reject(new Error("Session history opening timed out")); }, timeoutMs);
+      }),
+    ]);
     if (first.done || first.value?.type !== "snapshot") throw new Error("Session history has no opening snapshot");
     return first.value;
   } finally {
+    clearTimeout(timer);
     controller.abort();
-    await iterator.return?.();
+    // A broken transport must not hold the caller while iterator cleanup waits.
+    try { void Promise.resolve(iterator.return?.()).catch(() => {}); } catch { /* closed by abort */ }
   }
 }
 
-export function createSessionApi(ctx) {
+export function createSessionApi(ctx, { historyOpenTimeoutMs = SESSION_HISTORY_OPEN_TIMEOUT_MS } = {}) {
   const remote = ctx.remote?.session;
   if (remote?.create && remote?.prompt && remote?.page && remote?.follow) {
     return Object.freeze({
@@ -43,7 +53,7 @@ export function createSessionApi(ctx) {
       }),
       history: ({ sessionId, maxMessages = 50, beforeSeq, throughSeq }) => call(async () => {
         if (throughSeq === undefined) {
-          const opening = await openingSnapshot(remote, sessionId, maxMessages);
+          const opening = await openingSnapshot(remote, sessionId, maxMessages, historyOpenTimeoutMs);
           return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor } };
         }
         const page = await remote.page({ address: { kind: "session", sessionId }, throughSeq, ...(beforeSeq === undefined ? {} : { beforeSeq }), maxMessages }, signal());

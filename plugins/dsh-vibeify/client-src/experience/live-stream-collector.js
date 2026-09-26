@@ -97,12 +97,13 @@ function unavailableStream() {
   return Object.freeze({ ready: Promise.resolve(false), close() {} });
 }
 
-function openRemoteStream(remote, sessionId, onFrame) {
+function openRemoteStream(remote, sessionId, onFrame, timeoutMs) {
   const controller = new AbortController();
   let resolveReady;
   let settled = false;
   const ready = new Promise((resolve) => { resolveReady = resolve; });
-  const settle = (value) => { if (!settled) { settled = true; resolveReady(value); } };
+  const timer = setTimeout(() => { controller.abort(); settle(false); }, timeoutMs);
+  const settle = (value) => { if (!settled) { settled = true; clearTimeout(timer); resolveReady(value); } };
   const run = async () => {
     try {
       for await (const frame of remote.follow({ address: { kind: "session", sessionId }, assistantStream: true, maxMessages: 50 }, controller.signal)) {
@@ -113,7 +114,7 @@ function openRemoteStream(remote, sessionId, onFrame) {
     finally { settle(false); }
   };
   void run();
-  return Object.freeze({ ready, close() { controller.abort(); } });
+  return Object.freeze({ ready, close() { controller.abort(); settle(false); } });
 }
 
 function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
@@ -167,13 +168,13 @@ function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
  * dedicated update session. Complete closed envelopes are released as soon as
  * their final delimiter arrives; partial prose and worker output are ignored.
  */
-export function openLiveChunkStream({ remote = null, sessionId, runId, onChunks }) {
+export function openLiveChunkStream({ remote = null, sessionId, runId, onChunks, subscribeTimeoutMs = SUBSCRIBE_TIMEOUT_MS }) {
   if (typeof onChunks !== "function") return unavailableStream();
   const collector = createLiveChunkCollector({ runId });
   if (remote?.follow) return openRemoteStream(remote, sessionId, (frame) => {
     const chunks = collector.push(frame);
     if (chunks.length > 0) onChunks(chunks);
-  });
+  }, subscribeTimeoutMs);
   return openMuxStream({
     readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
     onFrame(frame) {

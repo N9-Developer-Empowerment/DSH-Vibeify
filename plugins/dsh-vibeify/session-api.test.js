@@ -51,3 +51,19 @@ test("history closes after the follow snapshot, then pages against its fixed cur
   assert.equal(calls[2][1].throughSeq, 7);
   assert.equal(calls[2][1].beforeSeq, 6);
 });
+
+test("a stalled history opening fails within its bound", async () => {
+  let followSignal;
+  const remote = {
+    create() {}, prompt() {}, page() {},
+    async *follow(_request, signal) {
+      followSignal = signal;
+      await new Promise(() => {});
+    },
+  };
+  const api = createSessionApi({ remote: { session: remote } }, { historyOpenTimeoutMs: 20 });
+  const result = await api.history({ sessionId: "stalled" });
+  assert.equal(result.result.ok, false);
+  assert.match(result.result.error.message, /timed out/i);
+  assert.equal(followSignal.aborted, true);
+});

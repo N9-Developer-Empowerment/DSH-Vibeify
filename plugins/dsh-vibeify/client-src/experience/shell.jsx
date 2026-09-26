@@ -526,10 +526,11 @@ function ExperienceShell({ codexFeatures, connection }) {
         ...selected.values().map(({ imageUrl }) => imageUrl),
         ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl)),
       ]);
-      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) =>
+      const targets = newestFirst(chunks).filter((chunk) =>
         publicVisualBriefForChunk(chunk) !== null
         && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl))
         && !selected.has(chunk.id));
+      const illustrationQueue = [];
       for (const chunk of targets) {
         if (!active) return;
         setVisualStatus((current) => new Map(current).set(chunk.id, "Finding a photograph…"));
@@ -540,19 +541,25 @@ function ExperienceShell({ codexFeatures, connection }) {
           if (await visualImageLoads(candidate.imageUrl)) { visual = candidate; break; }
           excluded.add(candidate.imageUrl);
         }
-        if (visual === undefined && active && codexFeatures) {
-          setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration…"));
-          const generated = await generateVisualForChunk(connection, chunk);
-          if (generated !== null && await visualImageLoads(generated.imageUrl)) visual = generated;
-        }
         if (visual === undefined) {
-          if (active) setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
+          illustrationQueue.push(chunk);
           continue;
         }
         selected.set(chunk.id, visual);
         excluded.add(visual.imageUrl);
         writeVisualCache(browserStorage(), chunk.id, visual);
-        if (active) setVisualOverrides(new Map(selected));
+        if (active) setVisualOverrides((current) => new Map(current).set(chunk.id, visual));
+      }
+      // Finish photograph recovery for the whole issue before slow generation.
+      for (const chunk of illustrationQueue) {
+        if (!active) return;
+        if (codexFeatures) setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration…"));
+        const generated = codexFeatures ? await generateVisualForChunk(connection, chunk) : null;
+        if (generated !== null && await visualImageLoads(generated.imageUrl)) {
+          if (chunksRef.current.some(({ id }) => id === chunk.id)) setVisualOverrides((current) => new Map(current).set(chunk.id, generated));
+        } else if (active) {
+          setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
+        }
       }
     };
     run();

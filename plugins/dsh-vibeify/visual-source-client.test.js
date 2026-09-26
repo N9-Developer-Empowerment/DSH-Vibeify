@@ -99,3 +99,8 @@ test("a public photo in a private Chat result is resolved without transmitting i
   assert.equal(brief.query, 'Editorial photograph');
   assert.doesNotMatch(JSON.stringify(brief), /Private personal/);
 });
+
+test("public image search uses the picture subject rather than a literary headline", () => {
+  const brief = publicVisualBriefForChunk({source:'fresh-stream',kind:'article',title:'Give one line three different jobs',markdown:'![Ruth Asawa wire sculpture](https://upload.wikimedia.org/photo.jpg)\n[Photograph · Creator](https://commons.wikimedia.org/wiki/File:Artwork.jpg)'});
+  assert.equal(brief.query,'Ruth Asawa wire sculpture');
+});

@@ -55,7 +55,7 @@ function relevanceScore(candidate, query) {
   const terms = words(query);
   const imageTerms = new Set(words(`${candidate.alt} ${candidate.tags ?? ""}`));
   const matches = terms.filter((term) => imageTerms.has(term)).length;
-  if (matches === 0) return 0;
+  if (matches < Math.min(terms.length, Math.max(2, Math.ceil(terms.length / 2)))) return 0;
   const exact = cleanText(candidate.alt).toLowerCase().includes(cleanText(query).toLowerCase()) ? 5 : 0;
   const size = (candidate.width ?? 0) >= 1200 && (candidate.height ?? 0) >= 630 ? 2 : 0;
   return exact + matches * 2 + size;

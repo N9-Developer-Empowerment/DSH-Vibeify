@@ -1,7 +1,7 @@
 import { commonsSourceUrlsForMarkdown } from "./feed.js";
 export const VISUAL_RPC_CHANNEL = "/dsh-visuals";
 export const VISUAL_CACHE_KEY = "dsh-vibeify.visuals.v1";
-export const VISUAL_CACHE_VERSION = 1;
+export const VISUAL_CACHE_VERSION = 2;
 export const VISUAL_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_VISUAL_CACHE = 160;
 
@@ -90,7 +90,8 @@ export function publicVisualBriefForChunk(chunk) {
     const sourceUrls = commonsSourceUrlsForMarkdown(chunk.markdown);
     return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
   }
-  const query = cleanText(chunk.title, 180);
+  const imageAlt = typeof chunk.markdown === "string" ? /!\[([^\]]{3,180})\]\(https:\/\//.exec(chunk.markdown)?.[1] : null;
+  const query = cleanText(imageAlt ?? chunk.title, 180);
   if (query === null || query.length < 3) return null;
   return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
 }
@@ -189,7 +190,7 @@ export async function generateVisualForChunk(connection, chunk) {
   const brief = publicVisualBriefForChunk(chunk);
   if (!brief || !connection?.rpc?.call) return null;
   try {
-    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: brief.query });
+    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: cleanText(chunk.title, 180) });
     const result = response?.ok === true ? response.value : null;
     if (!["generated", "cached"].includes(result?.status)) return null;
     return cleanCandidate({ provider: "chatgpt-image", imageUrl: result.imageDataUrl, alt: result.alt, width: result.width, height: result.height });

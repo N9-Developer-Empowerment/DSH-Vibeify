@@ -697,7 +697,7 @@ window.__ModuleLoader__.load({
 			  const sources = /* @__PURE__ */ new Set();
 			  for (let index = 0; index < images.length && sources.size < 4; index += 1) {
 			    const imageUrl = visualSource(images[index][2]);
-			    if (imageUrl === null || !/^(?:upload|thumb)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
+			    if (imageUrl === null || !/^(?:upload|thumb|commons)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
 			    const sourceUrl = captionAfterImage(markdown, images, index)?.sourceUrl;
 			    if (sourceUrl === null || sourceUrl === void 0) continue;
 			    const source = new URL(sourceUrl);
@@ -3406,7 +3406,7 @@ window.__ModuleLoader__.load({
 			// client-src/experience/visual-source-client.js
 			var VISUAL_RPC_CHANNEL = "/dsh-visuals";
 			var VISUAL_CACHE_KEY = "dsh-vibeify.visuals.v1";
-			var VISUAL_CACHE_VERSION = 1;
+			var VISUAL_CACHE_VERSION = 2;
 			var VISUAL_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1e3;
 			var MAX_VISUAL_CACHE = 160;
 			var PUBLIC_SOURCES = Object.freeze(/* @__PURE__ */ new Set(["fresh-stream", "radar-reserve"]));
@@ -3492,7 +3492,8 @@ window.__ModuleLoader__.load({
 			    const sourceUrls = commonsSourceUrlsForMarkdown(chunk.markdown);
 			    return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
 			  }
-			  const query = cleanText5(chunk.title, 180);
+			  const imageAlt = typeof chunk.markdown === "string" ? /!\[([^\]]{3,180})\]\(https:\/\//.exec(chunk.markdown)?.[1] : null;
+			  const query = cleanText5(imageAlt ?? chunk.title, 180);
 			  if (query === null || query.length < 3) return null;
 			  return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
 			}
@@ -3587,7 +3588,7 @@ window.__ModuleLoader__.load({
 			  const brief = publicVisualBriefForChunk(chunk);
 			  if (!brief || !connection?.rpc?.call) return null;
 			  try {
-			    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: brief.query });
+			    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: cleanText5(chunk.title, 180) });
 			    const result = response?.ok === true ? response.value : null;
 			    if (!["generated", "cached"].includes(result?.status)) return null;
 			    return cleanCandidate({ provider: "chatgpt-image", imageUrl: result.imageDataUrl, alt: result.alt, width: result.width, height: result.height });
@@ -4263,7 +4264,8 @@ window.__ModuleLoader__.load({
 			        ...selected.values().map(({ imageUrl }) => imageUrl),
 			        ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl))
 			      ]);
-			      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) => publicVisualBriefForChunk(chunk) !== null && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl)) && !selected.has(chunk.id));
+			      const targets = newestFirst(chunks).filter((chunk) => publicVisualBriefForChunk(chunk) !== null && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl)) && !selected.has(chunk.id));
+			      const illustrationQueue = [];
 			      for (const chunk of targets) {
 			        if (!active) return;
 			        setVisualStatus((current) => new Map(current).set(chunk.id, "Finding a photograph\u2026"));
@@ -4277,19 +4279,24 @@ window.__ModuleLoader__.load({
 			          }
 			          excluded.add(candidate.imageUrl);
 			        }
-			        if (visual === void 0 && active && codexFeatures) {
-			          setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration\u2026"));
-			          const generated = await generateVisualForChunk(connection, chunk);
-			          if (generated !== null && await visualImageLoads(generated.imageUrl)) visual = generated;
-			        }
 			        if (visual === void 0) {
-			          if (active) setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
+			          illustrationQueue.push(chunk);
 			          continue;
 			        }
 			        selected.set(chunk.id, visual);
 			        excluded.add(visual.imageUrl);
 			        writeVisualCache(browserStorage(), chunk.id, visual);
-			        if (active) setVisualOverrides(new Map(selected));
+			        if (active) setVisualOverrides((current) => new Map(current).set(chunk.id, visual));
+			      }
+			      for (const chunk of illustrationQueue) {
+			        if (!active) return;
+			        if (codexFeatures) setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration\u2026"));
+			        const generated = codexFeatures ? await generateVisualForChunk(connection, chunk) : null;
+			        if (generated !== null && await visualImageLoads(generated.imageUrl)) {
+			          if (chunksRef.current.some(({ id }) => id === chunk.id)) setVisualOverrides((current) => new Map(current).set(chunk.id, generated));
+			        } else if (active) {
+			          setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
+			        }
 			      }
 			    };
 			    run();

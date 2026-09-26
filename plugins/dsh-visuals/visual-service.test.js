@@ -217,3 +217,9 @@ test("source recovery never fetches arbitrary supplied URLs", async () => {
   assert.equal(urls.length, 1);
   assert.equal(new URL(urls[0]).searchParams.has('titles'), false);
 });
+
+test("a single generic word in a long headline cannot select an unrelated archival scan", async () => {
+  const service = createVisualService({ getConfig: () => ({ wikimedia: false, openverse: true, pexels: false, pixabay: false }), resolveCredential: async () => undefined,
+    fetchJson: async () => ({ results: [{url:'https://upload.wikimedia.org/book.jpg',foreign_landing_url:'https://commons.wikimedia.org/wiki/File:Book.jpg',title:'The adventures of Philip on his way through the world',creator:'Archivist',license:'pdm',width:2000,height:1400}] }) });
+  assert.equal((await service.search({ query:'How to Remember Him From Admiration to a Year of Practice' })).candidates.length,0);
+});

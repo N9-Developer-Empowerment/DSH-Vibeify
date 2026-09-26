@@ -271,7 +271,7 @@ export function commonsSourceUrlsForMarkdown(markdown) {
   const sources = new Set();
   for (let index = 0; index < images.length && sources.size < 4; index += 1) {
     const imageUrl = visualSource(images[index][2]);
-    if (imageUrl === null || !/^(?:upload|thumb)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
+    if (imageUrl === null || !/^(?:upload|thumb|commons)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
     const sourceUrl = captionAfterImage(markdown, images, index)?.sourceUrl;
     if (sourceUrl === null || sourceUrl === undefined) continue;
     const source = new URL(sourceUrl);

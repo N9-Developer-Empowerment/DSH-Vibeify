@@ -181,6 +181,20 @@ test("an official first-party image can render beside its separate same-origin s
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Artwork and source · Luanti/);
 });
 
+test("a standalone descriptive official source link can credit its first-party photograph", () => {
+  const imageUrl = "https://www.cam.ac.uk/sites/www.cam.ac.uk/files/styles/content-580x288/public/jason-arday.jpg";
+  const sourceUrl = "https://www.cam.ac.uk/news/jason-arday-professorship";
+  const markdown = `![Jason Arday speaking at Cambridge](${imageUrl})\n\n[University of Cambridge appointment story](${sourceUrl})\n\nThe article has a [separate profile](https://example.org/jason).`;
+  assert.deepEqual(remoteVisualForMarkdown(markdown), {
+    imageUrl,
+    sourceUrl,
+    alt: "Jason Arday speaking at Cambridge",
+    credit: "University of Cambridge appointment story",
+  });
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /University of Cambridge appointment story/);
+  assert.deepEqual(contentLinkForMarkdown(markdown), { href: "https://example.org/jason", label: "separate profile" });
+});
+
 test("long magazine pages retain several relevant photographs as visual beats", () => {
   const markdown = [
     "![Jason Arday speaking at a lectern](https://upload.wikimedia.org/wikipedia/commons/a/aa/jason-one.jpg)",

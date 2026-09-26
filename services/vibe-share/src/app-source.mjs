@@ -28,7 +28,41 @@ async function createTypographicCover(value) {
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
+async function createGeneratedIllustrationJpeg(png) {
+  const image = new Image();
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error("The generated illustration could not be drawn"));
+    image.src = png;
+  });
+  if (image.naturalWidth < 1 || image.naturalHeight < 1) throw new Error("The generated illustration is empty");
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d");
+  if (context === null) throw new Error("The generated illustration could not be drawn");
+  for (const maxDimension of [1200, 1000, 840, 700, 560]) {
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    for (const quality of [0.86, 0.72, 0.58]) {
+      const jpeg = canvas.toDataURL("image/jpeg", quality);
+      if (jpeg.startsWith("data:image/jpeg;base64,") && jpeg.length <= 400_023) return jpeg;
+    }
+  }
+  throw new Error("The generated illustration is too large to share");
+}
+
 async function preparePreview(value) {
+  if (value.visual?.kind === "ai-generated" && value.visual.imageUrl?.startsWith("data:image/png;base64,")) {
+    generatedCover = await createGeneratedIllustrationJpeg(value.visual.imageUrl);
+    snapshot = { ...value, visual: value.visual, inlineVisuals: value.inlineVisuals ?? [] };
+    renderSnapshot({ ...snapshot, visual: { ...value.visual, imageUrl: generatedCover } });
+    publish.disabled = false;
+    status.textContent = "Private preview ready. Review this generated illustration before publishing.";
+    return;
+  }
   if (typeof value.visual?.imageUrl === "string" || (Array.isArray(value.inlineVisuals) && value.inlineVisuals.length > 0)) {
     generatedCover = null;
     snapshot = { ...value, visual: value.visual, inlineVisuals: value.inlineVisuals ?? [] };

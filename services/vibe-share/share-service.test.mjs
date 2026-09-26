@@ -114,6 +114,7 @@ class MemoryCovers {
 }
 
 const generatedCover = `data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, ...new Array(2_100).fill(0), 0xff, 0xd9]).toString("base64")}`;
+const generatedPng = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, ...new Array(20).fill(0)]).toString("base64")}`;
 
 test("public rendering escapes raw HTML while preserving safe article links", () => {
   const html = markdownToHtml('<script>alert("private")</script>\n\n[Safe](https://example.org/story)');
@@ -329,6 +330,31 @@ test("the preview keeps the Vibe lead image and prepares a JPEG only for image-f
   assert.equal(publicCover, cover);
 });
 
+test("the private preview rasterizes a generated PNG to the exact JPEG sent for publication", async () => {
+  const draws = [];
+  const context = { fillRect() {}, drawImage(...args) { draws.push(args); } };
+  const canvas = { width: 0, height: 0, getContext() { return context; }, toDataURL(type) {
+    assert.equal(type, "image/jpeg");
+    return generatedCover;
+  } };
+  class ImageStub {
+    naturalWidth = 1600;
+    naturalHeight = 900;
+    set src(value) { assert.equal(value, generatedPng); this.onload(); }
+  }
+  const document = { getElementById() { return null; }, querySelectorAll() { return []; }, createElement(name) {
+    assert.equal(name, "canvas");
+    return canvas;
+  } };
+  const window = { opener: null, addEventListener() {} };
+  const jpeg = await runInNewContext(`${APP_JS}\ncreateGeneratedIllustrationJpeg(${JSON.stringify(generatedPng)})`, { document, window, Image: ImageStub });
+  assert.equal(jpeg, generatedCover);
+  assert.equal(canvas.width, 1200);
+  assert.equal(canvas.height, 675);
+  assert.deepEqual(draws[0].slice(1), [0, 0, 1200, 675]);
+  assert.match(APP_JS, /renderSnapshot\(\{ \.\.\.snapshot, visual: \{ \.\.\.value\.visual, imageUrl: generatedCover \} \}\)/);
+});
+
 test("an unrelated window message cannot consume the private share transfer listener", async () => {
   const listeners = new Map();
   const sent = [];
@@ -397,6 +423,67 @@ test("a text-only public page uses its generated editorial cover", async () => {
   assert.equal(covers.rows.size, 1);
   const removedImage = await handleRequest(new Request(stored.visual.imageUrl), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
   assert.equal(removedImage.status, 404);
+});
+
+test("an explicitly published generated illustration stores only its previewed JPEG and keeps its label", async () => {
+  const db = new MemoryDb();
+  const covers = new MemoryCovers();
+  const generated = {
+    ...snapshot,
+    visual: {
+      imageUrl: generatedPng,
+      sourceUrl: "https://openai.com/index/image-generation/",
+      alt: "An imagined concert stage",
+      credit: "Generated illustration · ChatGPT",
+      kind: "ai-generated",
+    },
+  };
+  const request = (cover) => new Request(`${origin}/api/articles`, {
+    method: "POST", headers: { origin, "content-type": "application/json" },
+    body: JSON.stringify({ snapshot: generated, generatedCover: cover, turnstileToken: "local-test" }),
+  });
+  const env = { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" };
+  const missing = await handleRequest(request(null), env);
+  assert.equal(missing.status, 400);
+  assert.equal(db.rows.size, 0);
+
+  const response = await handleRequest(request(generatedCover), env);
+  assert.equal(response.status, 201);
+  const created = await response.json();
+  const storedJson = db.rows.get(created.slug).snapshot_json;
+  assert.doesNotMatch(storedJson, /data:image|base64|private-session|must never cross/);
+  const stored = JSON.parse(storedJson);
+  assert.equal(stored.visual.kind, "ai-generated");
+  assert.equal(stored.visual.credit, "Generated illustration · ChatGPT");
+  assert.equal(stored.visual.imageUrl, `${origin}/i/${created.slug}.jpg`);
+  const image = await handleRequest(new Request(stored.visual.imageUrl), env);
+  assert.equal(image.status, 200);
+  assert.deepEqual(Buffer.from(await image.arrayBuffer()), Buffer.from(generatedCover.split(",")[1], "base64"));
+  const page = await handleRequest(new Request(created.url), env);
+  const html = await page.text();
+  assert.match(html, /Generated illustration · ChatGPT/);
+  assert.match(html, new RegExp(`<meta property="og:image" content="${origin.replaceAll(".", "\\.")}\\/i\\/${created.slug}\\.jpg">`));
+});
+
+test("a generated PNG over the ordinary article limit publishes without persisting its base64", async () => {
+  const db = new MemoryDb();
+  const covers = new MemoryCovers();
+  const bytes = Buffer.alloc(1_100_000);
+  Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(bytes);
+  const png = `data:image/png;base64,${bytes.toString("base64")}`;
+  const body = JSON.stringify({
+    snapshot: { ...snapshot, visual: { imageUrl: png, sourceUrl: "https://openai.com/index/image-generation/", alt: "An imagined concert stage", credit: "Generated illustration · ChatGPT", kind: "ai-generated" } },
+    generatedCover,
+    turnstileToken: "local-test",
+  });
+  assert.ok(Buffer.byteLength(body) > 1_000_000);
+  const response = await handleRequest(new Request(`${origin}/api/articles`, {
+    method: "POST", headers: { origin, "content-type": "application/json", "content-length": String(Buffer.byteLength(body)) }, body,
+  }), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" });
+  assert.equal(response.status, 201);
+  const stored = [...db.rows.values()][0].snapshot_json;
+  assert.ok(stored.length < 20_000);
+  assert.doesNotMatch(stored, /data:image\/png|base64/);
 });
 
 test("publishing and republishing preserve the reviewed Vibe lead image in the article and social preview", async () => {

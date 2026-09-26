@@ -72,7 +72,7 @@ export async function sharePublicUrl(value, title, navigatorObject = globalThis.
 
 export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
   const publicPhoto = media?.episode?.photo;
-  const remoteImageUrl = typeof media?.externalUrl === "string" && media.externalUrl.startsWith("https://")
+  const remoteImageUrl = typeof media?.externalUrl === "string" && (media.externalUrl.startsWith("https://") || (media.kind === "ai-generated" && media.externalUrl.startsWith("data:image/png;base64,")))
     ? media.externalUrl
     : null;
   const visual = remoteImageUrl !== null ? {

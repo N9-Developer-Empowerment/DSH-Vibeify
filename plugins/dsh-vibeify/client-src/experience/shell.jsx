@@ -90,6 +90,7 @@ import {
   searchVisualForChunk,
   writeVisualCache,
   visualImageLoads,
+  generateVisualForChunk,
 } from "./visual-source-client.js";
 import {
   boundMagazinePresentation,
@@ -263,7 +264,7 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, visualOverride, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+function StreamChunk({ chunk, index, visualOverride, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
   const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
   const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
   const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
@@ -313,6 +314,7 @@ function StreamChunk({ chunk, index, visualOverride, failedVisuals, onVisualFail
         </figure>
       ) : null}
       <div className="vfx-chunk-copy">
+        {media?.kind === "typography" && visualStatus ? <p role="status" className="vfx-visual-status">{visualStatus}</p> : null}
         <div className="vfx-chunk-heading">
           <div><span>{chunk.kind}</span><h2 id={`vfx-title-${chunk.id}`}>{chunk.title}</h2></div>
           {isChatResult ? null : (
@@ -380,6 +382,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
+  const [visualStatus, setVisualStatus] = React.useState(() => new Map());
   const [failedVisuals, setFailedVisuals] = React.useState(() => new Set());
   const onVisualFailure = React.useCallback((url) => setFailedVisuals((current) => current.has(url) ? current : new Set([...current, url])), []);
   const [visualOverrides, setVisualOverrides] = React.useState(() => readVisualCache(browserStorage()));
@@ -516,7 +519,7 @@ function ExperienceShell({ codexFeatures, connection }) {
         }
       }
       if (!active || visualCapability.current !== "available") return;
-      const selected = readVisualCache(browserStorage());
+      const selected = new Map([...readVisualCache(browserStorage()), ...visualOverrides]);
       for (const [id, item] of selected) if (failedVisuals.has(item.imageUrl)) selected.delete(id);
       const excluded = new Set([
         ...failedVisuals,
@@ -529,6 +532,7 @@ function ExperienceShell({ codexFeatures, connection }) {
         && !selected.has(chunk.id));
       for (const chunk of targets) {
         if (!active) return;
+        setVisualStatus((current) => new Map(current).set(chunk.id, "Finding a photograph…"));
         const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
         let visual;
         for (const candidate of candidates) {
@@ -536,7 +540,15 @@ function ExperienceShell({ codexFeatures, connection }) {
           if (await visualImageLoads(candidate.imageUrl)) { visual = candidate; break; }
           excluded.add(candidate.imageUrl);
         }
-        if (visual === undefined) continue;
+        if (visual === undefined && active && codexFeatures) {
+          setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration…"));
+          const generated = await generateVisualForChunk(connection, chunk);
+          if (generated !== null && await visualImageLoads(generated.imageUrl)) visual = generated;
+        }
+        if (visual === undefined) {
+          if (active) setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
+          continue;
+        }
         selected.set(chunk.id, visual);
         excluded.add(visual.imageUrl);
         writeVisualCache(browserStorage(), chunk.id, visual);
@@ -843,6 +855,7 @@ function ExperienceShell({ codexFeatures, connection }) {
                   chunk={chunk}
                   index={index}
                   visualOverride={visualOverrides.get(chunk.id)}
+                  visualStatus={visualStatus.get(chunk.id)}
                   failedVisuals={failedVisuals}
                   onVisualFailure={onVisualFailure}
                   saved={state.savedChunkIds.includes(chunk.id)}

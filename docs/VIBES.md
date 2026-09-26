@@ -72,3 +72,23 @@ Editorial direction is the one content-setting exception in this panel: it inten
 Developers can add one entry to `VIBE_PRESETS` in `plugins/dsh-vibeify/client-src/legacy-client.template.js`, then run `npm run build:client`. Use existing DSH CSS variables so the palette remains compatible with DSH components. Every palette should include readable foreground/background contrast and visible focus states.
 
 After changing the client, run the repository validation and reinstall the local DSH bundle. Start a new DSH process only after active tasks have finished.
+
+### Photograph recovery and generated illustrations
+
+Magazine images are checked against their original source metadata. Commons
+file links (including filenames with parentheses) and Commons thumbnails are
+supported. A missing licence in an old caption can be recovered from Commons;
+new captions must include the verified licence. A selected replacement must
+load at a usable size before it is cached. Failed photos trigger another search
+instead of silently swapping in unrelated catalogue artwork.
+
+In ChatGPT mode, public magazine stories can use the installed Codex image tool
+as a last resort after image search. Only the public story title is supplied;
+private Chat titles, reader settings and history are not sent. Generation uses
+the existing ChatGPT sign-in, a three-minute timeout, one concurrent job and four
+attempts per day. Successful PNGs are cached locally and labelled Generated
+illustration. If generation is unavailable or the limit is reached, the card
+states that an image is still needed. A text cover is not an AI illustration.
+Provider-neutral mode does not silently invoke Codex. Sharing carries the chosen
+photograph or illustration to the private preview; publication remains an
+explicit reader action.

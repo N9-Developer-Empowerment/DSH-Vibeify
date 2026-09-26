@@ -134,16 +134,18 @@ async function createArticle(request, env, url) {
   if (db === undefined) return json({ error: "Publishing storage is not configured" }, 503);
   const requestOrigin = request.headers.get("origin");
   if (requestOrigin !== url.origin) return json({ error: "This publish request did not come from the share preview" }, 403);
-  if (Number(request.headers.get("content-length") ?? 0) > 450_000) return json({ error: "Article is too large" }, 413);
+  if (Number(request.headers.get("content-length") ?? 0) > 4_500_000) return json({ error: "Article is too large" }, 413);
   let body;
   try { body = await request.json(); } catch { return json({ error: "Invalid article request" }, 400); }
   const snapshot = cleanShareSnapshot(body?.snapshot);
   if (snapshot === null) return json({ error: "Article failed the public-share privacy contract" }, 400);
-  // A selected Vibe image stays selected through publication. Older clients may
-  // still send an unused fallback cover alongside it; ignore that cover.
-  const generatedCover = hasShareVisual(snapshot) ? null : cleanGeneratedCover(body?.generatedCover);
-  if (!hasShareVisual(snapshot) && generatedCover === null) return json({ error: "A public article needs an image or an editorial cover" }, 400);
-  if (generatedCover !== null && coverStore(env) === undefined) return json({ error: "Unique editorial cover storage is not configured" }, 503);
+  const generatedIllustration = snapshot.visual?.kind === "ai-generated" && snapshot.visual.imageUrl.startsWith("data:image/png;base64,");
+  if (!generatedIllustration && Number(request.headers.get("content-length") ?? 0) > 450_000) return json({ error: "Article is too large" }, 413);
+  // A selected web image stays selected. A generated PNG is replaced by the
+  // JPEG already shown in the private preview, and only that JPEG is stored.
+  const generatedCover = generatedIllustration || !hasShareVisual(snapshot) ? cleanGeneratedCover(body?.generatedCover) : null;
+  if ((generatedIllustration || !hasShareVisual(snapshot)) && generatedCover === null) return json({ error: "A public article needs a prepared image or editorial cover" }, 400);
+  if (generatedCover !== null && coverStore(env) === undefined) return json({ error: "Article image storage is not configured" }, 503);
   if (!await verifyPublishProtection(body?.turnstileToken, request, env)) return json({ error: "Publishing protection could not approve this request. Please try again later." }, 403);
 
   const now = Date.now();
@@ -154,8 +156,13 @@ async function createArticle(request, env, url) {
   let slug;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     slug = randomToken(9);
-    const fallbackVisual = generatedCover === null ? null : typographicVisual(url, slug, snapshot.title);
-    const initialSnapshot = fallbackVisual === null ? snapshot : snapshotWithVisuals(snapshot, [fallbackVisual]);
+    const fallbackVisual = generatedCover === null || generatedIllustration ? null : typographicVisual(url, slug, snapshot.title);
+    const hostedIllustration = generatedIllustration
+      ? Object.freeze({ ...snapshot.visual, imageUrl: `${url.origin}/i/${slug}.jpg` })
+      : null;
+    const initialSnapshot = hostedIllustration !== null
+      ? Object.freeze({ ...snapshot, visual: hostedIllustration })
+      : fallbackVisual === null ? snapshot : snapshotWithVisuals(snapshot, [fallbackVisual]);
     try {
       await db.prepare("INSERT INTO articles (slug, snapshot_json, created_at, expires_at, delete_token_hash) VALUES (?, ?, ?, ?, ?)")
         .bind(slug, JSON.stringify(initialSnapshot), now, expiresAt, deleteTokenHash).run();
@@ -170,7 +177,7 @@ async function createArticle(request, env, url) {
       await coverStore(env).put(`covers/${slug}.jpg`, generatedCover, { httpMetadata: { contentType: "image/jpeg", cacheControl: "public, max-age=31536000, immutable" } });
     } catch {
       await db.prepare("DELETE FROM articles WHERE slug = ?").bind(slug).run();
-      return json({ error: "The editorial cover could not be stored" }, 503);
+      return json({ error: "The article image could not be stored" }, 503);
     }
   }
 

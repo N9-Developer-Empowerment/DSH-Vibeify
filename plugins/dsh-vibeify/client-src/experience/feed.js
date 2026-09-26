@@ -233,17 +233,19 @@ function visualSource(value) {
   }
 }
 
-function visualCaption(line) {
+function visualCaption(line, allowDescriptive = false) {
   const text = String(line ?? "").trim().replace(/^[-*]\s+/, "").replace(/^[*_]/, "");
   const prefix = /^(photo(?:graph)?|image|visual|artwork|graphic)(?:\s+(?:source|credit))?\s*:\s*/i.exec(text);
   const linkText = text.slice(prefix?.[0].length ?? 0);
   const link = SOURCE_LINK_PATTERN.exec(linkText);
-  if (link === null || (prefix === null && !VISUAL_CREDIT_LABEL.test(link[1]))) return null;
+  if (link === null) return null;
   const suffix = linkText.slice(link[0].length).replace(/[*.\s]+$/g, "").trim();
   if (suffix.length > 100 || /\]\(|https?:\/\//i.test(suffix)) return null;
+  const explicitCredit = prefix !== null || VISUAL_CREDIT_LABEL.test(link[1]);
+  if (!explicitCredit && (!allowDescriptive || suffix !== "")) return null;
   const credit = [prefix?.[1], link[1], suffix.replace(/^[,;·—–\s]+/, "")]
     .filter(Boolean).join(" · ").replace(/\s+/g, " ").trim();
-  return { sourceUrl: visualSource(link[2]), credit };
+  return { sourceUrl: visualSource(link[2]), credit, explicitCredit };
 }
 
 function captionAfterImage(markdown, images, index) {
@@ -251,7 +253,15 @@ function captionAfterImage(markdown, images, index) {
   const start = (image.index ?? 0) + image[0].length;
   const end = images[index + 1]?.index ?? markdown.length;
   const line = markdown.slice(start, end).split(/\r?\n/).find((value) => value.trim().length > 0);
-  return visualCaption(line);
+  const caption = visualCaption(line, true);
+  if (caption === null || caption.sourceUrl === null || caption.explicitCredit) return caption;
+  const imageUrl = visualSource(image[2]);
+  if (imageUrl === null) return null;
+  const imagePage = new URL(imageUrl);
+  const sourcePage = new URL(caption.sourceUrl);
+  return imagePage.hostname.toLowerCase() === sourcePage.hostname.toLowerCase()
+    && IMAGE_FILE_PATH.test(imagePage.pathname)
+    && !IMAGE_FILE_PATH.test(sourcePage.pathname) ? caption : null;
 }
 
 /** Public Commons file pages can be checked for exact licence metadata before display. */
@@ -351,7 +361,7 @@ export function markdownWithoutLeadVisual(markdown) {
   return markdown
     .replace(IMAGE_PATTERN, "")
     .split(/\r?\n/)
-    .filter((line) => !creditUrls.has(visualCaption(line)?.sourceUrl))
+    .filter((line) => !creditUrls.has(visualCaption(line, true)?.sourceUrl))
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/^\s+/, "");

@@ -39,6 +39,12 @@ function cleanHttps(value, hosts = null) {
 
 function cleanCandidate(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  if (value.provider === "chatgpt-image") {
+    const prefix = "data:image/png;base64,";
+    if (typeof value.imageUrl !== "string" || !value.imageUrl.startsWith(prefix) || value.imageUrl.length > 4_000_022 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value.imageUrl.slice(prefix.length))) return null;
+    try { if (atob(value.imageUrl.slice(prefix.length)).slice(0, 8) !== "\x89PNG\r\n\x1a\n") return null; } catch { return null; }
+    return Object.freeze({ provider: "chatgpt-image", imageUrl: value.imageUrl, sourceUrl: "https://openai.com/index/image-generation/", alt: cleanText(value.alt, 240) ?? "Generated editorial illustration", creator: "ChatGPT", credit: "Generated illustration · ChatGPT", license: "Generated illustration", width: value.width, height: value.height, score: 0 });
+  }
   const provider = Object.hasOwn(PROVIDER_HOSTS, value.provider) ? value.provider : null;
   if (provider === null) return null;
   const imageUrl = cleanHttps(value.imageUrl, PROVIDER_HOSTS[provider]);
@@ -78,7 +84,12 @@ export function cleanVisualSearchResult(value) {
 }
 
 export function publicVisualBriefForChunk(chunk) {
-  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || !PUBLIC_SOURCES.has(chunk.source)) return null;
+  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire") return null;
+  if (!PUBLIC_SOURCES.has(chunk.source)) {
+    // Resolve an explicitly linked public photograph without sending private prose or title.
+    const sourceUrls = commonsSourceUrlsForMarkdown(chunk.markdown);
+    return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
+  }
   const query = cleanText(chunk.title, 180);
   if (query === null || query.length < 3) return null;
   return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
@@ -115,6 +126,7 @@ export function writeVisualCache(storage, chunkId, visual, now = Date.now()) {
   const id = cleanText(chunkId, 96);
   const cleaned = cleanCandidate(visual);
   if (id === null || cleaned === null || !Number.isFinite(now) || now <= 0 || storage === null || typeof storage.setItem !== "function") return false;
+  if (cleaned.provider === "chatgpt-image") return false; // Bitmap persists in the host cache; avoid filling browser storage.
   const entries = cacheDocument(storage).entries.filter((entry) => entry?.chunkId !== id && Number(now) - Number(entry?.selectedAt) <= VISUAL_CACHE_TTL_MS);
   entries.push({ chunkId: id, selectedAt: now, visual: cleaned });
   try {
@@ -145,7 +157,7 @@ export function mediaFromVisualCandidate(visual, fallbackArtwork, mode = "cinema
   const cleaned = cleanCandidate(visual);
   if (cleaned === null) return null;
   return Object.freeze({
-    kind: cleaned.provider === "pexels" || cleaned.provider === "pixabay" ? "photograph" : "editorial-image",
+    kind: cleaned.provider === "chatgpt-image" ? "ai-generated" : cleaned.provider === "pexels" || cleaned.provider === "pixabay" ? "photograph" : "editorial-image",
     externalUrl: cleaned.imageUrl,
     fallbackArtwork,
     alt: cleaned.alt,
@@ -170,4 +182,16 @@ export function visualImageLoads(url, ImageClass = globalThis.Image, timeoutMs =
     image.onerror = () => finish(false);
     image.src = url;
   });
+}
+
+export async function generateVisualForChunk(connection, chunk) {
+  if (!PUBLIC_SOURCES.has(chunk?.source) || chunk.kind === "questionnaire") return null;
+  const brief = publicVisualBriefForChunk(chunk);
+  if (!brief || !connection?.rpc?.call) return null;
+  try {
+    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: brief.query });
+    const result = response?.ok === true ? response.value : null;
+    if (!["generated", "cached"].includes(result?.status)) return null;
+    return cleanCandidate({ provider: "chatgpt-image", imageUrl: result.imageDataUrl, alt: result.alt, width: result.width, height: result.height });
+  } catch { return null; }
 }

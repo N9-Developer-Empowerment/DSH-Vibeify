@@ -93,3 +93,9 @@ test("failed and tiny images are rejected before selection, usable photographs p
   assert.equal(await visualImageLoads("tiny", Photo), false);
   assert.equal(await visualImageLoads("usable", Photo), true);
 });
+
+test("a public photo in a private Chat result is resolved without transmitting its title", () => {
+  const brief = publicVisualBriefForChunk({source:'chat-directed', kind:'article', title:'Private personal notes', markdown:'![A public photo](https://upload.wikimedia.org/photo.jpg)\n[Photograph · Someone](https://commons.wikimedia.org/wiki/File:Public_photo.jpg)'});
+  assert.equal(brief.query, 'Editorial photograph');
+  assert.doesNotMatch(JSON.stringify(brief), /Private personal/);
+});

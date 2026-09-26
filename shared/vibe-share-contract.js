@@ -7,6 +7,9 @@ const MAX_TITLE = 180;
 const MAX_MARKDOWN = 16_000;
 const MAX_LABEL = 160;
 const MAX_ALT = 240;
+const MAX_GENERATED_PNG_BYTES = 3_000_000;
+const GENERATED_IMAGE_SOURCE = "https://openai.com/index/image-generation/";
+const GENERATED_IMAGE_CREDIT = "Generated illustration · ChatGPT";
 const ARTICLE_KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 const VISUAL_KINDS = new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
@@ -42,17 +45,37 @@ function cleanHttps(value) {
   }
 }
 
-function cleanVisual(candidate) {
+function cleanGeneratedPng(value) {
+  const prefix = "data:image/png;base64,";
+  if (typeof value !== "string" || !value.startsWith(prefix) || value.length > prefix.length + 4_000_000) return null;
+  const base64 = value.slice(prefix.length);
+  if (base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) return null;
+  try {
+    const binary = atob(base64);
+    return binary.length <= MAX_GENERATED_PNG_BYTES && binary.slice(0, 8) === "\x89PNG\r\n\x1a\n" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function cleanVisual(candidate, allowGeneratedBitmap = false) {
   if (candidate === null || typeof candidate !== "object") return null;
-  const imageUrl = cleanHttps(candidate.imageUrl);
+  const generatedPng = allowGeneratedBitmap && candidate.kind === "ai-generated" ? cleanGeneratedPng(candidate.imageUrl) : null;
+  const imageUrl = typeof candidate.imageUrl === "string" && candidate.imageUrl.startsWith("data:")
+    ? generatedPng
+    : cleanHttps(candidate.imageUrl);
   const sourceUrl = cleanHttps(candidate.sourceUrl);
   const alt = cleanText(candidate.alt, MAX_ALT);
   const credit = cleanText(candidate.credit, MAX_LABEL);
   if (imageUrl === null || sourceUrl === null || alt === null || credit === null) return null;
-  const imageHost = new URL(imageUrl).hostname.toLowerCase();
-  const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
-  const family = REUSABLE_IMAGE_FAMILIES.find((row) => row.image.test(imageHost));
-  if (family !== undefined && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
+  if (generatedPng !== null) {
+    if (sourceUrl !== GENERATED_IMAGE_SOURCE || credit !== GENERATED_IMAGE_CREDIT) return null;
+  } else {
+    const imageHost = new URL(imageUrl).hostname.toLowerCase();
+    const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
+    const family = REUSABLE_IMAGE_FAMILIES.find((row) => row.image.test(imageHost));
+    if (family !== undefined && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
+  }
   const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
   const inferredKind = /\bphotograph|\bphoto\b/i.test(credit)
     ? "photograph"
@@ -119,7 +142,7 @@ export function cleanShareSnapshot(candidate, now = Date.now()) {
   if (title === null || kind === null || markdown === null || !Number.isFinite(publishedAt) || publishedAt <= 0) return null;
   if (!Number.isFinite(now) || now <= 0 || publishedAt > now + 5 * 60 * 1000) return null;
 
-  const visual = cleanVisual(candidate.visual);
+  const visual = cleanVisual(candidate.visual, true);
   const inlineVisuals = [];
   const seen = new Set(visual === null ? [] : [visual.imageUrl]);
   for (const row of Array.isArray(candidate.inlineVisuals) ? candidate.inlineVisuals : []) {

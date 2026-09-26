@@ -100,6 +100,17 @@ test("public Commons visuals retain verified licences and reject bare or restric
   assert.equal(cleanShareSnapshot({ ...base, visual: { ...thumb, credit: "Photograph · Example Creator · CC BY-ND 4.0" } }, NOW).visual, null);
 });
 
+test("only a bounded ChatGPT-generated PNG can cross as a generated visual", () => {
+  const png = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, ...new Array(20).fill(0)]).toString("base64")}`;
+  const base = { version: SHARE_SNAPSHOT_VERSION, title: "A generated scene", kind: "image", markdown: "Finished public copy.", publishedAt: NOW };
+  const visual = { imageUrl: png, sourceUrl: "https://openai.com/index/image-generation/", alt: "An imagined concert stage", credit: "Generated illustration · ChatGPT", kind: "ai-generated" };
+  assert.equal(cleanShareSnapshot({ ...base, visual }, NOW).visual.imageUrl, png);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...visual, kind: "photograph" } }, NOW).visual, null);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...visual, credit: "Photograph · ChatGPT" } }, NOW).visual, null);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...visual, imageUrl: "data:image/svg+xml;base64,PHN2Zz4=" } }, NOW).visual, null);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...visual, imageUrl: `${png}${"A".repeat(4_300_000)}` } }, NOW).visual, null);
+});
+
 test("the public contract preserves only fixed-provider click-to-load media", () => {
   const youtube = cleanShareSnapshot({
     version: SHARE_SNAPSHOT_VERSION,

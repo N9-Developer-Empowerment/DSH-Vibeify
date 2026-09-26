@@ -12,13 +12,14 @@
     ".codex-plugin",
     "cordis.patch.yml",
     "index.js",
+    "image-generation.js",
     "settings.js",
     "skills",
     "visual-rpc.js",
     "visual-service.js"
   ],
   "scripts": {
-    "check": "node --check index.js && node --check settings.js && node --check visual-rpc.js && node --check visual-service.js",
+    "check": "node --check index.js && node --check image-generation.js && node --check settings.js && node --check visual-rpc.js && node --check visual-service.js",
     "test": "node --test *.test.js"
   },
   "keywords": [

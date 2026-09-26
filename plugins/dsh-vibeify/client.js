@@ -665,23 +665,31 @@ window.__ModuleLoader__.load({
 			    return null;
 			  }
 			}
-			function visualCaption(line) {
+			function visualCaption(line, allowDescriptive = false) {
 			  const text = String(line ?? "").trim().replace(/^[-*]\s+/, "").replace(/^[*_]/, "");
 			  const prefix = /^(photo(?:graph)?|image|visual|artwork|graphic)(?:\s+(?:source|credit))?\s*:\s*/i.exec(text);
 			  const linkText = text.slice(prefix?.[0].length ?? 0);
 			  const link = SOURCE_LINK_PATTERN.exec(linkText);
-			  if (link === null || prefix === null && !VISUAL_CREDIT_LABEL.test(link[1])) return null;
+			  if (link === null) return null;
 			  const suffix = linkText.slice(link[0].length).replace(/[*.\s]+$/g, "").trim();
 			  if (suffix.length > 100 || /\]\(|https?:\/\//i.test(suffix)) return null;
+			  const explicitCredit = prefix !== null || VISUAL_CREDIT_LABEL.test(link[1]);
+			  if (!explicitCredit && (!allowDescriptive || suffix !== "")) return null;
 			  const credit = [prefix?.[1], link[1], suffix.replace(/^[,;·—–\s]+/, "")].filter(Boolean).join(" \xB7 ").replace(/\s+/g, " ").trim();
-			  return { sourceUrl: visualSource(link[2]), credit };
+			  return { sourceUrl: visualSource(link[2]), credit, explicitCredit };
 			}
 			function captionAfterImage(markdown, images, index) {
 			  const image = images[index];
 			  const start = (image.index ?? 0) + image[0].length;
 			  const end = images[index + 1]?.index ?? markdown.length;
 			  const line = markdown.slice(start, end).split(/\r?\n/).find((value) => value.trim().length > 0);
-			  return visualCaption(line);
+			  const caption = visualCaption(line, true);
+			  if (caption === null || caption.sourceUrl === null || caption.explicitCredit) return caption;
+			  const imageUrl = visualSource(image[2]);
+			  if (imageUrl === null) return null;
+			  const imagePage = new URL(imageUrl);
+			  const sourcePage = new URL(caption.sourceUrl);
+			  return imagePage.hostname.toLowerCase() === sourcePage.hostname.toLowerCase() && IMAGE_FILE_PATH.test(imagePage.pathname) && !IMAGE_FILE_PATH.test(sourcePage.pathname) ? caption : null;
 			}
 			function commonsSourceUrlsForMarkdown(markdown) {
 			  if (typeof markdown !== "string") return [];
@@ -761,7 +769,7 @@ window.__ModuleLoader__.load({
 			  if (typeof markdown !== "string") return "";
 			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
 			  const creditUrls = new Set(images.map((_image, index) => captionAfterImage(markdown, images, index)?.sourceUrl).filter(Boolean));
-			  return markdown.replace(IMAGE_PATTERN, "").split(/\r?\n/).filter((line) => !creditUrls.has(visualCaption(line)?.sourceUrl)).join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
+			  return markdown.replace(IMAGE_PATTERN, "").split(/\r?\n/).filter((line) => !creditUrls.has(visualCaption(line, true)?.sourceUrl)).join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
 			}
 			function storyCoverForChunk(chunk) {
 			  const title = String(chunk?.title ?? "A new Vibe").replace(/\s+/g, " ").trim().slice(0, 180);
@@ -3142,6 +3150,9 @@ window.__ModuleLoader__.load({
 			var MAX_MARKDOWN3 = 16e3;
 			var MAX_LABEL2 = 160;
 			var MAX_ALT = 240;
+			var MAX_GENERATED_PNG_BYTES = 3e6;
+			var GENERATED_IMAGE_SOURCE = "https://openai.com/index/image-generation/";
+			var GENERATED_IMAGE_CREDIT = "Generated illustration \xB7 ChatGPT";
 			var ARTICLE_KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 			var VISUAL_KINDS = /* @__PURE__ */ new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
 			var TRACKING_QUERY_KEY2 = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
@@ -3171,17 +3182,34 @@ window.__ModuleLoader__.load({
 			    return null;
 			  }
 			}
-			function cleanVisual(candidate) {
+			function cleanGeneratedPng(value) {
+			  const prefix = "data:image/png;base64,";
+			  if (typeof value !== "string" || !value.startsWith(prefix) || value.length > prefix.length + 4e6) return null;
+			  const base64 = value.slice(prefix.length);
+			  if (base64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) return null;
+			  try {
+			    const binary = atob(base64);
+			    return binary.length <= MAX_GENERATED_PNG_BYTES && binary.slice(0, 8) === "\x89PNG\r\n\n" ? value : null;
+			  } catch {
+			    return null;
+			  }
+			}
+			function cleanVisual(candidate, allowGeneratedBitmap = false) {
 			  if (candidate === null || typeof candidate !== "object") return null;
-			  const imageUrl = cleanHttps(candidate.imageUrl);
+			  const generatedPng = allowGeneratedBitmap && candidate.kind === "ai-generated" ? cleanGeneratedPng(candidate.imageUrl) : null;
+			  const imageUrl = typeof candidate.imageUrl === "string" && candidate.imageUrl.startsWith("data:") ? generatedPng : cleanHttps(candidate.imageUrl);
 			  const sourceUrl = cleanHttps(candidate.sourceUrl);
 			  const alt = cleanText4(candidate.alt, MAX_ALT);
 			  const credit = cleanText4(candidate.credit, MAX_LABEL2);
 			  if (imageUrl === null || sourceUrl === null || alt === null || credit === null) return null;
-			  const imageHost = new URL(imageUrl).hostname.toLowerCase();
-			  const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
-			  const family = REUSABLE_IMAGE_FAMILIES2.find((row) => row.image.test(imageHost));
-			  if (family !== void 0 && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
+			  if (generatedPng !== null) {
+			    if (sourceUrl !== GENERATED_IMAGE_SOURCE || credit !== GENERATED_IMAGE_CREDIT) return null;
+			  } else {
+			    const imageHost = new URL(imageUrl).hostname.toLowerCase();
+			    const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
+			    const family = REUSABLE_IMAGE_FAMILIES2.find((row) => row.image.test(imageHost));
+			    if (family !== void 0 && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
+			  }
 			  const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
 			  const inferredKind = /\bphotograph|\bphoto\b/i.test(credit) ? "photograph" : /\bgenerated image|\bai-generated|\bphotorealistic/i.test(credit) ? "ai-generated" : /\btypograph|\bcalligraph/i.test(credit) ? "typography" : /\bai-assisted graphic|\bai graphic/i.test(credit) ? "ai-graphic" : "editorial-image";
 			  return Object.freeze({ imageUrl, sourceUrl, alt, credit, kind: declaredKind ?? inferredKind });
@@ -3230,7 +3258,7 @@ window.__ModuleLoader__.load({
 			  const publishedAt = Number(candidate.publishedAt);
 			  if (title === null || kind === null || markdown === null || !Number.isFinite(publishedAt) || publishedAt <= 0) return null;
 			  if (!Number.isFinite(now) || now <= 0 || publishedAt > now + 5 * 60 * 1e3) return null;
-			  const visual = cleanVisual(candidate.visual);
+			  const visual = cleanVisual(candidate.visual, true);
 			  const inlineVisuals = [];
 			  const seen = new Set(visual === null ? [] : [visual.imageUrl]);
 			  for (const row of Array.isArray(candidate.inlineVisuals) ? candidate.inlineVisuals : []) {
@@ -3306,7 +3334,7 @@ window.__ModuleLoader__.load({
 			}
 			function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
 			  const publicPhoto = media?.episode?.photo;
-			  const remoteImageUrl = typeof media?.externalUrl === "string" && media.externalUrl.startsWith("https://") ? media.externalUrl : null;
+			  const remoteImageUrl = typeof media?.externalUrl === "string" && (media.externalUrl.startsWith("https://") || media.kind === "ai-generated" && media.externalUrl.startsWith("data:image/png;base64,")) ? media.externalUrl : null;
 			  const visual = remoteImageUrl !== null ? {
 			    imageUrl: remoteImageUrl,
 			    sourceUrl: media.href,
@@ -3412,6 +3440,16 @@ window.__ModuleLoader__.load({
 			}
 			function cleanCandidate(value) {
 			  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+			  if (value.provider === "chatgpt-image") {
+			    const prefix = "data:image/png;base64,";
+			    if (typeof value.imageUrl !== "string" || !value.imageUrl.startsWith(prefix) || value.imageUrl.length > 4000022 || !/^[A-Za-z0-9+/]+={0,2}$/.test(value.imageUrl.slice(prefix.length))) return null;
+			    try {
+			      if (atob(value.imageUrl.slice(prefix.length)).slice(0, 8) !== "\x89PNG\r\n\n") return null;
+			    } catch {
+			      return null;
+			    }
+			    return Object.freeze({ provider: "chatgpt-image", imageUrl: value.imageUrl, sourceUrl: "https://openai.com/index/image-generation/", alt: cleanText5(value.alt, 240) ?? "Generated editorial illustration", creator: "ChatGPT", credit: "Generated illustration \xB7 ChatGPT", license: "Generated illustration", width: value.width, height: value.height, score: 0 });
+			  }
 			  const provider = Object.hasOwn(PROVIDER_HOSTS, value.provider) ? value.provider : null;
 			  if (provider === null) return null;
 			  const imageUrl = cleanHttps2(value.imageUrl, PROVIDER_HOSTS[provider]);
@@ -3449,7 +3487,11 @@ window.__ModuleLoader__.load({
 			  }));
 			}
 			function publicVisualBriefForChunk(chunk) {
-			  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || !PUBLIC_SOURCES.has(chunk.source)) return null;
+			  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire") return null;
+			  if (!PUBLIC_SOURCES.has(chunk.source)) {
+			    const sourceUrls = commonsSourceUrlsForMarkdown(chunk.markdown);
+			    return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
+			  }
 			  const query = cleanText5(chunk.title, 180);
 			  if (query === null || query.length < 3) return null;
 			  return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
@@ -3482,6 +3524,7 @@ window.__ModuleLoader__.load({
 			  const id = cleanText5(chunkId, 96);
 			  const cleaned = cleanCandidate(visual);
 			  if (id === null || cleaned === null || !Number.isFinite(now) || now <= 0 || storage3 === null || typeof storage3.setItem !== "function") return false;
+			  if (cleaned.provider === "chatgpt-image") return false;
 			  const entries = cacheDocument(storage3).entries.filter((entry) => entry?.chunkId !== id && Number(now) - Number(entry?.selectedAt) <= VISUAL_CACHE_TTL_MS);
 			  entries.push({ chunkId: id, selectedAt: now, visual: cleaned });
 			  try {
@@ -3510,7 +3553,7 @@ window.__ModuleLoader__.load({
 			  const cleaned = cleanCandidate(visual);
 			  if (cleaned === null) return null;
 			  return Object.freeze({
-			    kind: cleaned.provider === "pexels" || cleaned.provider === "pixabay" ? "photograph" : "editorial-image",
+			    kind: cleaned.provider === "chatgpt-image" ? "ai-generated" : cleaned.provider === "pexels" || cleaned.provider === "pixabay" ? "photograph" : "editorial-image",
 			    externalUrl: cleaned.imageUrl,
 			    fallbackArtwork,
 			    alt: cleaned.alt,
@@ -3538,6 +3581,19 @@ window.__ModuleLoader__.load({
 			    image.onerror = () => finish(false);
 			    image.src = url;
 			  });
+			}
+			async function generateVisualForChunk(connection, chunk) {
+			  if (!PUBLIC_SOURCES.has(chunk?.source) || chunk.kind === "questionnaire") return null;
+			  const brief = publicVisualBriefForChunk(chunk);
+			  if (!brief || !connection?.rpc?.call) return null;
+			  try {
+			    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: brief.query });
+			    const result = response?.ok === true ? response.value : null;
+			    if (!["generated", "cached"].includes(result?.status)) return null;
+			    return cleanCandidate({ provider: "chatgpt-image", imageUrl: result.imageDataUrl, alt: result.alt, width: result.width, height: result.height });
+			  } catch {
+			    return null;
+			  }
 			}
 
 			// client-src/experience/welcome-edition.js
@@ -3986,7 +4042,7 @@ window.__ModuleLoader__.load({
 			    }
 			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, visualOverride, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+			function StreamChunk({ chunk, index, visualOverride, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
 			  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
 			  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
 			  const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
@@ -4035,7 +4091,7 @@ window.__ModuleLoader__.load({
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { id: `vfx-reading-${chunk.id}`, className: `vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`, onFocusCapture: () => {
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, media?.kind === "typography" && visualStatus ? /* @__PURE__ */ import_react.default.createElement("p", { role: "status", className: "vfx-visual-status" }, visualStatus) : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { id: `vfx-reading-${chunk.id}`, className: `vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`, onFocusCapture: () => {
 			      if (isLongRead) setExpanded(true);
 			    } }, /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") })), isLongRead ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-read-more", "aria-expanded": expanded, "aria-controls": `vfx-reading-${chunk.id}`, onClick: (event) => {
 			      const card = event.currentTarget.closest("article");
@@ -4066,6 +4122,7 @@ window.__ModuleLoader__.load({
 			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
 			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [visualStatus, setVisualStatus] = import_react.default.useState(() => /* @__PURE__ */ new Map());
 			  const [failedVisuals, setFailedVisuals] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const onVisualFailure = import_react.default.useCallback((url) => setFailedVisuals((current) => current.has(url) ? current : /* @__PURE__ */ new Set([...current, url])), []);
 			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => readVisualCache(browserStorage()));
@@ -4199,7 +4256,7 @@ window.__ModuleLoader__.load({
 			        }
 			      }
 			      if (!active || visualCapability.current !== "available") return;
-			      const selected = readVisualCache(browserStorage());
+			      const selected = new Map([...readVisualCache(browserStorage()), ...visualOverrides]);
 			      for (const [id, item] of selected) if (failedVisuals.has(item.imageUrl)) selected.delete(id);
 			      const excluded = /* @__PURE__ */ new Set([
 			        ...failedVisuals,
@@ -4209,6 +4266,7 @@ window.__ModuleLoader__.load({
 			      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) => publicVisualBriefForChunk(chunk) !== null && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl)) && !selected.has(chunk.id));
 			      for (const chunk of targets) {
 			        if (!active) return;
+			        setVisualStatus((current) => new Map(current).set(chunk.id, "Finding a photograph\u2026"));
 			        const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
 			        let visual;
 			        for (const candidate of candidates) {
@@ -4219,7 +4277,15 @@ window.__ModuleLoader__.load({
 			          }
 			          excluded.add(candidate.imageUrl);
 			        }
-			        if (visual === void 0) continue;
+			        if (visual === void 0 && active && codexFeatures) {
+			          setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration\u2026"));
+			          const generated = await generateVisualForChunk(connection, chunk);
+			          if (generated !== null && await visualImageLoads(generated.imageUrl)) visual = generated;
+			        }
+			        if (visual === void 0) {
+			          if (active) setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
+			          continue;
+			        }
 			        selected.set(chunk.id, visual);
 			        excluded.add(visual.imageUrl);
 			        writeVisualCache(browserStorage(), chunk.id, visual);
@@ -4488,6 +4554,7 @@ window.__ModuleLoader__.load({
 			        chunk,
 			        index,
 			        visualOverride: visualOverrides.get(chunk.id),
+			        visualStatus: visualStatus.get(chunk.id),
 			        failedVisuals,
 			        onVisualFailure,
 			        saved: state.savedChunkIds.includes(chunk.id),

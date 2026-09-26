@@ -75,7 +75,9 @@ export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, c
   const remoteImageUrl = typeof media?.externalUrl === "string" && (media.externalUrl.startsWith("https://") || (media.kind === "ai-generated" && media.externalUrl.startsWith("data:image/png;base64,")))
     ? media.externalUrl
     : null;
-  const visual = remoteImageUrl !== null ? {
+  const visual = media?.kind === "illustration" ? {
+    kind: "illustration", illustrationId: media.illustrationId,
+  } : remoteImageUrl !== null ? {
     imageUrl: remoteImageUrl,
     sourceUrl: media.href,
     alt: media.alt,

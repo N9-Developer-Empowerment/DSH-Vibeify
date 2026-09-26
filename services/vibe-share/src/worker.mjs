@@ -1,4 +1,5 @@
 import { cleanShareSnapshot, hasShareVisual } from "../../../shared/vibe-share-contract.js";
+import { illustrationById } from "../../../shared/editorial-illustrations.js";
 import { renderNewPage, renderNotFound, renderPublicArticle } from "./render.mjs";
 import { APP_JS } from "./app-source.mjs";
 
@@ -140,11 +141,12 @@ async function createArticle(request, env, url) {
   const snapshot = cleanShareSnapshot(body?.snapshot);
   if (snapshot === null) return json({ error: "Article failed the public-share privacy contract" }, 400);
   const generatedIllustration = snapshot.visual?.kind === "ai-generated" && snapshot.visual.imageUrl.startsWith("data:image/png;base64,");
+  const bundledIllustration = snapshot.visual?.kind === "illustration";
   if (!generatedIllustration && Number(request.headers.get("content-length") ?? 0) > 450_000) return json({ error: "Article is too large" }, 413);
   // A selected web image stays selected. A generated PNG is replaced by the
   // JPEG already shown in the private preview, and only that JPEG is stored.
-  const generatedCover = generatedIllustration || !hasShareVisual(snapshot) ? cleanGeneratedCover(body?.generatedCover) : null;
-  if ((generatedIllustration || !hasShareVisual(snapshot)) && generatedCover === null) return json({ error: "A public article needs a prepared image or editorial cover" }, 400);
+  const generatedCover = generatedIllustration || bundledIllustration || !hasShareVisual(snapshot) ? cleanGeneratedCover(body?.generatedCover) : null;
+  if ((generatedIllustration || bundledIllustration || !hasShareVisual(snapshot)) && generatedCover === null) return json({ error: "A public article needs a prepared image or editorial cover" }, 400);
   if (generatedCover !== null && coverStore(env) === undefined) return json({ error: "Article image storage is not configured" }, 503);
   if (!await verifyPublishProtection(body?.turnstileToken, request, env)) return json({ error: "Publishing protection could not approve this request. Please try again later." }, 403);
 
@@ -156,8 +158,8 @@ async function createArticle(request, env, url) {
   let slug;
   for (let attempt = 0; attempt < 4; attempt += 1) {
     slug = randomToken(9);
-    const fallbackVisual = generatedCover === null || generatedIllustration ? null : typographicVisual(url, slug, snapshot.title);
-    const hostedIllustration = generatedIllustration
+    const fallbackVisual = generatedCover === null || generatedIllustration || bundledIllustration ? null : typographicVisual(url, slug, snapshot.title);
+    const hostedIllustration = generatedIllustration || bundledIllustration
       ? Object.freeze({ ...snapshot.visual, imageUrl: `${url.origin}/i/${slug}.jpg` })
       : null;
     const initialSnapshot = hostedIllustration !== null
@@ -224,6 +226,19 @@ async function deleteArticle(request, env, slug) {
 
 export async function handleRequest(request, env = {}) {
   const url = new URL(request.url);
+  const drawingPath = /^\/illustrations\/([a-z-]{1,64})\.svg$/.exec(url.pathname);
+  if ((request.method === "GET" || request.method === "HEAD") && drawingPath !== null) {
+    const drawing = illustrationById(drawingPath[1]);
+    if (drawing === null) return new Response(null, { status: 404 });
+    const encoded = drawing.externalUrl.slice(drawing.externalUrl.indexOf(",") + 1);
+    const svg = drawing.externalUrl.startsWith("data:image/svg+xml;base64,")
+      ? new TextDecoder().decode(Uint8Array.from(atob(encoded), (letter) => letter.charCodeAt(0)))
+      : decodeURIComponent(encoded);
+    return new Response(request.method === "HEAD" ? null : svg, { headers: {
+      "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400",
+      "x-content-type-options": "nosniff", "content-security-policy": "default-src 'none'; sandbox",
+    } });
+  }
   if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/robots.txt") {
     const response = new Response("User-agent: *\nAllow: /\n", {
       headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "public, max-age=86400" },

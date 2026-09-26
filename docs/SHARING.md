@@ -70,3 +70,7 @@ For a private local visual preview:
 cd services/vibe-share
 npm run dev
 ```
+
+## Bundled pictorial illustrations
+
+CC0 Open Doodles artwork is shared by a fixed illustration ID. The server checks that ID against the shipped catalogue, supplies canonical creator/credit metadata, and serves only the known SVG at `/illustrations/<id>.svg`. The private preview rasterises the same drawing to a bounded JPEG. Explicit publication stores that JPEG as the article and social cover while preserving its illustration label and creator. Arbitrary SVG, altered credits, private local paths and unknown asset IDs are not accepted.

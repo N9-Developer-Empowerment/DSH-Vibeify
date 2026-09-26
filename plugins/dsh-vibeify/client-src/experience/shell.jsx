@@ -85,13 +85,14 @@ import {
 } from "./share-client.js";
 import {
   mediaFromVisualCandidate,
-  publicVisualBriefForChunk,
+  createGeneratedVisualCache,
   readVisualCache,
   searchVisualForChunk,
   writeVisualCache,
   visualImageLoads,
   generateVisualForChunk,
 } from "./visual-source-client.js";
+import { createVisualLifecycle, visualNeedsLocalCover } from "./visual-lifecycle.js";
 import {
   boundMagazinePresentation,
   composeOpeningStream,
@@ -264,11 +265,13 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, visualOverride, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
   const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
   const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
   const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
-  const media = failedVisuals.has(proposedMedia?.externalUrl) ? storyCoverForChunk(chunk) : proposedMedia;
+  const proposedUrl = proposedMedia?.externalUrl ?? ARTWORK[proposedMedia?.artwork];
+  const media = visualNeedsLocalCover(proposedMedia, proposedUrl, verifiedVisuals, failedVisuals)
+    ? storyCoverForChunk(chunk) : proposedMedia;
   const contentLink = contentLinkForMarkdown(chunk.markdown);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
@@ -307,14 +310,15 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, failedVisuals
             decoding="async"
             fetchpriority={index === 0 ? "high" : "auto"}
             referrerPolicy="no-referrer"
-            onError={() => { if (media.externalUrl?.startsWith("https://")) onVisualFailure(media.externalUrl); }}
+            onError={() => { if (media.kind !== "illustration") onVisualFailure(visual); }}
+            onLoad={(event) => { if (media.kind !== "illustration" && (event.currentTarget.naturalWidth < 480 || event.currentTarget.naturalHeight < 240)) onVisualFailure(visual); }}
           />
           <span className="vfx-visual-shade" />
           <figcaption><a href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.label}</a></figcaption>
         </figure>
       ) : null}
       <div className="vfx-chunk-copy">
-        {media?.kind === "typography" && visualStatus ? <p role="status" className="vfx-visual-status">{visualStatus}</p> : null}
+        {visualStatus ? <p role="status" className="vfx-visual-status">{visualStatus}</p> : null}
         <div className="vfx-chunk-heading">
           <div><span>{chunk.kind}</span><h2 id={`vfx-title-${chunk.id}`}>{chunk.title}</h2></div>
           {isChatResult ? null : (
@@ -384,8 +388,13 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
   const [visualStatus, setVisualStatus] = React.useState(() => new Map());
   const [failedVisuals, setFailedVisuals] = React.useState(() => new Set());
-  const onVisualFailure = React.useCallback((url) => setFailedVisuals((current) => current.has(url) ? current : new Set([...current, url])), []);
-  const [visualOverrides, setVisualOverrides] = React.useState(() => readVisualCache(browserStorage()));
+  const visualLifecycle = React.useRef(null);
+  const [verifiedVisuals, setVerifiedVisuals] = React.useState(() => new Set());
+  const onVisualFailure = React.useCallback((url) => {
+    setFailedVisuals((current) => current.has(url) ? current : new Set([...current, url]));
+    visualLifecycle.current?.failure(url);
+  }, []);
+  const [visualOverrides, setVisualOverrides] = React.useState(() => new Map());
   const [libraryOpen, setLibraryOpen] = React.useState(false);
   const [libraryQuery, setLibraryQuery] = React.useState("");
   const [answers, setAnswers] = React.useState(() => {
@@ -401,7 +410,6 @@ function ExperienceShell({ codexFeatures, connection }) {
   const touchPull = React.useRef(createPullRefreshState());
   const trackpadPull = React.useRef(createTrackpadPullRefreshState());
   const trackpadSettleTimer = React.useRef(null);
-  const visualCapability = React.useRef("unknown");
 
   React.useEffect(() => { chunksRef.current = chunks; }, [chunks]);
   React.useEffect(() => { stateRef.current = state; }, [state]);
@@ -413,6 +421,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   }, []);
 
   const startRun = React.useCallback(() => {
+    visualLifecycle.current?.retry();
     const current = scheduler.current;
     if (stateRef.current.view !== "home" || current.active) return;
     current.runsStarted += 1;
@@ -507,64 +516,35 @@ function ExperienceShell({ codexFeatures, connection }) {
   }, []);
 
   React.useEffect(() => {
-    if (state.view !== "home" || connection?.rpc?.call === undefined) return undefined;
-    let active = true;
-    const run = async () => {
-      if (visualCapability.current === "unknown") {
-        try {
-          const result = await connection.rpc.call("/dsh-visuals", "capabilities", {});
-          visualCapability.current = result?.ok === true ? "available" : "unavailable";
-        } catch {
-          visualCapability.current = "unavailable";
-        }
-      }
-      if (!active || visualCapability.current !== "available") return;
-      const selected = new Map([...readVisualCache(browserStorage()), ...visualOverrides]);
-      for (const [id, item] of selected) if (failedVisuals.has(item.imageUrl)) selected.delete(id);
-      const excluded = new Set([
-        ...failedVisuals,
-        ...selected.values().map(({ imageUrl }) => imageUrl),
-        ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl)),
-      ]);
-      const targets = newestFirst(chunks).filter((chunk) =>
-        publicVisualBriefForChunk(chunk) !== null
-        && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl))
-        && !selected.has(chunk.id));
-      const illustrationQueue = [];
-      for (const chunk of targets) {
-        if (!active) return;
-        setVisualStatus((current) => new Map(current).set(chunk.id, "Finding a photograph…"));
-        const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
-        let visual;
-        for (const candidate of candidates) {
-          if (!active) return;
-          if (await visualImageLoads(candidate.imageUrl)) { visual = candidate; break; }
-          excluded.add(candidate.imageUrl);
-        }
-        if (visual === undefined) {
-          illustrationQueue.push(chunk);
-          continue;
-        }
-        selected.set(chunk.id, visual);
-        excluded.add(visual.imageUrl);
-        writeVisualCache(browserStorage(), chunk.id, visual);
-        if (active) setVisualOverrides((current) => new Map(current).set(chunk.id, visual));
-      }
-      // Finish photograph recovery for the whole issue before slow generation.
-      for (const chunk of illustrationQueue) {
-        if (!active) return;
-        if (codexFeatures) setVisualStatus((current) => new Map(current).set(chunk.id, "Creating an illustration…"));
-        const generated = codexFeatures ? await generateVisualForChunk(connection, chunk) : null;
-        if (generated !== null && await visualImageLoads(generated.imageUrl)) {
-          if (chunksRef.current.some(({ id }) => id === chunk.id)) setVisualOverrides((current) => new Map(current).set(chunk.id, generated));
-        } else if (active) {
-          setVisualStatus((current) => new Map(current).set(chunk.id, "Image still needed. Try Update again later."));
-        }
-      }
-    };
-    run();
-    return () => { active = false; };
-  }, [chunks, connection, state.view, failedVisuals]);
+    if (connection?.rpc?.call === undefined) return undefined;
+    const lifecycle = createVisualLifecycle({
+      capability: async () => (await connection.rpc.call("/dsh-visuals", "capabilities", {}))?.ok === true,
+      search: (chunk, excludeUrls) => searchVisualForChunk(connection, chunk, excludeUrls),
+      generate: (chunk) => codexFeatures ? generateVisualForChunk(connection, chunk) : null,
+      load: (url) => visualImageLoads(url),
+      cached: readVisualCache(browserStorage()),
+      generatedCache: createGeneratedVisualCache(),
+      onSelect: (id, visual) => {
+        setVisualOverrides((current) => new Map(current).set(id, visual));
+        setVerifiedVisuals((current) => new Set(current).add(visual.imageUrl));
+        setFailedVisuals((current) => { const next = new Set(current); next.delete(visual.imageUrl); return next; });
+        writeVisualCache(browserStorage(), id, visual);
+        setVisualStatus((current) => { const next = new Map(current); next.delete(id); return next; });
+      },
+      onVerified: (id, url) => {
+        setVerifiedVisuals((current) => new Set(current).add(url));
+        setFailedVisuals((current) => { const next = new Set(current); next.delete(url); return next; });
+        setVisualStatus((current) => { const next = new Map(current); next.delete(id); return next; });
+      },
+      onStatus: (id, status) => setVisualStatus((current) => new Map(current).set(id, status)),
+      onFailure: (url) => setFailedVisuals((current) => new Set(current).add(url)),
+    });
+    visualLifecycle.current = lifecycle;
+    lifecycle.enqueue(chunksRef.current);
+    return () => { lifecycle.dispose(); if (visualLifecycle.current === lifecycle) visualLifecycle.current = null; };
+  }, [connection, codexFeatures]);
+
+  React.useEffect(() => { visualLifecycle.current?.enqueue(chunks); }, [chunks]);
 
   React.useEffect(() => {
     saveExperienceState(browserStorage(), state);
@@ -862,6 +842,7 @@ function ExperienceShell({ codexFeatures, connection }) {
                   chunk={chunk}
                   index={index}
                   visualOverride={visualOverrides.get(chunk.id)}
+                  verifiedVisuals={verifiedVisuals}
                   visualStatus={visualStatus.get(chunk.id)}
                   failedVisuals={failedVisuals}
                   onVisualFailure={onVisualFailure}
@@ -950,6 +931,10 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trig
 .vfx-chunk[data-visual-kind="ai-graphic"] .vfx-visual-shade { background:linear-gradient(145deg,transparent 35%,rgba(5,3,6,.42)); }
 .vfx-chunk[data-visual-kind="photograph"],.vfx-chunk[data-visual-kind="editorial-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
 .vfx-chunk[data-visual-kind="typography"] .vfx-chunk-visual img { object-fit:contain; }
+.vfx-chunk[data-visual-kind="illustration"] .vfx-chunk-visual { background:#f7efe4; }
+.vfx-chunk[data-visual-kind="illustration"] .vfx-chunk-visual img { object-fit:contain; padding:18px; box-sizing:border-box; filter:none; transform:none; }
+.vfx-chunk[data-visual-kind="illustration"] .vfx-visual-shade { background:linear-gradient(0deg,rgba(247,239,228,.9),transparent 22%); }
+.vfx-chunk[data-visual-kind="illustration"] .vfx-chunk-visual figcaption,.vfx-chunk[data-visual-kind="illustration"] .vfx-chunk-visual a { color:#241720; }
 .vfx-visual-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(5,3,6,.72),transparent 60%); }
 .vfx-chunk-visual figcaption { position:absolute; right:16px; bottom:14px; color:#d7cad3; font-size:10px; }.vfx-chunk-visual a { color:#fff; }
 .vfx-chunk-copy { min-width:0; max-width:100%; padding:clamp(24px,3vw,42px); }

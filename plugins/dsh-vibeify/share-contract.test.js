@@ -206,3 +206,15 @@ test("the public writer can require an image without breaking old stored article
   assert.equal(hasShareVisual(textOnly), false);
   assert.equal(hasShareVisual(pictured), true);
 });
+
+test("bundled drawing identity preserves only canonical artwork and attribution", () => {
+  const base = {version:SHARE_SNAPSHOT_VERSION,title:'A public story',kind:'article',markdown:'Finished copy.',publishedAt:NOW};
+  const result = cleanShareSnapshot({...base,visual:{kind:'illustration',illustrationId:'doodles-reading',imageUrl:'data:image/svg+xml,<svg onload="steal()"/>',sourceUrl:'https://evil.example.org',credit:'Invented',alt:'private note'}},NOW);
+  assert.equal(result.visual.kind,'illustration');
+  assert.equal(result.visual.imageUrl,`${SHARE_ORIGIN}/illustrations/doodles-reading.svg`);
+  assert.match(result.visual.credit,/Pablo Stanley.*CC0/);
+  assert.doesNotMatch(JSON.stringify(result),/steal|evil|Invented|private note/);
+  assert.equal(cleanShareSnapshot({...base,visual:{kind:'illustration',illustrationId:'untrusted'}},NOW).visual,null);
+  const hosted=cleanShareSnapshot({...base,visual:{...result.visual,imageUrl:`${SHARE_ORIGIN}/i/abcdefgh1234.jpg`}},NOW);
+  assert.equal(hosted.visual.imageUrl,`${SHARE_ORIGIN}/i/abcdefgh1234.jpg`);
+});

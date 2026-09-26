@@ -13,6 +13,7 @@ worker = worker.replace(
   'from "../../../shared/vibe-share-contract.js"',
   'from "./vibe-share-contract.js"',
 );
+worker = worker.replace('from "../../../shared/editorial-illustrations.js"', 'from "./editorial-illustrations.js"');
 let render = await readFile(resolve(project, "src/render.mjs"), "utf8");
 render = render.replace(
   'from "../../../shared/vibe-markdown.js"',
@@ -23,6 +24,7 @@ appSource = appSource.replace(
   'from "../../../shared/vibe-markdown.js"',
   'from "./vibe-markdown.js"',
 );
+appSource = appSource.replace('from "../../../shared/editorial-illustrations.js"', 'from "./editorial-illustrations.js"');
 appSource = appSource.replace(
   'from "../../../shared/vibe-cover.js"',
   'from "./vibe-cover.js"',
@@ -35,4 +37,5 @@ await Promise.all([
   copyFile(resolve(project, "../../shared/vibe-share-contract.js"), resolve(server, "vibe-share-contract.js")),
   copyFile(resolve(project, "../../shared/vibe-markdown.js"), resolve(server, "vibe-markdown.js")),
   copyFile(resolve(project, "../../shared/vibe-cover.js"), resolve(server, "vibe-cover.js")),
+  copyFile(resolve(project, "../../shared/editorial-illustrations.js"), resolve(server, "editorial-illustrations.js")),
 ]);

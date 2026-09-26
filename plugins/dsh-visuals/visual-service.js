@@ -154,7 +154,7 @@ export function normalizeWikimedia(document, query) {
       sourceUrl: page?.fullurl,
       alt: title,
       creator,
-      credit: `Photograph · ${creator} · ${license}`,
+      credit: `Image · ${creator} · ${license}`,
       license,
       width: info?.thumbwidth ?? info?.width,
       height: info?.thumbheight ?? info?.height,

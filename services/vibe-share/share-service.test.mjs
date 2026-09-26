@@ -564,3 +564,27 @@ test("managed publishing stores only a salted daily fingerprint and enforces the
   const preview = await handleRequest(new Request(`${origin}/new`), { VIBE_SHARE_RATE_SECRET: "a".repeat(48) });
   assert.doesNotMatch(await preview.text(), /Publishing is not configured yet/);
 });
+
+test("bundled illustration endpoint is fixed, credited art; unknown names fail closed",async()=>{
+ const drawing=await handleRequest(new Request(`${origin}/illustrations/doodles-reading.svg`));
+ assert.equal(drawing.status,200);assert.match(drawing.headers.get('content-type'),/image\/svg\+xml/);
+ const svg=await drawing.text();assert.match(svg,/<svg/);assert.doesNotMatch(svg,/<script|foreignObject|onload=/i);
+ const unknown=await handleRequest(new Request(`${origin}/illustrations/not-shipped.svg`));assert.equal(unknown.status,404);
+});
+
+test("publishing a bundled drawing preserves its previewed JPEG, credit and social cover",async()=>{
+ const db=new MemoryDb(),covers=new MemoryCovers();
+ const env={VIBE_SHARE_DB:db,VIBE_SHARE_COVERS:covers,VIBE_SHARE_LOCAL_DEV:'true'};
+ const illustrated={...snapshot,visual:{kind:'illustration',illustrationId:'doodles-reading'}};
+ const request=(cover)=>new Request(`${origin}/api/articles`,{method:'POST',headers:{origin,'content-type':'application/json'},body:JSON.stringify({snapshot:illustrated,generatedCover:cover})});
+ assert.equal((await handleRequest(request(null),env)).status,400);
+ const response=await handleRequest(request(generatedCover),env);assert.equal(response.status,201);
+ const created=await response.json(),stored=JSON.parse(db.rows.get(created.slug).snapshot_json);
+ assert.equal(stored.visual.kind,'illustration');assert.match(stored.visual.credit,/Pablo Stanley.*CC0/);
+ assert.equal(stored.visual.imageUrl,`${origin}/i/${created.slug}.jpg`);
+ const image=await handleRequest(new Request(stored.visual.imageUrl),env);
+ assert.deepEqual(Buffer.from(await image.arrayBuffer()),Buffer.from(generatedCover.split(',')[1],'base64'));
+ const html=await(await handleRequest(new Request(created.url),env)).text();
+ assert.ok(html.includes(`<meta property="og:image" content="${stored.visual.imageUrl}">`));
+ assert.match(html,/Pablo Stanley/);
+});

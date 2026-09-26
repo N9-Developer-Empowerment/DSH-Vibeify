@@ -91,9 +91,61 @@ export function publicVisualBriefForChunk(chunk) {
     return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
   }
   const imageAlt = typeof chunk.markdown === "string" ? /!\[([^\]]{3,180})\]\(https:\/\//.exec(chunk.markdown)?.[1] : null;
-  const query = cleanText(imageAlt ?? chunk.title, 180);
+  const publicBody = typeof chunk.markdown === "string" ? chunk.markdown
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/[#*_`>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 220) : "";
+  const query = cleanText(imageAlt ?? `${chunk.title ?? ""}. ${publicBody}`, 180);
   if (query === null || query.length < 3) return null;
   return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
+}
+
+export function createGeneratedVisualCache(indexedDB = globalThis.indexedDB) {
+  const open = () => new Promise((resolve) => {
+    if (!indexedDB?.open) { resolve(null); return; }
+    let settled = false;
+    const finish = (value) => { if (!settled) { settled = true; resolve(value); } };
+    try {
+      const request = indexedDB.open("dsh-vibeify-generated-visuals", 1);
+      const timer = setTimeout(() => finish(null), 2000);
+      request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains("images")) request.result.createObjectStore("images", { keyPath: "chunkId" }); };
+      request.onsuccess = () => { clearTimeout(timer); finish(request.result); };
+      request.onerror = request.onblocked = () => { clearTimeout(timer); finish(null); };
+    } catch { finish(null); }
+  });
+  return Object.freeze({
+    async read() {
+      const db = await open();
+      if (!db) return new Map();
+      return new Promise((resolve) => {
+        try {
+          const request = db.transaction("images", "readonly").objectStore("images").getAll();
+          request.onsuccess = () => {
+            const result = new Map();
+            for (const row of request.result ?? []) {
+              const visual = cleanCandidate(row.visual);
+              if (visual && Date.now() - row.selectedAt <= VISUAL_CACHE_TTL_MS) result.set(row.chunkId, visual);
+            }
+            db.close(); resolve(result);
+          };
+          request.onerror = () => { db.close(); resolve(new Map()); };
+        } catch { db.close(); resolve(new Map()); }
+      });
+    },
+    async write(chunkId, visual) {
+      const cleaned = cleanCandidate(visual);
+      if (!cleaned || cleaned.provider !== "chatgpt-image") return false;
+      const db = await open();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const transaction = db.transaction("images", "readwrite");
+          transaction.objectStore("images").put({ chunkId, selectedAt: Date.now(), visual: cleaned });
+          transaction.oncomplete = () => { db.close(); resolve(true); };
+          transaction.onerror = transaction.onabort = () => { db.close(); resolve(false); };
+        } catch { db.close(); resolve(false); }
+      });
+    },
+  });
 }
 
 function emptyCache() {
@@ -190,7 +242,7 @@ export async function generateVisualForChunk(connection, chunk) {
   const brief = publicVisualBriefForChunk(chunk);
   if (!brief || !connection?.rpc?.call) return null;
   try {
-    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: cleanText(chunk.title, 180) });
+    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "generate", { subject: brief.query.slice(0, 180) });
     const result = response?.ok === true ? response.value : null;
     if (!["generated", "cached"].includes(result?.status)) return null;
     return cleanCandidate({ provider: "chatgpt-image", imageUrl: result.imageDataUrl, alt: result.alt, width: result.width, height: result.height });

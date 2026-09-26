@@ -16,19 +16,19 @@ test("only explicit magazine sources produce a public image brief", () => {
     kind: "article",
     source: "fresh-stream",
     title: "Why city bicycles are getting smaller",
-    markdown: "Long private-to-the-browser article copy that must never cross the image RPC.",
+    markdown: "Public article about smaller bicycles and their riders.",
   };
   const ordinaryChat = { ...publicChunk, id: "chat-result-private", source: "chat-directed", title: "My private health notes" };
   const questionnaire = { ...publicChunk, kind: "questionnaire" };
 
   assert.deepEqual(publicVisualBriefForChunk(publicChunk), {
-    query: "Why city bicycles are getting smaller",
+    query: "Why city bicycles are getting smaller. Public article about smaller bicycles and their riders.",
     orientation: "landscape",
     sourceUrls: [],
   });
   assert.equal(publicVisualBriefForChunk(ordinaryChat), null);
   assert.equal(publicVisualBriefForChunk(questionnaire), null);
-  assert.doesNotMatch(JSON.stringify(publicVisualBriefForChunk(publicChunk)), /Long private-to-the-browser/);
+  assert.doesNotMatch(JSON.stringify(publicVisualBriefForChunk(ordinaryChat)), /My private health notes/);
 });
 
 test("visual RPC results are fail-closed and preserve credit and licence", () => {

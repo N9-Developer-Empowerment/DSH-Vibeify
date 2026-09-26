@@ -22,20 +22,20 @@ test("each explicit update renews the rolling visual catalogue without reusing r
   assert.match(prompt, /at least 18 potential image candidates/i);
   assert.match(prompt, /at least three credible source families/i);
   assert.match(prompt, /exact subject or named-entity match/i);
-  assert.match(prompt, /every generated non-questionnaire chunk must begin with a fresh verified public image/i);
+  assert.match(prompt, /use a verified photograph or openly licensed illustration/i);
   assert.match(prompt, /longer than 500 words.*two or three/i);
   assert.match(prompt, /documentary photography by default/i);
   assert.match(prompt, /latest available ChatGPT image generation capability/i);
   assert.match(prompt, /Only after searching for a relevant reusable web image/i);
   assert.match(prompt, /Label the result Generated illustration/i);
-  assert.match(prompt, /typographic editorial cover/i);
+  assert.match(prompt, /bundled CC0 pictorial illustration/i);
   assert.match(prompt, /never present generated imagery as a real photograph/i);
   assert.match(prompt, /Google Images with its Usage rights filter/i);
   assert.match(prompt, /never treat that filter or a search-result label as permission/i);
   assert.match(prompt, /independently verify its exact reusable licence/i);
   assert.match(prompt, /Wikimedia Commons, Openverse.*Flickr Commons/i);
   assert.match(prompt, /CC BY 4\.0/i);
-  assert.match(prompt, /never reuse a recent image URL/i);
+  assert.match(prompt, /Reuse a recent image when it remains the exact relevant subject/i);
   assert.equal(prompt.split(oldImage).length - 1, 1);
 });
 

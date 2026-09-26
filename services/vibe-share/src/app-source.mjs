@@ -1,5 +1,6 @@
 import { vibeMarkdownRuntimeSource } from "../../../shared/vibe-markdown.js";
 import { storyCoverRuntimeSource } from "../../../shared/vibe-cover.js";
+import { EDITORIAL_ILLUSTRATIONS } from "../../../shared/editorial-illustrations.js";
 
 const APP_BODY = String.raw`const VERSION = 1;
 const READY = "vibe-share:ready";
@@ -55,6 +56,17 @@ async function createGeneratedIllustrationJpeg(png) {
 }
 
 async function preparePreview(value) {
+  if (value.visual?.kind === "illustration") {
+    const drawing = BUNDLED_ILLUSTRATIONS[value.visual.illustrationId];
+    if (!drawing) throw new Error("This illustration is not available. Reopen the article in Vibe.");
+    const visual = { ...drawing, imageUrl: location.origin + "/illustrations/" + drawing.illustrationId + ".svg" };
+    generatedCover = await createGeneratedIllustrationJpeg(visual.imageUrl);
+    snapshot = { ...value, visual, inlineVisuals: value.inlineVisuals ?? [] };
+    renderSnapshot({ ...snapshot, visual: { ...visual, imageUrl: generatedCover } });
+    publish.disabled = false;
+    status.textContent = "Private preview ready. The same credited illustration will appear on the public article.";
+    return;
+  }
   if (value.visual?.kind === "ai-generated" && value.visual.imageUrl?.startsWith("data:image/png;base64,")) {
     generatedCover = await createGeneratedIllustrationJpeg(value.visual.imageUrl);
     snapshot = { ...value, visual: value.visual, inlineVisuals: value.inlineVisuals ?? [] };
@@ -472,4 +484,8 @@ publish?.addEventListener("click", async () => {
   }
 });`;
 
-export const APP_JS = `${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\n${APP_BODY}`;
+const bundledIllustrations = Object.fromEntries(EDITORIAL_ILLUSTRATIONS.map((drawing) => [drawing.illustrationId, {
+  kind: "illustration", illustrationId: drawing.illustrationId,
+  sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
+}]));
+export const APP_JS = `${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;

@@ -110,14 +110,14 @@ test("bundled cards use their curated visuals while generated cards never inheri
   const media = stream.map((chunk) => visualMediaForChunk(catalog, chunk));
   assert.ok(media.every(({ artwork, externalUrl, alt, href, label }) => (artwork?.length > 0 || externalUrl?.startsWith("data:image/svg+xml")) && alt.length > 0 && href.startsWith("https://") && label.length > 0));
   assert.ok(media.some(({ kind }) => kind === "photograph"));
-  assert.ok(media.some(({ kind }) => kind === "typography"));
+  assert.ok(media.some(({ kind }) => kind === "illustration"));
   assert.ok(new Set(media.map(({ artwork, externalUrl }) => artwork ?? externalUrl)).size >= catalog.episodes.length);
   const generated = visualMediaForChunk(catalog, { id: "reader-jason-arday", kind: "article", source: "fresh-stream", title: "Jason Arday", markdown: "A finished article.", topicId: null });
   const chat = visualMediaForChunk(catalog, { id: "chat-jason-arday", kind: "article", source: "chat-directed", title: "Jason Arday", markdown: "A finished answer.", topicId: null });
-  assert.equal(generated.kind, "typography");
-  assert.equal(chat.kind, "typography");
-  assert.match(decodeURIComponent(generated.externalUrl), /Jason Arday/);
-  assert.notEqual(generated.externalUrl, chat.externalUrl);
+  assert.equal(generated.kind, "illustration");
+  assert.equal(chat.kind, "illustration");
+  assert.match(generated.label, /CC0/);
+  assert.doesNotMatch(decodeURIComponent(generated.externalUrl), /Jason Arday/);
 });
 
 test("the welcome magazine has an immediate visual on every panel and mixes photographs with shareable covers", () => {
@@ -126,7 +126,7 @@ test("the welcome magazine has an immediate visual on every panel and mixes phot
   assert.equal(media.length, welcome.length);
   assert.ok(media.every(({ artwork, externalUrl, alt, href, label }) => (artwork?.length > 0 || externalUrl?.startsWith("data:image/svg+xml")) && alt.length > 0 && href.startsWith("https://") && label.length > 0));
   assert.ok(media.some(({ kind }) => kind === "photograph"));
-  assert.ok(media.some(({ kind }) => kind === "typography"));
+  assert.ok(media.some(({ kind }) => kind === "illustration"));
   assert.ok(new Set(media.map(({ artwork, externalUrl }) => artwork ?? externalUrl)).size >= catalog.episodes.length);
 });
 
@@ -233,8 +233,8 @@ test("unapproved remote images cannot enter the catalogue and receive a relevant
   const media = visualMediaForChunk(catalog, chunk);
   assert.equal(remoteVisualForMarkdown(markdown), null);
   assert.notEqual(media.kind, "fresh-image");
-  assert.equal(media.kind, "typography");
-  assert.match(decodeURIComponent(media.externalUrl), /Rejected image/);
+  assert.equal(media.kind, "illustration");
+  assert.match(media.label, /CC0/);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /!\[/);
   assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Tracking image/);
 });
@@ -302,14 +302,15 @@ test("prose links are not misread as photograph provenance", () => {
   assert.deepEqual(contentLinkForMarkdown(markdown), { href: "https://museum.example/artist", label: "exhibition" });
 });
 
-test("story covers are deterministic, unique to their copy, and contain the article title", () => {
+test("story fallback is a deterministic credited picture and never embeds article prose", () => {
   const first = storyCoverForChunk({ title: "Why flying cars remain aircraft", markdown: "Gravity sends the invoice." });
   const again = storyCoverForChunk({ title: "Why flying cars remain aircraft", markdown: "Gravity sends the invoice." });
   const different = storyCoverForChunk({ title: "A different story", markdown: "Different copy." });
   assert.equal(first.externalUrl, again.externalUrl);
-  assert.notEqual(first.externalUrl, different.externalUrl);
-  assert.match(decodeURIComponent(first.externalUrl), /Why flying cars remain aircraft/);
-  assert.equal(first.kind, "typography");
+  assert.equal(different.kind, "illustration");
+  assert.doesNotMatch(decodeURIComponent(first.externalUrl), /Why flying cars remain aircraft/);
+  assert.match(first.label, /CC0/);
+  assert.equal(first.kind, "illustration");
 });
 
 test("rolling catalogue images require provenance and discard tracking parameters", () => {

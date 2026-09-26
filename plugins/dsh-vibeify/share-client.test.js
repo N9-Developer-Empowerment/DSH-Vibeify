@@ -241,3 +241,10 @@ test("simple public-link sharing has no legacy Social Desk RPC or schedule path"
   assert.match(shellSource, /Share link/);
   assert.doesNotMatch(shellSource, /social-desk-client|dsh-social-desk|approve-and-schedule|prepareSocialPosts|SocialDeskPanel/);
 });
+
+test("a bundled pictorial fallback shares its canonical identity, never raw SVG", () => {
+  const value=shareSnapshotForChunk({chunk:{title:'Care and listening',kind:'article',publishedAt:snapshot.publishedAt},markdown:'Finished copy.',media:{kind:'illustration',illustrationId:'doodles-reading',externalUrl:'data:image/svg+xml,private-model-markup'},inlineVisuals:[],contentLink:null},snapshot.publishedAt);
+  assert.equal(value.visual.kind,'illustration');
+  assert.equal(value.visual.imageUrl,`${SHARE_ORIGIN}/illustrations/doodles-reading.svg`);
+  assert.doesNotMatch(JSON.stringify(value),/private-model-markup|data:image/);
+});

@@ -11,7 +11,7 @@ const MAX_GENERATED_PNG_BYTES = 3_000_000;
 const GENERATED_IMAGE_SOURCE = "https://openai.com/index/image-generation/";
 const GENERATED_IMAGE_CREDIT = "Generated illustration · ChatGPT";
 const ARTICLE_KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
-const VISUAL_KINDS = new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
+const VISUAL_KINDS = new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography", "illustration"]);
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 const REUSABLE_IMAGE_FAMILIES = Object.freeze([
   { image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i },
@@ -60,6 +60,19 @@ function cleanGeneratedPng(value) {
 
 function cleanVisual(candidate, allowGeneratedBitmap = false) {
   if (candidate === null || typeof candidate !== "object") return null;
+  if (candidate.kind === "illustration") {
+    const drawing = illustrationById(candidate.illustrationId);
+    if (drawing === null) return null;
+    // Only fixed, shipped artwork can cross this boundary. Never accept SVG
+    // supplied by a page, model, or attachment. Published JPEGs keep the ID.
+    const hosted = typeof candidate.imageUrl === "string"
+      && /^https:\/\/share\.codingforjustice\.org\.uk\/i\/[A-Za-z0-9_-]{8,24}\.jpg$/.test(candidate.imageUrl);
+    return Object.freeze({
+      kind: "illustration", illustrationId: drawing.illustrationId,
+      imageUrl: hosted ? candidate.imageUrl : `${SHARE_ORIGIN}/illustrations/${drawing.illustrationId}.svg`,
+      sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
+    });
+  }
   const generatedPng = allowGeneratedBitmap && candidate.kind === "ai-generated" ? cleanGeneratedPng(candidate.imageUrl) : null;
   const imageUrl = typeof candidate.imageUrl === "string" && candidate.imageUrl.startsWith("data:")
     ? generatedPng
@@ -184,3 +197,4 @@ export function isShareReadyMessage(candidate, origin) {
     && candidate.type === SHARE_MESSAGE_READY
     && candidate.version === SHARE_SNAPSHOT_VERSION;
 }
+import { illustrationById } from "./editorial-illustrations.js";

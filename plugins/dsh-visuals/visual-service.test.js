@@ -223,3 +223,35 @@ test("a single generic word in a long headline cannot select an unrelated archiv
     fetchJson: async () => ({ results: [{url:'https://upload.wikimedia.org/book.jpg',foreign_landing_url:'https://commons.wikimedia.org/wiki/File:Book.jpg',title:'The adventures of Philip on his way through the world',creator:'Archivist',license:'pdm',width:2000,height:1400}] }) });
   assert.equal((await service.search({ query:'How to Remember Him From Admiration to a Year of Practice' })).candidates.length,0);
 });
+
+test("openly licensed illustrations remain eligible and Commons credit does not call them photographs", () => {
+  const wikimedia = normalizeWikimedia({ query: { pages: [{
+    title: "File:Red bicycle illustration.svg",
+    fullurl: "https://commons.wikimedia.org/wiki/File:Red_bicycle_illustration.svg",
+    imageinfo: [{
+      thumburl: "https://upload.wikimedia.org/red-bicycle-illustration.png",
+      thumbwidth: 1600,
+      thumbheight: 1000,
+      extmetadata: {
+        LicenseShortName: { value: "CC BY 4.0" },
+        Artist: { value: "Illustrator" },
+        ImageDescription: { value: "Illustration of a red bicycle beside a city street" },
+      },
+    }],
+  }] } }, "red bicycle");
+  const openverse = normalizeOpenverse({ results: [{
+    title: "Red bicycle vector illustration",
+    creator: "Open illustrator",
+    license: "by-sa",
+    license_version: "4.0",
+    url: "https://live.staticflickr.com/1/red-bicycle-vector.png",
+    foreign_landing_url: "https://commons.wikimedia.org/wiki/File:Red_bicycle_vector.png",
+    width: 1600,
+    height: 1000,
+  }] }, "red bicycle");
+
+  assert.equal(wikimedia.length, 1);
+  assert.match(wikimedia[0].credit, /^Image · Illustrator · CC BY 4\.0$/);
+  assert.equal(openverse.length, 1);
+  assert.match(openverse[0].credit, /^Image · Open illustrator · CC BY-SA 4\.0$/);
+});

@@ -1,5 +1,5 @@
 import { questionnaireParts } from "./questionnaire.js";
-import { createStoryCoverSvg } from "../../../../shared/vibe-cover.js";
+import { illustrationForChunk } from "../../../../shared/editorial-illustrations.js";
 
 export const STREAM_BATCH_SIZE = 8;
 export const GENERATED_STREAM_BATCH_SIZE = 6;
@@ -367,19 +367,9 @@ export function markdownWithoutLeadVisual(markdown) {
     .replace(/^\s+/, "");
 }
 
-/** A relevant unique cover is safer than assigning an unrelated catalogue photograph. */
+/** A credited local drawing keeps every story pictorial, even offline. */
 export function storyCoverForChunk(chunk) {
-  const title = String(chunk?.title ?? "A new Vibe").replace(/\s+/g, " ").trim().slice(0, 180);
-  const svg = createStoryCoverSvg(title, chunk?.markdown);
-  return Object.freeze({
-    kind: "typography",
-    externalUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-    alt: `Unique editorial cover for ${title}`,
-    focalPoint: "center",
-    href: "https://dsh-vibeify.ezzye.chatgpt.site/",
-    label: "Editorial typography · unique to this story",
-    mode: "cinema",
-  });
+  return illustrationForChunk(chunk);
 }
 
 /** Resolve a varied, credited visual while keeping media provenance explicit. */

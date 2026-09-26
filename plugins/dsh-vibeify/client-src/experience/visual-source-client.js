@@ -1,3 +1,4 @@
+import { commonsSourceUrlsForMarkdown } from "./feed.js";
 export const VISUAL_RPC_CHANNEL = "/dsh-visuals";
 export const VISUAL_CACHE_KEY = "dsh-vibeify.visuals.v1";
 export const VISUAL_CACHE_VERSION = 1;
@@ -6,8 +7,8 @@ export const MAX_VISUAL_CACHE = 160;
 
 const PUBLIC_SOURCES = Object.freeze(new Set(["fresh-stream", "radar-reserve"]));
 const PROVIDER_HOSTS = Object.freeze({
-  wikimedia: Object.freeze(new Set(["upload.wikimedia.org"])),
-  openverse: Object.freeze(new Set(["upload.wikimedia.org", "live.staticflickr.com", "images-assets.nasa.gov", "tile.loc.gov", "ids.si.edu"])),
+  wikimedia: Object.freeze(new Set(["upload.wikimedia.org", "thumb.wikimedia.org"])),
+  openverse: Object.freeze(new Set(["upload.wikimedia.org", "thumb.wikimedia.org", "live.staticflickr.com", "images-assets.nasa.gov", "tile.loc.gov", "ids.si.edu"])),
   pexels: Object.freeze(new Set(["images.pexels.com"])),
   pixabay: Object.freeze(new Set(["cdn.pixabay.com", "pixabay.com"])),
 });
@@ -80,7 +81,7 @@ export function publicVisualBriefForChunk(chunk) {
   if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || !PUBLIC_SOURCES.has(chunk.source)) return null;
   const query = cleanText(chunk.title, 180);
   if (query === null || query.length < 3) return null;
-  return Object.freeze({ query, orientation: "landscape" });
+  return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
 }
 
 function emptyCache() {
@@ -154,5 +155,19 @@ export function mediaFromVisualCandidate(visual, fallbackArtwork, mode = "cinema
     mode,
     provider: cleaned.provider,
     license: cleaned.license,
+  });
+}
+
+// A candidate is not selected or cached until the actual browser decodes it.
+export function visualImageLoads(url, ImageClass = globalThis.Image, timeoutMs = 8000) {
+  if (typeof ImageClass !== "function") return Promise.resolve(false);
+  return new Promise((resolve) => {
+    const image = new ImageClass();
+    const finish = (ok) => { clearTimeout(timer); image.onload = null; image.onerror = null; resolve(ok); };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    image.referrerPolicy = "no-referrer";
+    image.onload = () => finish(image.naturalWidth >= 480 && image.naturalHeight >= 240);
+    image.onerror = () => finish(false);
+    image.src = url;
   });
 }

@@ -10,6 +10,13 @@ const MAX_ALT = 240;
 const ARTICLE_KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 const VISUAL_KINDS = new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
+const REUSABLE_IMAGE_FAMILIES = Object.freeze([
+  { image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i },
+  { image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i },
+  { image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i },
+  { image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i },
+  { image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i },
+]);
 
 function cleanText(value, limit, multiline = false) {
   if (typeof value !== "string") return null;
@@ -42,6 +49,10 @@ function cleanVisual(candidate) {
   const alt = cleanText(candidate.alt, MAX_ALT);
   const credit = cleanText(candidate.credit, MAX_LABEL);
   if (imageUrl === null || sourceUrl === null || alt === null || credit === null) return null;
+  const imageHost = new URL(imageUrl).hostname.toLowerCase();
+  const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
+  const family = REUSABLE_IMAGE_FAMILIES.find((row) => row.image.test(imageHost));
+  if (family !== undefined && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
   const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
   const inferredKind = /\bphotograph|\bphoto\b/i.test(credit)
     ? "photograph"

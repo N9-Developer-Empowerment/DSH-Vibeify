@@ -190,3 +190,30 @@ test("private or oversized search material is rejected before network activity",
   await assert.rejects(() => service.search({ query: "normal\nprivate prompt", limit: 8, excludeUrls: [] }), /query/i);
   assert.equal(requests, 0);
 });
+
+test("an editor's Commons source is resolved with authoritative licence despite a poetic headline", async () => {
+  const urls = [];
+  const service = createVisualService({
+    getConfig: () => ({}), resolveCredential: async () => undefined,
+    fetchJson: async (url) => { urls.push(String(url)); return { query: { pages: [{
+      title: 'File:Portrait_(1938).jpg', fullurl: 'https://commons.wikimedia.org/wiki/File:Portrait_(1938).jpg',
+      imageinfo: [{ url: 'https://upload.wikimedia.org/wikipedia/commons/a/ab/Portrait.jpg', thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Portrait.jpg/1920px-Portrait.jpg', width: 1600, height: 1800,
+        extmetadata: { LicenseShortName: { value: 'Public domain' }, Artist: { value: 'Named photographer' }, ImageDescription: { value: 'Portrait' } } }],
+    }] } }; },
+  });
+  const result = await service.search({ query: 'Walking into the future', sourceUrls: ['https://commons.wikimedia.org/wiki/File:Portrait_(1938).jpg'] });
+  assert.equal(result.candidates.length, 1);
+  assert.equal(result.candidates[0].license, 'Public domain');
+  assert.equal(new URL(result.candidates[0].imageUrl).hostname, 'thumb.wikimedia.org');
+  assert.equal(new URL(urls[0]).searchParams.get('titles'), 'File:Portrait_(1938).jpg');
+  assert.equal(urls.length, 1);
+});
+
+test("source recovery never fetches arbitrary supplied URLs", async () => {
+  const urls = [];
+  const service = createVisualService({getConfig: () => ({openverse:false}), resolveCredential: async () => undefined,
+    fetchJson: async (url) => { urls.push(String(url)); return {}; }});
+  await service.search({ query: 'public subject', sourceUrls: ['https://127.0.0.1/private', 'https://commons.wikimedia.org.evil.test/wiki/File:Photo.jpg'] });
+  assert.equal(urls.length, 1);
+  assert.equal(new URL(urls[0]).searchParams.has('titles'), false);
+});

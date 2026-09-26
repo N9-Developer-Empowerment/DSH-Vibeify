@@ -171,17 +171,17 @@ const REMOTE_IMAGE_HOSTS = Object.freeze(new Set([
   "cdn.pixabay.com",
 ]));
 const REUSABLE_IMAGE_FAMILIES = Object.freeze([
-  Object.freeze({ image: /^(?:upload\.)?wikimedia\.org$/, source: /^(?:commons\.)?wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?: \d(?:\.\d)?)?|public domain)\b/i }),
+  Object.freeze({ image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i }),
   Object.freeze({ image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i }),
   Object.freeze({ image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i }),
   Object.freeze({ image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i }),
-  Object.freeze({ image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?|public domain)\b/i }),
+  Object.freeze({ image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i }),
 ]);
 const REMOTE_IMAGE_QUERY_KEYS = Object.freeze(new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
-const IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
-const SOURCE_LINK_PATTERN = /\[([^\]]{1,120})\]\((https:\/\/[^\s)]+)\)/i;
-const MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
-const VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
+const IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
+const SOURCE_LINK_PATTERN = /^\[([^\]]{1,120})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/i;
+const MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
+const VISUAL_CREDIT_LABEL = /^(?:(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?|artwork(?:\s+and\s+source)?|credit)\b/i;
 const IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 
@@ -233,6 +233,46 @@ function visualSource(value) {
   }
 }
 
+function visualCaption(line) {
+  const text = String(line ?? "").trim().replace(/^[-*]\s+/, "").replace(/^[*_]/, "");
+  const prefix = /^(photo(?:graph)?|image|visual|artwork|graphic)(?:\s+(?:source|credit))?\s*:\s*/i.exec(text);
+  const linkText = text.slice(prefix?.[0].length ?? 0);
+  const link = SOURCE_LINK_PATTERN.exec(linkText);
+  if (link === null || (prefix === null && !VISUAL_CREDIT_LABEL.test(link[1]))) return null;
+  const suffix = linkText.slice(link[0].length).replace(/[*.\s]+$/g, "").trim();
+  if (suffix.length > 100 || /\]\(|https?:\/\//i.test(suffix)) return null;
+  const credit = [prefix?.[1], link[1], suffix.replace(/^[,;·—–\s]+/, "")]
+    .filter(Boolean).join(" · ").replace(/\s+/g, " ").trim();
+  return { sourceUrl: visualSource(link[2]), credit };
+}
+
+function captionAfterImage(markdown, images, index) {
+  const image = images[index];
+  const start = (image.index ?? 0) + image[0].length;
+  const end = images[index + 1]?.index ?? markdown.length;
+  const line = markdown.slice(start, end).split(/\r?\n/).find((value) => value.trim().length > 0);
+  return visualCaption(line);
+}
+
+/** Public Commons file pages can be checked for exact licence metadata before display. */
+export function commonsSourceUrlsForMarkdown(markdown) {
+  if (typeof markdown !== "string") return [];
+  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+  const sources = new Set();
+  for (let index = 0; index < images.length && sources.size < 4; index += 1) {
+    const imageUrl = visualSource(images[index][2]);
+    if (imageUrl === null || !/^(?:upload|thumb)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
+    const sourceUrl = captionAfterImage(markdown, images, index)?.sourceUrl;
+    if (sourceUrl === null || sourceUrl === undefined) continue;
+    const source = new URL(sourceUrl);
+    if (source.hostname.toLowerCase() === "commons.wikimedia.org" && source.pathname.startsWith("/wiki/File:")) {
+      source.search = "";
+      sources.add(source.href);
+    }
+  }
+  return [...sources];
+}
+
 /** A generated page can contribute several verified public images to the rolling catalogue. */
 export function remoteVisualsForMarkdown(markdown) {
   if (typeof markdown !== "string") return null;
@@ -241,12 +281,10 @@ export function remoteVisualsForMarkdown(markdown) {
   const seen = new Set();
   for (let index = 0; index < images.length; index += 1) {
     const image = images[index];
-    const start = (image.index ?? 0) + image[0].length;
-    const end = images[index + 1]?.index ?? markdown.length;
-    const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
-    const sourceUrl = source === null ? null : visualSource(source[2]);
-    if (source === null || sourceUrl === null) continue;
-    const credit = source[1].replace(/\s+/g, " ").trim();
+    const caption = captionAfterImage(markdown, images, index);
+    const sourceUrl = caption?.sourceUrl ?? null;
+    if (sourceUrl === null) continue;
+    const credit = caption.credit;
     const imageUrl = allowedImageUrl(image[2], sourceUrl, credit);
     if (imageUrl === null || seen.has(imageUrl)) continue;
     seen.add(imageUrl);
@@ -283,7 +321,8 @@ function isVisualCreditPage(url) {
   const host = url.hostname.toLowerCase();
   return ((host === "unsplash.com" || host === "www.unsplash.com") && url.pathname.startsWith("/photos/"))
     || ((host === "pexels.com" || host === "www.pexels.com") && url.pathname.startsWith("/photo/"))
-    || ((host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/"));
+    || ((host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/"))
+    || (host === "commons.wikimedia.org" && url.pathname.startsWith("/wiki/File:"));
 }
 
 /**
@@ -307,14 +346,13 @@ export function contentLinkForMarkdown(markdown) {
 
 export function markdownWithoutLeadVisual(markdown) {
   if (typeof markdown !== "string") return "";
-  const visuals = remoteVisualsForMarkdown(markdown) ?? [];
-  const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
+  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+  const creditUrls = new Set(images.map((_image, index) => captionAfterImage(markdown, images, index)?.sourceUrl).filter(Boolean));
   return markdown
     .replace(IMAGE_PATTERN, "")
-    .replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
-      const sourceUrl = visualSource(value);
-      return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;
-    })
+    .split(/\r?\n/)
+    .filter((line) => !creditUrls.has(visualCaption(line)?.sourceUrl))
+    .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/^\s+/, "");
 }

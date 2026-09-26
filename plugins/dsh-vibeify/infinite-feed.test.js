@@ -5,6 +5,7 @@ import { createExperienceCatalog } from "./client-src/experience/catalog.js";
 import { createEditorialEdition } from "./client-src/experience/editorial.js";
 import { createWelcomeEdition } from "./client-src/experience/welcome-edition.js";
 import {
+  commonsSourceUrlsForMarkdown,
   contentLinkForMarkdown,
   createBundledStream,
   createInstantUpdateChunks,
@@ -237,6 +238,54 @@ test("reusable catalogue families require a visible licence and preserve it in t
   const flickrImage = "https://live.staticflickr.com/65535/example.jpg";
   const flickrSource = "https://www.flickr.com/photos/example/123456789/";
   assert.equal(remoteVisualForMarkdown(`![A noncommercial-only photograph](${flickrImage})\n\n[Photograph · Example · CC BY-NC 4.0](${flickrSource})\n\nUseful copy.`), null);
+  assert.equal(remoteVisualForMarkdown(`![A noncommercial-only photograph](${image})\n\n[Photograph · Example · CC BY-NC 4.0](${source})\n\nUseful copy.`), null);
+});
+
+test("parenthesized Wikimedia filenames and adjacent licence captions remain usable", () => {
+  const image = "https://upload.wikimedia.org/wikipedia/commons/a/aa/Portrait_(detail).jpg";
+  const source = "https://commons.wikimedia.org/wiki/File:Portrait_(detail).jpg";
+  const markdown = `![A musician on stage](${image})\n\n*Photo: [Example Creator, via Wikimedia Commons](${source}), CC BY-SA 4.0.*\n\nA finished story.`;
+  assert.deepEqual(remoteVisualForMarkdown(markdown), {
+    imageUrl: image,
+    sourceUrl: source,
+    alt: "A musician on stage",
+    credit: "Photo · Example Creator, via Wikimedia Commons · CC BY-SA 4.0",
+  });
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Portrait_|Example Creator|CC BY-SA 4\.0/);
+});
+
+test("licensed Wikimedia thumbnail URLs use the same Commons provenance rule", () => {
+  const image = "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/Alma_Thomas_Official_Photo.jpg/960px-Alma_Thomas_Official_Photo.jpg";
+  const source = "https://commons.wikimedia.org/wiki/File:Alma_Thomas_Official_Photo.jpg";
+  const markdown = `![Alma Thomas portrait](${image})\n\n[Photograph · United States Government · Public domain](${source})`;
+  assert.equal(remoteVisualForMarkdown(markdown)?.imageUrl, image);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(markdown), [source]);
+  assert.equal(remoteVisualForMarkdown(`![Alma Thomas portrait](${image})\n\n[Photograph · United States Government](${source})`), null);
+});
+
+test("Commons metadata lookup receives only adjacent file-page credits, even before a licence is known", () => {
+  const source = "https://commons.wikimedia.org/wiki/File:Sister_Rosetta_Tharpe_(1938_publicity_photo_with_guitar).jpg";
+  const markdown = [
+    "![Sister Rosetta Tharpe holding a guitar](https://upload.wikimedia.org/wikipedia/commons/a/aa/Sister_Rosetta_Tharpe_(1938_publicity_photo_with_guitar).jpg)",
+    `[Photograph · James J. Kriegsmann](${source})`,
+    "The [museum profile](https://museum.example/rosetta) discusses her career.",
+    "![A separate studio](https://images.pexels.com/photos/123/studio.jpeg)",
+    "[Photograph · Example](https://www.pexels.com/photo/studio-123/)",
+    "[Unrelated Commons file](https://commons.wikimedia.org/wiki/File:Unrelated.jpg)",
+  ].join("\n\n");
+  assert.equal(remoteVisualsForMarkdown(markdown).some((visual) => visual.sourceUrl === source), false);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(markdown), [source]);
+  assert.doesNotMatch(markdownWithoutLeadVisual(markdown), /Photograph · James J\. Kriegsmann/);
+});
+
+test("prose links are not misread as photograph provenance", () => {
+  const markdown = [
+    "![An artist at work](https://images.pexels.com/photos/123/artist.jpeg)",
+    "The [exhibition](https://museum.example/artist) opens this week.",
+    "[Photograph · Example Creator](https://www.pexels.com/photo/artist-123/)",
+  ].join("\n\n");
+  assert.equal(remoteVisualForMarkdown(markdown), null);
+  assert.deepEqual(contentLinkForMarkdown(markdown), { href: "https://museum.example/artist", label: "exhibition" });
 });
 
 test("story covers are deterministic, unique to their copy, and contain the article title", () => {

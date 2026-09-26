@@ -3,7 +3,7 @@ const MAX_QUERY = 180;
 const MAX_EXCLUSIONS = 80;
 const MAX_RESULTS = 24;
 const OPEN_IMAGE_HOSTS = Object.freeze(new Set([
-  "upload.wikimedia.org",
+  "upload.wikimedia.org", "thumb.wikimedia.org",
   "live.staticflickr.com",
   "images-assets.nasa.gov",
   "tile.loc.gov",
@@ -33,6 +33,7 @@ function cleanHttps(value, allowedHosts = null) {
     const host = url.hostname.toLowerCase();
     if (allowedHosts !== null && !allowedHosts.has(host)) return null;
     url.hash = "";
+    for (const key of [...url.searchParams.keys()]) if (key.startsWith("utm_")) url.searchParams.delete(key);
     return url.href;
   } catch {
     return null;
@@ -159,7 +160,7 @@ export function normalizeWikimedia(document, query) {
       height: info?.thumbheight ?? info?.height,
       tags: page?.title,
     }, query);
-    return item === null || cleanHttps(item.imageUrl, new Set(["upload.wikimedia.org"])) === null ? [] : [item];
+    return item === null || cleanHttps(item.imageUrl, new Set(["upload.wikimedia.org", "thumb.wikimedia.org"])) === null ? [] : [item];
   }));
 }
 
@@ -195,7 +196,14 @@ function validateSearch(input) {
     const cleaned = cleanHttps(value);
     return cleaned === null ? [] : [cleaned];
   }));
-  return Object.freeze({ query, orientation, limit, excludeUrls });
+  const sourceTitles = (Array.isArray(input.sourceUrls) ? input.sourceUrls : []).slice(0, 4).flatMap((value) => {
+    try {
+      const url = new URL(value);
+      const title = decodeURIComponent(url.pathname.slice(6));
+      return url.protocol === "https:" && url.hostname === "commons.wikimedia.org" && !url.username && !url.password && url.pathname.startsWith("/wiki/File:") && title.length < 300 && !title.includes("|") ? [title] : [];
+    } catch { return []; }
+  });
+  return Object.freeze({ query, orientation, limit, excludeUrls, sourceTitles });
 }
 
 async function defaultFetchJson(url, options = {}) {
@@ -291,7 +299,20 @@ export function createVisualService({ getConfig, resolveCredential, fetchJson = 
     async search(request, signal) {
       const input = validateSearch(request);
       const current = await state();
-      const plans = providerPlans(input, current.config, current.credentials, fetchJson, signal);
+      // Recover the editor's chosen photograph using authoritative licence metadata.
+      // Only a fixed Commons API endpoint is fetched, never an arbitrary supplied URL.
+      if (current.config.wikimedia !== false && input.sourceTitles.length > 0) {
+        const url = new URL("https://commons.wikimedia.org/w/api.php");
+        for (const [key, value] of Object.entries({ action: "query", titles: input.sourceTitles.join("|"), prop: "imageinfo|info", iiprop: "url|extmetadata", iiurlwidth: "1800", inprop: "url", format: "json", formatversion: "2" })) url.searchParams.set(key, value);
+        try {
+          const resolved = normalizeWikimedia(await fetchJson(url, { signal }), input.query)
+            .filter((item) => !input.excludeUrls.has(item.imageUrl));
+          if (resolved.length > 0) return Object.freeze({ candidates: Object.freeze(resolved), providers: ["wikimedia"], failedProviders: [] });
+        } catch { /* Continue to independent public image search. */ }
+      }
+      const sourceQuery = input.sourceTitles[0]?.replace(/^File:/i, "").replace(/\.[a-z0-9]{2,5}$/i, "").replace(/_/g, " ").replace(/\b(?:untitled|by|official|photo|photograph|portrait|image|\d{4})\b/gi, " ").replace(/\s+/g, " ").trim();
+      const searchInput = sourceQuery?.length >= 3 ? { ...input, query: sourceQuery.slice(0, MAX_QUERY) } : input;
+      const plans = providerPlans(searchInput, current.config, current.credentials, fetchJson, signal);
       const settled = await Promise.all(plans.map(async (plan) => {
         try {
           return { provider: plan.provider, candidates: await plan.run(), failed: false };

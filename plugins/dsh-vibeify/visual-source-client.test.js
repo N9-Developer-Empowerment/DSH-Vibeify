@@ -7,6 +7,7 @@ import {
   publicVisualBriefForChunk,
   readVisualCache,
   writeVisualCache,
+  visualImageLoads,
 } from "./client-src/experience/visual-source-client.js";
 
 test("only explicit magazine sources produce a public image brief", () => {
@@ -23,6 +24,7 @@ test("only explicit magazine sources produce a public image brief", () => {
   assert.deepEqual(publicVisualBriefForChunk(publicChunk), {
     query: "Why city bicycles are getting smaller",
     orientation: "landscape",
+    sourceUrls: [],
   });
   assert.equal(publicVisualBriefForChunk(ordinaryChat), null);
   assert.equal(publicVisualBriefForChunk(questionnaire), null);
@@ -83,4 +85,11 @@ test("visual cache is bounded, expiring, and stores no article copy", () => {
   assert.equal(readVisualCache(storage, now).get("refill-1:city-bikes").imageUrl, candidate.imageUrl);
   assert.doesNotMatch(values.values().next().value, /article|markdown|private/i);
   assert.equal(readVisualCache(storage, now + 31 * 24 * 60 * 60 * 1000).size, 0);
+});
+
+test("failed and tiny images are rejected before selection, usable photographs pass", async () => {
+  class Photo { set src(value) { this.naturalWidth = value === "tiny" ? 100 : 1600; this.naturalHeight = 1000; queueMicrotask(() => value === "broken" ? this.onerror?.() : this.onload?.()); } }
+  assert.equal(await visualImageLoads("broken", Photo), false);
+  assert.equal(await visualImageLoads("tiny", Photo), false);
+  assert.equal(await visualImageLoads("usable", Photo), true);
 });

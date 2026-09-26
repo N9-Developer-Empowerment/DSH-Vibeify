@@ -616,17 +616,17 @@ window.__ModuleLoader__.load({
 			  "cdn.pixabay.com"
 			]));
 			var REUSABLE_IMAGE_FAMILIES = Object.freeze([
-			  Object.freeze({ image: /^(?:upload\.)?wikimedia\.org$/, source: /^(?:commons\.)?wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?: \d(?:\.\d)?)?|public domain)\b/i }),
+			  Object.freeze({ image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i }),
 			  Object.freeze({ image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i }),
 			  Object.freeze({ image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i }),
 			  Object.freeze({ image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i }),
-			  Object.freeze({ image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?|public domain)\b/i })
+			  Object.freeze({ image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i })
 			]);
 			var REMOTE_IMAGE_QUERY_KEYS = Object.freeze(/* @__PURE__ */ new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
-			var IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
-			var SOURCE_LINK_PATTERN = /\[([^\]]{1,120})\]\((https:\/\/[^\s)]+)\)/i;
-			var MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/[^\s)]+)(?:\s+"[^"]*")?\)/gi;
-			var VISUAL_CREDIT_LABEL = /^(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?\b|^credit\b/i;
+			var IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
+			var SOURCE_LINK_PATTERN = /^\[([^\]]{1,120})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/i;
+			var MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
+			var VISUAL_CREDIT_LABEL = /^(?:(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?|artwork(?:\s+and\s+source)?|credit)\b/i;
 			var IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 			var TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
 			function reusableImageFamily(imageHost, sourceHost, credit = "") {
@@ -665,6 +665,41 @@ window.__ModuleLoader__.load({
 			    return null;
 			  }
 			}
+			function visualCaption(line) {
+			  const text = String(line ?? "").trim().replace(/^[-*]\s+/, "").replace(/^[*_]/, "");
+			  const prefix = /^(photo(?:graph)?|image|visual|artwork|graphic)(?:\s+(?:source|credit))?\s*:\s*/i.exec(text);
+			  const linkText = text.slice(prefix?.[0].length ?? 0);
+			  const link = SOURCE_LINK_PATTERN.exec(linkText);
+			  if (link === null || prefix === null && !VISUAL_CREDIT_LABEL.test(link[1])) return null;
+			  const suffix = linkText.slice(link[0].length).replace(/[*.\s]+$/g, "").trim();
+			  if (suffix.length > 100 || /\]\(|https?:\/\//i.test(suffix)) return null;
+			  const credit = [prefix?.[1], link[1], suffix.replace(/^[,;·—–\s]+/, "")].filter(Boolean).join(" \xB7 ").replace(/\s+/g, " ").trim();
+			  return { sourceUrl: visualSource(link[2]), credit };
+			}
+			function captionAfterImage(markdown, images, index) {
+			  const image = images[index];
+			  const start = (image.index ?? 0) + image[0].length;
+			  const end = images[index + 1]?.index ?? markdown.length;
+			  const line = markdown.slice(start, end).split(/\r?\n/).find((value) => value.trim().length > 0);
+			  return visualCaption(line);
+			}
+			function commonsSourceUrlsForMarkdown(markdown) {
+			  if (typeof markdown !== "string") return [];
+			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+			  const sources = /* @__PURE__ */ new Set();
+			  for (let index = 0; index < images.length && sources.size < 4; index += 1) {
+			    const imageUrl = visualSource(images[index][2]);
+			    if (imageUrl === null || !/^(?:upload|thumb)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
+			    const sourceUrl = captionAfterImage(markdown, images, index)?.sourceUrl;
+			    if (sourceUrl === null || sourceUrl === void 0) continue;
+			    const source = new URL(sourceUrl);
+			    if (source.hostname.toLowerCase() === "commons.wikimedia.org" && source.pathname.startsWith("/wiki/File:")) {
+			      source.search = "";
+			      sources.add(source.href);
+			    }
+			  }
+			  return [...sources];
+			}
 			function remoteVisualsForMarkdown(markdown) {
 			  if (typeof markdown !== "string") return null;
 			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
@@ -672,12 +707,10 @@ window.__ModuleLoader__.load({
 			  const seen = /* @__PURE__ */ new Set();
 			  for (let index = 0; index < images.length; index += 1) {
 			    const image = images[index];
-			    const start = (image.index ?? 0) + image[0].length;
-			    const end = images[index + 1]?.index ?? markdown.length;
-			    const source = markdown.slice(start, end).match(SOURCE_LINK_PATTERN);
-			    const sourceUrl = source === null ? null : visualSource(source[2]);
-			    if (source === null || sourceUrl === null) continue;
-			    const credit = source[1].replace(/\s+/g, " ").trim();
+			    const caption = captionAfterImage(markdown, images, index);
+			    const sourceUrl = caption?.sourceUrl ?? null;
+			    if (sourceUrl === null) continue;
+			    const credit = caption.credit;
 			    const imageUrl = allowedImageUrl(image[2], sourceUrl, credit);
 			    if (imageUrl === null || seen.has(imageUrl)) continue;
 			    seen.add(imageUrl);
@@ -709,7 +742,7 @@ window.__ModuleLoader__.load({
 			}
 			function isVisualCreditPage(url) {
 			  const host = url.hostname.toLowerCase();
-			  return (host === "unsplash.com" || host === "www.unsplash.com") && url.pathname.startsWith("/photos/") || (host === "pexels.com" || host === "www.pexels.com") && url.pathname.startsWith("/photo/") || (host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/");
+			  return (host === "unsplash.com" || host === "www.unsplash.com") && url.pathname.startsWith("/photos/") || (host === "pexels.com" || host === "www.pexels.com") && url.pathname.startsWith("/photo/") || (host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/") || host === "commons.wikimedia.org" && url.pathname.startsWith("/wiki/File:");
 			}
 			function contentLinkForMarkdown(markdown) {
 			  if (typeof markdown !== "string") return null;
@@ -726,12 +759,9 @@ window.__ModuleLoader__.load({
 			}
 			function markdownWithoutLeadVisual(markdown) {
 			  if (typeof markdown !== "string") return "";
-			  const visuals = remoteVisualsForMarkdown(markdown) ?? [];
-			  const creditUrls = new Set(visuals.map(({ sourceUrl }) => sourceUrl));
-			  return markdown.replace(IMAGE_PATTERN, "").replace(MARKDOWN_LINK_PATTERN, (match, _label, value) => {
-			    const sourceUrl = visualSource(value);
-			    return sourceUrl !== null && creditUrls.has(sourceUrl) ? "" : match;
-			  }).replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
+			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+			  const creditUrls = new Set(images.map((_image, index) => captionAfterImage(markdown, images, index)?.sourceUrl).filter(Boolean));
+			  return markdown.replace(IMAGE_PATTERN, "").split(/\r?\n/).filter((line) => !creditUrls.has(visualCaption(line)?.sourceUrl)).join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
 			}
 			function storyCoverForChunk(chunk) {
 			  const title = String(chunk?.title ?? "A new Vibe").replace(/\s+/g, " ").trim().slice(0, 180);
@@ -1102,7 +1132,7 @@ window.__ModuleLoader__.load({
 			- Honour the reader's selected lenses and editor note as the primary direction for the batch and its voice; serendipity is a limited complement. Before publishing, check each title and body against that direction and ask whether a reader learns something specific about the subject and its people. Rework or omit generic explainers, filler, and articles about VIBE, Chat, tabs, prompts, the editor or the writing process unless the reader expressly commissioned that subject.
 			- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
 			- Every non-questionnaire chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
-			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Search Google Images with its Usage rights filter as one discovery route when available, but never treat that filter or a search-result label as permission: open the original file page and independently verify its exact reusable licence and attribution terms. Prefer Wikimedia Commons, Openverse results that lead to an original licence page, Flickr Commons, official public-domain government collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only images, noncommercial licences for promotional sharing, orphaned files and copied images whose original licence page cannot be found. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, cdn.pixabay.com, live.staticflickr.com, images-assets.nasa.gov, tile.loc.gov or ids.si.edu; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator \xB7 CC BY 4.0](https://original-file-and-licence-page)" (substitute the verified licence, such as CC0, CC BY-SA or Public domain). Only after searching for a relevant reusable web image, if none is good enough and image generation is supported and authorised, use the latest available ChatGPT image generation capability for a unique story-specific illustration. Send only a public description of the article subject and scene, never private reader direction, prompts, history or attachments. Label the result Generated illustration and never claim it documents a real event. If that capability is unavailable, make the story's words visual with a unique typographic editorial cover. Never reuse a recent image URL. Never present generated imagery as a real photograph, imitate a named artist or sacred visual tradition, invent a credit or licence, use a tracker, or publish the candidate list: publish only the best relevant selection.
+			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Search Google Images with its Usage rights filter as one discovery route when available, but never treat that filter or a search-result label as permission: open the original file page and independently verify its exact reusable licence and attribution terms. Prefer Wikimedia Commons, Openverse results that lead to an original licence page, Flickr Commons, official public-domain government collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only images, noncommercial licences for promotional sharing, orphaned files and copied images whose original licence page cannot be found. Every generated non-questionnaire chunk must begin with a fresh verified public image in Markdown form, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, cdn.pixabay.com, live.staticflickr.com, images-assets.nasa.gov, tile.loc.gov or ids.si.edu; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator \xB7 CC BY 4.0](https://original-file-and-licence-page)" (substitute the verified licence, such as CC0, CC BY-SA or Public domain). A Wikimedia Commons creator-only Photograph credit will not display; include the exact licence confirmed on the original file page or choose another image. Only after searching for a relevant reusable web image, if none is good enough and image generation is supported and authorised, use the latest available ChatGPT image generation capability for a unique story-specific illustration. Send only a public description of the article subject and scene, never private reader direction, prompts, history or attachments. Label the result Generated illustration and never claim it documents a real event. If that capability is unavailable, make the story's words visual with a unique typographic editorial cover. Never reuse a recent image URL. Never present generated imagery as a real photograph, imitate a named artist or sacred visual tradition, invent a credit or licence, use a tracker, or publish the candidate list: publish only the best relevant selection.
 			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
 			- A later deeper chunk may begin with natural editorial continuity such as \u201CI dug further into this\u2026\u201D or \u201CA few pages later, the stronger route is\u2026\u201D. It must add knowledge rather than revise or silently replace an earlier chunk.
@@ -2913,7 +2943,7 @@ window.__ModuleLoader__.load({
 			Reader's editor note: ${profile.customDirection || "No extra note."}
 			Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}; questionnaire answers=${learning.questionnaireAnswers.join(" | ") || "none"}.
 
-			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit when one can be verified; a page longer than 500 words needs two or three relevant visuals at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. Only after that image search, when none is relevant and reusable, use the latest available ChatGPT image generation capability if it is supported and authorised. Supply only a public article-subject description, never private reader settings, notes, history or attachments. Label the result Generated illustration and never imply it documents a real event; if generation is unavailable, use a unique story-specific typographic cover. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
+			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit when one can be verified; a page longer than 500 words needs two or three relevant visuals at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. For Wikimedia Commons, a creator-only Photograph credit is insufficient: verify the original file page and include its exact reusable licence beside the creator; if the licence cannot be verified, choose another image. Only after that image search, when none is relevant and reusable, use the latest available ChatGPT image generation capability if it is supported and authorised. Supply only a public article-subject description, never private reader settings, notes, history or attachments. Label the result Generated illustration and never imply it documents a real event; if generation is unavailable, use a unique story-specific typographic cover. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
 
 			Output only closed envelopes, one after another, exactly:
 			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
@@ -3115,6 +3145,13 @@ window.__ModuleLoader__.load({
 			var ARTICLE_KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 			var VISUAL_KINDS = /* @__PURE__ */ new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography"]);
 			var TRACKING_QUERY_KEY2 = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
+			var REUSABLE_IMAGE_FAMILIES2 = Object.freeze([
+			  { image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i },
+			  { image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i },
+			  { image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i },
+			  { image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i },
+			  { image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i }
+			]);
 			function cleanText4(value, limit, multiline = false) {
 			  if (typeof value !== "string") return null;
 			  const control = multiline ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g : /[\u0000-\u001f\u007f]/g;
@@ -3141,6 +3178,10 @@ window.__ModuleLoader__.load({
 			  const alt = cleanText4(candidate.alt, MAX_ALT);
 			  const credit = cleanText4(candidate.credit, MAX_LABEL2);
 			  if (imageUrl === null || sourceUrl === null || alt === null || credit === null) return null;
+			  const imageHost = new URL(imageUrl).hostname.toLowerCase();
+			  const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
+			  const family = REUSABLE_IMAGE_FAMILIES2.find((row) => row.image.test(imageHost));
+			  if (family !== void 0 && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
 			  const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
 			  const inferredKind = /\bphotograph|\bphoto\b/i.test(credit) ? "photograph" : /\bgenerated image|\bai-generated|\bphotorealistic/i.test(credit) ? "ai-generated" : /\btypograph|\bcalligraph/i.test(credit) ? "typography" : /\bai-assisted graphic|\bai graphic/i.test(credit) ? "ai-graphic" : "editorial-image";
 			  return Object.freeze({ imageUrl, sourceUrl, alt, credit, kind: declaredKind ?? inferredKind });
@@ -3342,8 +3383,8 @@ window.__ModuleLoader__.load({
 			var MAX_VISUAL_CACHE = 160;
 			var PUBLIC_SOURCES = Object.freeze(/* @__PURE__ */ new Set(["fresh-stream", "radar-reserve"]));
 			var PROVIDER_HOSTS = Object.freeze({
-			  wikimedia: Object.freeze(/* @__PURE__ */ new Set(["upload.wikimedia.org"])),
-			  openverse: Object.freeze(/* @__PURE__ */ new Set(["upload.wikimedia.org", "live.staticflickr.com", "images-assets.nasa.gov", "tile.loc.gov", "ids.si.edu"])),
+			  wikimedia: Object.freeze(/* @__PURE__ */ new Set(["upload.wikimedia.org", "thumb.wikimedia.org"])),
+			  openverse: Object.freeze(/* @__PURE__ */ new Set(["upload.wikimedia.org", "thumb.wikimedia.org", "live.staticflickr.com", "images-assets.nasa.gov", "tile.loc.gov", "ids.si.edu"])),
 			  pexels: Object.freeze(/* @__PURE__ */ new Set(["images.pexels.com"])),
 			  pixabay: Object.freeze(/* @__PURE__ */ new Set(["cdn.pixabay.com", "pixabay.com"]))
 			});
@@ -3411,7 +3452,7 @@ window.__ModuleLoader__.load({
 			  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || !PUBLIC_SOURCES.has(chunk.source)) return null;
 			  const query = cleanText5(chunk.title, 180);
 			  if (query === null || query.length < 3) return null;
-			  return Object.freeze({ query, orientation: "landscape" });
+			  return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
 			}
 			function emptyCache() {
 			  return Object.freeze({ version: VISUAL_CACHE_VERSION, entries: Object.freeze([]) });
@@ -3479,6 +3520,23 @@ window.__ModuleLoader__.load({
 			    mode,
 			    provider: cleaned.provider,
 			    license: cleaned.license
+			  });
+			}
+			function visualImageLoads(url, ImageClass = globalThis.Image, timeoutMs = 8e3) {
+			  if (typeof ImageClass !== "function") return Promise.resolve(false);
+			  return new Promise((resolve) => {
+			    const image = new ImageClass();
+			    const finish = (ok) => {
+			      clearTimeout(timer);
+			      image.onload = null;
+			      image.onerror = null;
+			      resolve(ok);
+			    };
+			    const timer = setTimeout(() => finish(false), timeoutMs);
+			    image.referrerPolicy = "no-referrer";
+			    image.onload = () => finish(image.naturalWidth >= 480 && image.naturalHeight >= 240);
+			    image.onerror = () => finish(false);
+			    image.src = url;
 			  });
 			}
 
@@ -3928,10 +3986,11 @@ window.__ModuleLoader__.load({
 			    }
 			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+			function StreamChunk({ chunk, index, visualOverride, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
 			  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
 			  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
-			  const media = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
+			  const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
+			  const media = failedVisuals.has(proposedMedia?.externalUrl) ? storyCoverForChunk(chunk) : proposedMedia;
 			  const contentLink = contentLinkForMarkdown(chunk.markdown);
 			  const episode = media?.episode;
 			  const visual = media === null ? null : media.externalUrl ?? ARTWORK[media.artwork];
@@ -3971,9 +4030,8 @@ window.__ModuleLoader__.load({
 			        decoding: "async",
 			        fetchpriority: index === 0 ? "high" : "auto",
 			        referrerPolicy: "no-referrer",
-			        onError: media.fallbackArtwork === void 0 ? void 0 : (event) => {
-			          event.currentTarget.onerror = null;
-			          event.currentTarget.src = ARTWORK[media.fallbackArtwork];
+			        onError: () => {
+			          if (media.externalUrl?.startsWith("https://")) onVisualFailure(media.externalUrl);
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
@@ -4008,6 +4066,8 @@ window.__ModuleLoader__.load({
 			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
 			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [failedVisuals, setFailedVisuals] = import_react.default.useState(() => /* @__PURE__ */ new Set());
+			  const onVisualFailure = import_react.default.useCallback((url) => setFailedVisuals((current) => current.has(url) ? current : /* @__PURE__ */ new Set([...current, url])), []);
 			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => readVisualCache(browserStorage()));
 			  const [libraryOpen, setLibraryOpen] = import_react.default.useState(false);
 			  const [libraryQuery, setLibraryQuery] = import_react.default.useState("");
@@ -4140,15 +4200,25 @@ window.__ModuleLoader__.load({
 			      }
 			      if (!active || visualCapability.current !== "available") return;
 			      const selected = readVisualCache(browserStorage());
+			      for (const [id, item] of selected) if (failedVisuals.has(item.imageUrl)) selected.delete(id);
 			      const excluded = /* @__PURE__ */ new Set([
+			        ...failedVisuals,
 			        ...selected.values().map(({ imageUrl }) => imageUrl),
 			        ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl))
 			      ]);
-			      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) => publicVisualBriefForChunk(chunk) !== null && remoteVisualForMarkdown(chunk.markdown) === null && !selected.has(chunk.id));
+			      const targets = newestFirst(chunks).slice(0, 32).filter((chunk) => publicVisualBriefForChunk(chunk) !== null && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl)) && !selected.has(chunk.id));
 			      for (const chunk of targets) {
 			        if (!active) return;
 			        const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
-			        const visual = candidates[0];
+			        let visual;
+			        for (const candidate of candidates) {
+			          if (!active) return;
+			          if (await visualImageLoads(candidate.imageUrl)) {
+			            visual = candidate;
+			            break;
+			          }
+			          excluded.add(candidate.imageUrl);
+			        }
 			        if (visual === void 0) continue;
 			        selected.set(chunk.id, visual);
 			        excluded.add(visual.imageUrl);
@@ -4160,7 +4230,7 @@ window.__ModuleLoader__.load({
 			    return () => {
 			      active = false;
 			    };
-			  }, [chunks, connection, state.view]);
+			  }, [chunks, connection, state.view, failedVisuals]);
 			  import_react.default.useEffect(() => {
 			    saveExperienceState(browserStorage(), state);
 			    document.body.dataset.vibeifyExperience = state.view;
@@ -4418,6 +4488,8 @@ window.__ModuleLoader__.load({
 			        chunk,
 			        index,
 			        visualOverride: visualOverrides.get(chunk.id),
+			        failedVisuals,
+			        onVisualFailure,
 			        saved: state.savedChunkIds.includes(chunk.id),
 			        answer: answers[chunk.id],
 			        skipped: skipped.has(chunk.id),

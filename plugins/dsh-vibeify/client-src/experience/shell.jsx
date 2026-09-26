@@ -16,6 +16,7 @@ import {
   remoteVisualForMarkdown,
   remoteVisualsForMarkdown,
   visualMediaForChunk,
+  storyCoverForChunk,
 } from "./feed.js";
 import {
   CONTENT_STORE_KEY,
@@ -88,6 +89,7 @@ import {
   readVisualCache,
   searchVisualForChunk,
   writeVisualCache,
+  visualImageLoads,
 } from "./visual-source-client.js";
 import {
   boundMagazinePresentation,
@@ -261,10 +263,11 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+function StreamChunk({ chunk, index, visualOverride, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
   const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
   const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
-  const media = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
+  const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
+  const media = failedVisuals.has(proposedMedia?.externalUrl) ? storyCoverForChunk(chunk) : proposedMedia;
   const contentLink = contentLinkForMarkdown(chunk.markdown);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
@@ -303,10 +306,7 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
             decoding="async"
             fetchpriority={index === 0 ? "high" : "auto"}
             referrerPolicy="no-referrer"
-            onError={media.fallbackArtwork === undefined ? undefined : (event) => {
-              event.currentTarget.onerror = null;
-              event.currentTarget.src = ARTWORK[media.fallbackArtwork];
-            }}
+            onError={() => { if (media.externalUrl?.startsWith("https://")) onVisualFailure(media.externalUrl); }}
           />
           <span className="vfx-visual-shade" />
           <figcaption><a href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.label}</a></figcaption>
@@ -380,6 +380,8 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
+  const [failedVisuals, setFailedVisuals] = React.useState(() => new Set());
+  const onVisualFailure = React.useCallback((url) => setFailedVisuals((current) => current.has(url) ? current : new Set([...current, url])), []);
   const [visualOverrides, setVisualOverrides] = React.useState(() => readVisualCache(browserStorage()));
   const [libraryOpen, setLibraryOpen] = React.useState(false);
   const [libraryQuery, setLibraryQuery] = React.useState("");
@@ -515,18 +517,25 @@ function ExperienceShell({ codexFeatures, connection }) {
       }
       if (!active || visualCapability.current !== "available") return;
       const selected = readVisualCache(browserStorage());
+      for (const [id, item] of selected) if (failedVisuals.has(item.imageUrl)) selected.delete(id);
       const excluded = new Set([
+        ...failedVisuals,
         ...selected.values().map(({ imageUrl }) => imageUrl),
         ...chunks.flatMap(({ markdown }) => (remoteVisualsForMarkdown(markdown) ?? []).map(({ imageUrl }) => imageUrl)),
       ]);
       const targets = newestFirst(chunks).slice(0, 32).filter((chunk) =>
         publicVisualBriefForChunk(chunk) !== null
-        && remoteVisualForMarkdown(chunk.markdown) === null
+        && (remoteVisualForMarkdown(chunk.markdown) === null || failedVisuals.has(remoteVisualForMarkdown(chunk.markdown)?.imageUrl))
         && !selected.has(chunk.id));
       for (const chunk of targets) {
         if (!active) return;
         const candidates = await searchVisualForChunk(connection, chunk, [...excluded]);
-        const visual = candidates[0];
+        let visual;
+        for (const candidate of candidates) {
+          if (!active) return;
+          if (await visualImageLoads(candidate.imageUrl)) { visual = candidate; break; }
+          excluded.add(candidate.imageUrl);
+        }
         if (visual === undefined) continue;
         selected.set(chunk.id, visual);
         excluded.add(visual.imageUrl);
@@ -536,7 +545,7 @@ function ExperienceShell({ codexFeatures, connection }) {
     };
     run();
     return () => { active = false; };
-  }, [chunks, connection, state.view]);
+  }, [chunks, connection, state.view, failedVisuals]);
 
   React.useEffect(() => {
     saveExperienceState(browserStorage(), state);
@@ -834,6 +843,8 @@ function ExperienceShell({ codexFeatures, connection }) {
                   chunk={chunk}
                   index={index}
                   visualOverride={visualOverrides.get(chunk.id)}
+                  failedVisuals={failedVisuals}
+                  onVisualFailure={onVisualFailure}
                   saved={state.savedChunkIds.includes(chunk.id)}
                   answer={answers[chunk.id]}
                   skipped={skipped.has(chunk.id)}

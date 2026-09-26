@@ -78,6 +78,28 @@ test("public visuals keep a bounded provenance kind and infer legacy credits", (
   assert.doesNotMatch(JSON.stringify(cleaned), /made-up-kind/);
 });
 
+test("public Commons visuals retain verified licences and reject bare or restricted credits", () => {
+  const base = {
+    version: SHARE_SNAPSHOT_VERSION,
+    title: "A public portrait",
+    kind: "article",
+    markdown: "Finished public copy.",
+    publishedAt: NOW,
+  };
+  const visual = {
+    imageUrl: "https://upload.wikimedia.org/wikipedia/commons/a/aa/Portrait_(detail).jpg",
+    sourceUrl: "https://commons.wikimedia.org/wiki/File:Portrait_(detail).jpg",
+    alt: "A musician on stage",
+    credit: "Photograph · Example Creator · CC BY-SA 4.0",
+  };
+  assert.equal(cleanShareSnapshot({ ...base, visual }, NOW).visual.credit, visual.credit);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...visual, credit: "Photograph · Example Creator" } }, NOW).visual, null);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...visual, credit: "Photograph · Example Creator · CC BY-NC 4.0" } }, NOW).visual, null);
+  const thumb = { ...visual, imageUrl: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/aa/Portrait_(detail).jpg/960px-Portrait_(detail).jpg" };
+  assert.equal(cleanShareSnapshot({ ...base, visual: thumb }, NOW).visual.imageUrl, thumb.imageUrl);
+  assert.equal(cleanShareSnapshot({ ...base, visual: { ...thumb, credit: "Photograph · Example Creator · CC BY-ND 4.0" } }, NOW).visual, null);
+});
+
 test("the public contract preserves only fixed-provider click-to-load media", () => {
   const youtube = cleanShareSnapshot({
     version: SHARE_SNAPSHOT_VERSION,

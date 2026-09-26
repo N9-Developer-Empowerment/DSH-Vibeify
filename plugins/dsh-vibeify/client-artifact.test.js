@@ -29,7 +29,7 @@ test("generated artifact can be loaded by DSH before any browser UI renders", ()
     return {};
   });
   assert.equal(typeof exports.apply, "function");
-  assert.deepEqual([...exports.inject], ["connection", "remote", "sessions", "settingsScope", "slots"]);
+  assert.deepEqual([...exports.inject], ["connection", "remote", "remote.session", "sessions", "settingsScope", "slots"]);
 });
 
 test("browser artifact contains the creator-first catalogue and self-contained real photography", () => {

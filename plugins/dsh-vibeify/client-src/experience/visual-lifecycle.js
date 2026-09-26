@@ -122,7 +122,7 @@ export function createVisualLifecycle({
           emitSelect(chunk.id, image);
           try { await generatedCache?.write(chunk.id, image); } catch { /* Host cache remains available. */ }
         } else if (!disposed) {
-          onStatus(chunk.id, "Using a credited illustration");
+          onStatus(chunk.id, "");
           complete.add(chunk.id); // A later explicit Update may retry; chunk changes do not.
           failedIds.add(chunk.id);
         }

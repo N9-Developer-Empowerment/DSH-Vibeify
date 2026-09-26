@@ -3867,7 +3867,7 @@ window.__ModuleLoader__.load({
 			          } catch {
 			          }
 			        } else if (!disposed) {
-			          onStatus(chunk.id, "Using a credited illustration");
+			          onStatus(chunk.id, "");
 			          complete.add(chunk.id);
 			          failedIds.add(chunk.id);
 			        }

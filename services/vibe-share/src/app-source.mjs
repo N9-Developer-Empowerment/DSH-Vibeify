@@ -369,10 +369,11 @@ function renderSnapshot(value) {
 
 installMediaPlayers(document);
 
-window.addEventListener("message", async (event) => {
+async function receiveShareSnapshot(event) {
   if (preview === null || publish === null || status === null) return;
   if (event.source !== window.opener || !ALLOWED_OPENERS.has(event.origin)) return;
   if (event.data?.type !== SNAPSHOT || event.data?.version !== VERSION || typeof event.data?.snapshot !== "object") return;
+  window.removeEventListener("message", receiveShareSnapshot);
   status.textContent = "Preparing the private preview…";
   try {
     await preparePreview(event.data.snapshot);
@@ -382,7 +383,8 @@ window.addEventListener("message", async (event) => {
     publish.disabled = true;
     status.textContent = error instanceof Error ? error.message : "The preview could not be prepared";
   }
-}, { once: true });
+}
+window.addEventListener("message", receiveShareSnapshot);
 
 if (window.opener !== null) {
   for (const origin of ALLOWED_OPENERS) window.opener.postMessage({ type: READY, version: VERSION }, origin);

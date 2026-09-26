@@ -329,6 +329,34 @@ test("the preview keeps the Vibe lead image and prepares a JPEG only for image-f
   assert.equal(publicCover, cover);
 });
 
+test("an unrelated window message cannot consume the private share transfer listener", async () => {
+  const listeners = new Map();
+  const sent = [];
+  const opener = { postMessage(value, targetOrigin) { sent.push({ value, targetOrigin }); } };
+  const preview = { replaceChildren() {} };
+  const publish = { disabled: true, addEventListener() {} };
+  const status = { textContent: "Nothing has been published." };
+  const document = {
+    getElementById(id) { return { preview, publish, status }[id] ?? null; },
+    querySelectorAll() { return []; },
+  };
+  const window = {
+    opener,
+    addEventListener(type, listener) { listeners.set(type, listener); },
+    removeEventListener(type, listener) { if (listeners.get(type) === listener) listeners.delete(type); },
+  };
+  runInNewContext(APP_JS, { document, window, Image: class { constructor() { throw new Error("render skipped in listener test"); } } });
+  assert.equal(sent.length, 2);
+  const receive = listeners.get("message");
+  assert.equal(typeof receive, "function");
+  await receive({ source: {}, origin: "https://challenges.cloudflare.com", data: { type: "other" } });
+  assert.equal(listeners.get("message"), receive);
+  await receive({ source: opener, origin: "http://127.0.0.1:3080", data: { type: "unrelated" } });
+  assert.equal(listeners.get("message"), receive);
+  await receive({ source: opener, origin: "http://127.0.0.1:3080", data: { type: "vibe-share:snapshot", version: 1, snapshot: { ...snapshot, visual: null, inlineVisuals: [] } } });
+  assert.equal(listeners.has("message"), false);
+});
+
 test("a text-only public page uses its generated editorial cover", async () => {
   const db = new MemoryDb();
   const covers = new MemoryCovers();

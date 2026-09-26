@@ -105,6 +105,29 @@ test("the live mux subscriber releases chunks without selecting the update sessi
   }
 });
 
+test("current DSH follow releases a closed article before its turn ends", async () => {
+  let release;
+  const nextFrame = new Promise((resolve) => { release = resolve; });
+  let called;
+  const remote = {
+    async *follow(request, signal) {
+      called = { request, signal };
+      yield { type: "snapshot", cursor: 3, records: [], hasMore: false };
+      yield await nextFrame;
+    },
+  };
+  const published = [];
+  const live = openLiveChunkStream({ remote, sessionId: "update-session", runId: "refill-new", onChunks: (chunks) => published.push(...chunks) });
+  assert.equal(await live.ready, true);
+  release({ type: "assistant-stream", frame: { type: "chunk", chunk: { type: "text-delta", text: '<vibe-chunk id="refill-new-one" kind="article" title="A human story">Complete.</vibe-chunk>' } } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(published.map(({ title }) => title), ["A human story"]);
+  assert.deepEqual(called.request.address, { kind: "session", sessionId: "update-session" });
+  assert.equal(called.request.assistantStream, true);
+  live.close();
+  assert.equal(called.signal.aborted, true);
+});
+
 test("ordinary Chat publishes each closed semantic chunk before its turn ends", async () => {
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   const originalWebSocket = Object.getOwnPropertyDescriptor(globalThis, "WebSocket");

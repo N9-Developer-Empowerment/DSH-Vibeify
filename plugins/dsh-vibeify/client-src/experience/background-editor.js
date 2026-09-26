@@ -8,6 +8,7 @@ import {
 } from "./reserve-store.js";
 import { HUMAN_EDITORIAL_CONTRACT, editorialProfileKey, loadEditorialProfile } from "./editorial-settings.js";
 import { QUESTIONNAIRE_AUTHORING_CONTRACT } from "../../questionnaire-contract.js";
+import { createSessionApi } from "./session-api.js";
 import {
   BACKGROUND_SESSION_TITLE,
   readBackgroundSessionId,
@@ -134,9 +135,9 @@ function latestTurnEnd(entries) {
   return latest;
 }
 
-async function history(connection, sessionId, runId = null) {
+async function history(sessionApi, sessionId, runId = null) {
   try {
-    const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
+    const response = await sessionApi.history({ sessionId, maxMessages: 50 });
     if (!response?.result?.ok) return null;
     const events = response.result.value.events;
     return { end: latestTurnEnd(events), chunks: runId === null ? [] : freshStreamChunksFromEvents(events, runId) };
@@ -148,7 +149,7 @@ function announce(detail) {
 }
 
 export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
-  const connection = ctx.get("connection");
+  const sessionApi = createSessionApi(ctx);
   const sessions = ctx.get("sessions");
   ctx.effect(() => {
     let stopped = false;
@@ -166,7 +167,7 @@ export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
       const candidate = active;
       const summary = sessions.list.getSnapshot().byId?.[candidate.sessionId];
       if (summary?.running === true) return;
-      const result = await history(connection, candidate.sessionId, candidate.runId);
+      const result = await history(sessionApi, candidate.sessionId, candidate.runId);
       if (stopped || active !== candidate || result?.end === null || result.end.seq <= candidate.baselineSeq) return;
       if (result.end.kind === "completed" && result.chunks.length > 0) {
         const store = storage();
@@ -205,23 +206,23 @@ export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
         announce({ state: "busy" }); schedule(); return;
       }
       if (sessionId === null || snapshot.byId?.[sessionId] === undefined) {
-        const created = await connection.api.sessions.create(currentSessionDefaults(sessions));
+        const created = await sessionApi.create(currentSessionDefaults(sessions));
         if (!created?.result?.ok || stopped) { announce({ state: "error" }); schedule(); return; }
         sessionId = created.result.value.sessionId;
         writeBackgroundSessionId(store, sessionId);
-        await connection.api.sessions.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
+        await sessionApi.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
       }
-      const baselineSeq = (await history(connection, sessionId))?.end?.seq ?? -1;
+      const baselineSeq = (await history(sessionApi, sessionId))?.end?.seq ?? -1;
       if (!reserveBackgroundRun(store, profile.dailyBudgetUsd, runId)) { announce({ state: "budget" }); schedule(); return; }
       const learning = summarizeEditorialLearning(getLearningEvents(store));
       const prompt = buildBackgroundReservePrompt({ runId, profile, signals: reserve.signals, learning, codexFeatures });
-      const submitted = await connection.api.sessions.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: prompt }] });
+      const submitted = await sessionApi.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: prompt }] });
       if (!submitted?.result?.ok || stopped) { announce({ state: "error" }); schedule(); return; }
       active = { runId, sessionId, baselineSeq, tribes: profile.tribes, profileKey: editorialProfileKey(profile) };
       announce({ state: "working", mode: codexFeatures ? "codex-lead" : "native" });
       void settle();
       timeout = window.setTimeout(async () => {
-        if (active?.sessionId === sessionId) await connection.api.sessions.cancel({ sessionId });
+        if (active?.sessionId === sessionId) await sessionApi.cancel({ sessionId });
         active = null; announce({ state: "timed-out" }); schedule();
       }, BACKGROUND_EDITOR_TIMEOUT_MS);
     };

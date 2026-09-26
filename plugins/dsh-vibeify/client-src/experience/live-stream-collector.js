@@ -13,7 +13,11 @@ function textFromMessage(event) {
 }
 
 function textFromFrame(frame) {
-  if (frame?.type !== "session/event") return "";
+  if (frame?.type === "assistant-stream" && frame.frame?.type === "chunk") {
+    const chunk = frame.frame.chunk;
+    return (chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && typeof chunk.text === "string" ? chunk.text : "";
+  }
+  if (frame?.type !== "session/event" && frame?.type !== "event") return "";
   const event = frame.event;
   if (event?.type === "assistant/chunk") {
     const chunk = event.data?.chunk;
@@ -93,6 +97,25 @@ function unavailableStream() {
   return Object.freeze({ ready: Promise.resolve(false), close() {} });
 }
 
+function openRemoteStream(remote, sessionId, onFrame) {
+  const controller = new AbortController();
+  let resolveReady;
+  let settled = false;
+  const ready = new Promise((resolve) => { resolveReady = resolve; });
+  const settle = (value) => { if (!settled) { settled = true; resolveReady(value); } };
+  const run = async () => {
+    try {
+      for await (const frame of remote.follow({ address: { kind: "session", sessionId }, assistantStream: true, maxMessages: 50 }, controller.signal)) {
+        if (frame?.type === "snapshot") { settle(true); continue; }
+        onFrame(frame);
+      }
+    } catch { settle(false); }
+    finally { settle(false); }
+  };
+  void run();
+  return Object.freeze({ ready, close() { controller.abort(); } });
+}
+
 function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
   if (typeof WebSocket !== "function"
     || typeof onFrame !== "function"
@@ -144,9 +167,13 @@ function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
  * dedicated update session. Complete closed envelopes are released as soon as
  * their final delimiter arrives; partial prose and worker output are ignored.
  */
-export function openLiveChunkStream({ sessionId, runId, onChunks }) {
+export function openLiveChunkStream({ remote = null, sessionId, runId, onChunks }) {
   if (typeof onChunks !== "function") return unavailableStream();
   const collector = createLiveChunkCollector({ runId });
+  if (remote?.follow) return openRemoteStream(remote, sessionId, (frame) => {
+    const chunks = collector.push(frame);
+    if (chunks.length > 0) onChunks(chunks);
+  });
   return openMuxStream({
     readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
     onFrame(frame) {

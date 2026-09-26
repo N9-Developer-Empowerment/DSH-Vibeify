@@ -1,6 +1,7 @@
 import { freshStreamChunksFromEvents, openLiveChunkStream } from "./live-stream-collector.js";
 import { readUpdateSessionId, writeUpdateSessionId } from "./update-session.js";
 import { VIBE_STREAM_CHUNKS_EVENT } from "./vibe-result.js";
+import { createSessionApi } from "./session-api.js";
 
 export const RECIPE_RUN_EVENT = "dsh-vibeify:run-recipe";
 export const RECIPE_STATUS_EVENT = "dsh-vibeify:recipe-status";
@@ -95,9 +96,9 @@ function latestTurnEnd(entries) {
   return latest;
 }
 
-async function historyState(connection, sessionId, runId = null) {
+async function historyState(sessionApi, sessionId, runId = null) {
   try {
-    const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
+    const response = await sessionApi.history({ sessionId, maxMessages: 50 });
     if (!response?.result?.ok) return null;
     const events = response.result.value.events;
     return Object.freeze({
@@ -110,7 +111,7 @@ async function historyState(connection, sessionId, runId = null) {
 }
 
 export function installRecipeRunner(ctx) {
-  const connection = ctx.get("connection");
+  const sessionApi = createSessionApi(ctx);
   const sessions = ctx.get("sessions");
   ctx.effect(() => {
     let active = null;
@@ -153,7 +154,7 @@ export function installRecipeRunner(ctx) {
       }
       candidate.checking = true;
       candidate.checkAgain = false;
-      const history = await historyState(connection, candidate.sessionId, candidate.id);
+      const history = await historyState(sessionApi, candidate.sessionId, candidate.id);
       if (active !== candidate) return;
       candidate.checking = false;
       if (history !== null) publishChunks(candidate, history.chunks);
@@ -176,9 +177,10 @@ export function installRecipeRunner(ctx) {
         status({ state, id: stopping.id, title: stopping.title });
         return;
       }
-      const response = await connection.api.sessions.cancel({ sessionId: stopping.sessionId });
+      const response = await sessionApi.cancel({ sessionId: stopping.sessionId });
       if (active !== stopping) return;
       if (!response?.result?.ok) {
+        clearActive();
         status({ state: "error", id: stopping.id, title: stopping.title, sessionId: stopping.sessionId, message: "The magazine update could not be stopped." });
         return;
       }
@@ -217,7 +219,7 @@ export function installRecipeRunner(ctx) {
         return;
       }
       if (sessionId === null || snapshot.byId?.[sessionId] === undefined) {
-        const created = await connection.api.sessions.create(currentSessionDefaults(sessions));
+        const created = await sessionApi.create(currentSessionDefaults(sessions));
         if (thisGeneration !== generation || active === null) return;
         if (!created?.result?.ok) {
           clearActive();
@@ -226,14 +228,15 @@ export function installRecipeRunner(ctx) {
         }
         sessionId = created.result.value.sessionId;
         saveSessionId(sessionId);
-        await connection.api.sessions.rename({ sessionId, title: "VIBE magazine updates" });
+        await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
         if (thisGeneration !== generation || active === null) return;
       }
       active.sessionId = sessionId;
-      active.baselineEndSeq = (await historyState(connection, sessionId))?.end?.seq ?? -1;
+      active.baselineEndSeq = (await historyState(sessionApi, sessionId))?.end?.seq ?? -1;
       if (thisGeneration !== generation || active === null) return;
       const candidate = active;
       candidate.liveStream = openLiveChunkStream({
+        remote: sessionApi.remote,
         sessionId,
         runId: candidate.id,
         onChunks: (chunks) => publishChunks(candidate, chunks),
@@ -241,7 +244,7 @@ export function installRecipeRunner(ctx) {
       await candidate.liveStream.ready;
       if (thisGeneration !== generation || active !== candidate) return;
       const zone = timeZone();
-      const submitted = await connection.api.sessions.prompt({
+      const submitted = await sessionApi.prompt({
         sessionId,
         mode: "queue",
         content: [{ type: "text", text: recipe.prompt }],

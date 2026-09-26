@@ -2,6 +2,7 @@ import { appendCachedChunks } from "./content-store.js";
 import { freshStreamChunksFromEvents, openLiveChatChunkStream } from "./live-stream-collector.js";
 import { readUpdateSessionId } from "./update-session.js";
 import { isBackgroundSession } from "./background-session.js";
+import { createSessionApi } from "./session-api.js";
 import {
   stripDuplicatedLeadTitle,
   VIBE_CHAT_RESULT_EVENT,
@@ -131,22 +132,26 @@ export function sessionAllowsLiveMagazine(summary, storage) {
 }
 
 /** Read every local history page without opening, resuming, or prompting the session. */
-export async function readCompleteSessionHistory(api, sessionId) {
+export async function readCompleteSessionHistory(sessionApi, sessionId) {
+  const reader = sessionApi.sessions?.history ? sessionApi.sessions : sessionApi;
   const pages = [];
   let beforeSeq;
+  let throughSeq;
   let previousBoundary = Number.POSITIVE_INFINITY;
   while (true) {
     let response;
     try {
-      response = await api.sessions.history({
+      response = await reader.history({
         sessionId,
         maxMessages: MAX_HISTORY_MESSAGES,
         ...(beforeSeq === undefined ? {} : { beforeSeq }),
+        ...(throughSeq === undefined ? {} : { throughSeq }),
       });
     } catch {
       return null;
     }
     if (!response?.result?.ok) return null;
+    throughSeq = response.result.value.throughSeq ?? throughSeq;
     const entries = Array.isArray(response.result.value.events) ? response.result.value.events : [];
     pages.unshift(entries);
     if (response.result.value.hasMore !== true) break;
@@ -168,7 +173,7 @@ export async function readCompleteSessionHistory(api, sessionId) {
 
 /** Read all idle local DSH histories and maintain one magazine across sessions. */
 export function installThreadMagazineBridge(ctx) {
-  const connection = ctx.get("connection");
+  const sessionApi = createSessionApi(ctx);
   const sessions = ctx.get("sessions");
   ctx.effect(() => {
     let disposed = false;
@@ -197,7 +202,7 @@ export function installThreadMagazineBridge(ctx) {
       if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
       inFlight.add(summary.id);
       try {
-        const entries = await readCompleteSessionHistory(connection.api, summary.id);
+        const entries = await readCompleteSessionHistory(sessionApi, summary.id);
         if (entries === null || disposed) return;
         const updateSessionId = readUpdateSessionId(safeStorage());
         const chunks = completedHistoryMagazineChunks(summary.id, entries, {

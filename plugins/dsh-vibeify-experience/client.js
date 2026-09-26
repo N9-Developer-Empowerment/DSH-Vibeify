@@ -1774,7 +1774,11 @@ window.__ModuleLoader__.load({
 			  return content.filter((block) => (block?.type === "text" || block?.type === "reasoning") && typeof block.text === "string").map(({ text }) => text).join("\n");
 			}
 			function textFromFrame(frame) {
-			  if (frame?.type !== "session/event") return "";
+			  if (frame?.type === "assistant-stream" && frame.frame?.type === "chunk") {
+			    const chunk = frame.frame.chunk;
+			    return (chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && typeof chunk.text === "string" ? chunk.text : "";
+			  }
+			  if (frame?.type !== "session/event" && frame?.type !== "event") return "";
 			  const event = frame.event;
 			  if (event?.type === "assistant/chunk") {
 			    const chunk = event.data?.chunk;
@@ -1837,6 +1841,39 @@ window.__ModuleLoader__.load({
 			  return Object.freeze({ ready: Promise.resolve(false), close() {
 			  } });
 			}
+			function openRemoteStream(remote, sessionId, onFrame) {
+			  const controller = new AbortController();
+			  let resolveReady;
+			  let settled = false;
+			  const ready = new Promise((resolve) => {
+			    resolveReady = resolve;
+			  });
+			  const settle = (value) => {
+			    if (!settled) {
+			      settled = true;
+			      resolveReady(value);
+			    }
+			  };
+			  const run = async () => {
+			    try {
+			      for await (const frame of remote.follow({ address: { kind: "session", sessionId }, assistantStream: true, maxMessages: 50 }, controller.signal)) {
+			        if (frame?.type === "snapshot") {
+			          settle(true);
+			          continue;
+			        }
+			        onFrame(frame);
+			      }
+			    } catch {
+			      settle(false);
+			    } finally {
+			      settle(false);
+			    }
+			  };
+			  void run();
+			  return Object.freeze({ ready, close() {
+			    controller.abort();
+			  } });
+			}
 			function openMuxStream({ onFrame, readyWhen = null, readyOnOpen = false }) {
 			  if (typeof WebSocket !== "function" || typeof onFrame !== "function" || typeof window === "undefined" || typeof window.location?.origin !== "string" || typeof window.setTimeout !== "function" || typeof window.clearTimeout !== "function") return unavailableStream();
 			  let socket;
@@ -1882,9 +1919,13 @@ window.__ModuleLoader__.load({
 			    }
 			  });
 			}
-			function openLiveChunkStream({ sessionId, runId, onChunks }) {
+			function openLiveChunkStream({ remote = null, sessionId, runId, onChunks }) {
 			  if (typeof onChunks !== "function") return unavailableStream();
 			  const collector = createLiveChunkCollector({ runId });
+			  if (remote?.follow) return openRemoteStream(remote, sessionId, (frame) => {
+			    const chunks = collector.push(frame);
+			    if (chunks.length > 0) onChunks(chunks);
+			  });
 			  return openMuxStream({
 			    readyWhen: (frame) => frame?.type === "session/subscribed" && frame.sessionId === sessionId,
 			    onFrame(frame) {
@@ -1937,6 +1978,71 @@ window.__ModuleLoader__.load({
 			  } catch {
 			    return false;
 			  }
+			}
+
+			// client-src/experience/session-api.js
+			function wrap(result) {
+			  return { result: result?.result ?? result };
+			}
+			function failed(error) {
+			  return { result: { ok: false, error } };
+			}
+			async function call(operation) {
+			  try {
+			    return wrap(await operation());
+			  } catch (error) {
+			    return failed(error);
+			  }
+			}
+			function signal() {
+			  return new AbortController().signal;
+			}
+			async function openingSnapshot(remote, sessionId, maxMessages) {
+			  const controller = new AbortController();
+			  const iterator = remote.follow({ address: { kind: "session", sessionId }, maxMessages }, controller.signal)[Symbol.asyncIterator]();
+			  try {
+			    const first = await iterator.next();
+			    if (first.done || first.value?.type !== "snapshot") throw new Error("Session history has no opening snapshot");
+			    return first.value;
+			  } finally {
+			    controller.abort();
+			    await iterator.return?.();
+			  }
+			}
+			function createSessionApi(ctx) {
+			  const remote = ctx.remote?.session;
+			  if (remote?.create && remote?.prompt && remote?.page && remote?.follow) {
+			    return Object.freeze({
+			      remote,
+			      create: (options = {}) => call(() => remote.create(options)),
+			      rename: ({ sessionId, title }) => call(() => remote.rename({ sessionId, title })),
+			      cancel: ({ sessionId }) => call(() => remote.cancel({ sessionId })),
+			      prompt: ({ sessionId, mode, content, clientTimeZone }) => call(() => {
+			        const requestId = globalThis.crypto?.randomUUID?.();
+			        if (typeof requestId !== "string") throw new Error("Secure prompt request IDs are unavailable");
+			        return remote.prompt({ sessionId, mode, content, requestId, ...clientTimeZone === void 0 ? {} : { clientTimeZone } }, signal());
+			      }),
+			      history: ({ sessionId, maxMessages = 50, beforeSeq, throughSeq }) => call(async () => {
+			        if (throughSeq === void 0) {
+			          const opening = await openingSnapshot(remote, sessionId, maxMessages);
+			          return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor } };
+			        }
+			        const page = await remote.page({ address: { kind: "session", sessionId }, throughSeq, ...beforeSeq === void 0 ? {} : { beforeSeq }, maxMessages }, signal());
+			        if (!page?.ok) return page;
+			        return { ok: true, value: { events: page.value.records, hasMore: page.value.hasMore, throughSeq } };
+			      })
+			    });
+			  }
+			  const legacy = ctx.get("connection")?.api?.sessions;
+			  if (!legacy) throw new Error("DSH Session API is unavailable");
+			  return Object.freeze({
+			    remote: null,
+			    create: (options) => legacy.create(options),
+			    rename: (options) => legacy.rename(options),
+			    cancel: (options) => legacy.cancel(options),
+			    prompt: (options) => legacy.prompt(options),
+			    history: (options) => legacy.history(options)
+			  });
 			}
 
 			// client-src/experience/recipe-runner.js
@@ -1999,9 +2105,9 @@ window.__ModuleLoader__.load({
 			  }
 			  return latest;
 			}
-			async function historyState(connection, sessionId, runId = null) {
+			async function historyState(sessionApi, sessionId, runId = null) {
 			  try {
-			    const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
+			    const response = await sessionApi.history({ sessionId, maxMessages: 50 });
 			    if (!response?.result?.ok) return null;
 			    const events = response.result.value.events;
 			    return Object.freeze({
@@ -2013,7 +2119,7 @@ window.__ModuleLoader__.load({
 			  }
 			}
 			function installRecipeRunner(ctx) {
-			  const connection = ctx.get("connection");
+			  const sessionApi = createSessionApi(ctx);
 			  const sessions = ctx.get("sessions");
 			  ctx.effect(() => {
 			    let active = null;
@@ -2053,7 +2159,7 @@ window.__ModuleLoader__.load({
 			      }
 			      candidate.checking = true;
 			      candidate.checkAgain = false;
-			      const history2 = await historyState(connection, candidate.sessionId, candidate.id);
+			      const history2 = await historyState(sessionApi, candidate.sessionId, candidate.id);
 			      if (active !== candidate) return;
 			      candidate.checking = false;
 			      if (history2 !== null) publishChunks(candidate, history2.chunks);
@@ -2075,9 +2181,10 @@ window.__ModuleLoader__.load({
 			        status({ state, id: stopping.id, title: stopping.title });
 			        return;
 			      }
-			      const response = await connection.api.sessions.cancel({ sessionId: stopping.sessionId });
+			      const response = await sessionApi.cancel({ sessionId: stopping.sessionId });
 			      if (active !== stopping) return;
 			      if (!response?.result?.ok) {
+			        clearActive();
 			        status({ state: "error", id: stopping.id, title: stopping.title, sessionId: stopping.sessionId, message: "The magazine update could not be stopped." });
 			        return;
 			      }
@@ -2115,7 +2222,7 @@ window.__ModuleLoader__.load({
 			        return;
 			      }
 			      if (sessionId === null || snapshot.byId?.[sessionId] === void 0) {
-			        const created = await connection.api.sessions.create(currentSessionDefaults(sessions));
+			        const created = await sessionApi.create(currentSessionDefaults(sessions));
 			        if (thisGeneration !== generation || active === null) return;
 			        if (!created?.result?.ok) {
 			          clearActive();
@@ -2124,14 +2231,15 @@ window.__ModuleLoader__.load({
 			        }
 			        sessionId = created.result.value.sessionId;
 			        saveSessionId(sessionId);
-			        await connection.api.sessions.rename({ sessionId, title: "VIBE magazine updates" });
+			        await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
 			        if (thisGeneration !== generation || active === null) return;
 			      }
 			      active.sessionId = sessionId;
-			      active.baselineEndSeq = (await historyState(connection, sessionId))?.end?.seq ?? -1;
+			      active.baselineEndSeq = (await historyState(sessionApi, sessionId))?.end?.seq ?? -1;
 			      if (thisGeneration !== generation || active === null) return;
 			      const candidate = active;
 			      candidate.liveStream = openLiveChunkStream({
+			        remote: sessionApi.remote,
 			        sessionId,
 			        runId: candidate.id,
 			        onChunks: (chunks) => publishChunks(candidate, chunks)
@@ -2139,7 +2247,7 @@ window.__ModuleLoader__.load({
 			      await candidate.liveStream.ready;
 			      if (thisGeneration !== generation || active !== candidate) return;
 			      const zone = timeZone();
-			      const submitted = await connection.api.sessions.prompt({
+			      const submitted = await sessionApi.prompt({
 			        sessionId,
 			        mode: "queue",
 			        content: [{ type: "text", text: recipe.prompt }],
@@ -2355,22 +2463,26 @@ window.__ModuleLoader__.load({
 			  if (summary.origin === "subagent" || isBackgroundSession(summary, storage3)) return false;
 			  return summary.id !== readUpdateSessionId(storage3);
 			}
-			async function readCompleteSessionHistory(api, sessionId) {
+			async function readCompleteSessionHistory(sessionApi, sessionId) {
+			  const reader = sessionApi.sessions?.history ? sessionApi.sessions : sessionApi;
 			  const pages = [];
 			  let beforeSeq;
+			  let throughSeq;
 			  let previousBoundary = Number.POSITIVE_INFINITY;
 			  while (true) {
 			    let response;
 			    try {
-			      response = await api.sessions.history({
+			      response = await reader.history({
 			        sessionId,
 			        maxMessages: MAX_HISTORY_MESSAGES,
-			        ...beforeSeq === void 0 ? {} : { beforeSeq }
+			        ...beforeSeq === void 0 ? {} : { beforeSeq },
+			        ...throughSeq === void 0 ? {} : { throughSeq }
 			      });
 			    } catch {
 			      return null;
 			    }
 			    if (!response?.result?.ok) return null;
+			    throughSeq = response.result.value.throughSeq ?? throughSeq;
 			    const entries = Array.isArray(response.result.value.events) ? response.result.value.events : [];
 			    pages.unshift(entries);
 			    if (response.result.value.hasMore !== true) break;
@@ -2388,7 +2500,7 @@ window.__ModuleLoader__.load({
 			  });
 			}
 			function installThreadMagazineBridge(ctx) {
-			  const connection = ctx.get("connection");
+			  const sessionApi = createSessionApi(ctx);
 			  const sessions = ctx.get("sessions");
 			  ctx.effect(() => {
 			    let disposed = false;
@@ -2416,7 +2528,7 @@ window.__ModuleLoader__.load({
 			      if (disposed || inFlight.has(summary.id) || isBackgroundSession(summary, safeStorage()) || !sessionNeedsMagazineScan(summary, scanned)) return;
 			      inFlight.add(summary.id);
 			      try {
-			        const entries = await readCompleteSessionHistory(connection.api, summary.id);
+			        const entries = await readCompleteSessionHistory(sessionApi, summary.id);
 			        if (entries === null || disposed) return;
 			        const updateSessionId = readUpdateSessionId(safeStorage());
 			        const chunks = completedHistoryMagazineChunks(summary.id, entries, {
@@ -2727,18 +2839,18 @@ window.__ModuleLoader__.load({
 			}
 			function cleanPublicRadar(candidate) {
 			  if (candidate === null || typeof candidate !== "object" || candidate.schemaVersion !== 1 || !Array.isArray(candidate.signals)) return null;
-			  const signals = candidate.signals.map((signal) => {
-			    const id = safeText(signal?.id, 96);
-			    const headline = safeText(signal?.headline, 220);
-			    const url = safeUrl(signal?.url);
+			  const signals = candidate.signals.map((signal2) => {
+			    const id = safeText(signal2?.id, 96);
+			    const headline = safeText(signal2?.headline, 220);
+			    const url = safeUrl(signal2?.url);
 			    if (id === null || !/^[a-z0-9][a-z0-9_.:-]{0,95}$/.test(id) || headline === null || url === null) return null;
 			    return Object.freeze({
 			      id,
 			      headline,
 			      url,
-			      region: safeText(signal.region, 40) ?? "global",
-			      tribeHints: Object.freeze((Array.isArray(signal.tribeHints) ? signal.tribeHints : []).filter((value) => typeof value === "string").slice(0, 8)),
-			      momentum: Math.max(0, Math.min(100, Number(signal.momentum) || 0))
+			      region: safeText(signal2.region, 40) ?? "global",
+			      tribeHints: Object.freeze((Array.isArray(signal2.tribeHints) ? signal2.tribeHints : []).filter((value) => typeof value === "string").slice(0, 8)),
+			      momentum: Math.max(0, Math.min(100, Number(signal2.momentum) || 0))
 			    });
 			  }).filter(Boolean).slice(0, 160);
 			  if (signals.length < 6) return null;
@@ -2758,9 +2870,9 @@ window.__ModuleLoader__.load({
 			function selectedSignals(signals, tribes) {
 			  const selected = [];
 			  const wanted = new Set(tribes);
-			  for (const signal of signals) {
-			    const overlap = signal.tribeHints?.some((tribe) => wanted.has(tribe));
-			    if (overlap || selected.length < 3) selected.push(signal);
+			  for (const signal2 of signals) {
+			    const overlap = signal2.tribeHints?.some((tribe) => wanted.has(tribe));
+			    if (overlap || selected.length < 3) selected.push(signal2);
 			    if (selected.length >= 16) break;
 			  }
 			  return selected;
@@ -2819,9 +2931,9 @@ window.__ModuleLoader__.load({
 			  }
 			  return latest;
 			}
-			async function history(connection, sessionId, runId = null) {
+			async function history(sessionApi, sessionId, runId = null) {
 			  try {
-			    const response = await connection.api.sessions.history({ sessionId, maxMessages: 50 });
+			    const response = await sessionApi.history({ sessionId, maxMessages: 50 });
 			    if (!response?.result?.ok) return null;
 			    const events = response.result.value.events;
 			    return { end: latestTurnEnd2(events), chunks: runId === null ? [] : freshStreamChunksFromEvents(events, runId) };
@@ -2833,7 +2945,7 @@ window.__ModuleLoader__.load({
 			  window.dispatchEvent(new CustomEvent(BACKGROUND_EDITOR_STATUS_EVENT, { detail }));
 			}
 			function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
-			  const connection = ctx.get("connection");
+			  const sessionApi = createSessionApi(ctx);
 			  const sessions = ctx.get("sessions");
 			  ctx.effect(() => {
 			    let stopped = false;
@@ -2849,7 +2961,7 @@ window.__ModuleLoader__.load({
 			      const candidate = active;
 			      const summary = sessions.list.getSnapshot().byId?.[candidate.sessionId];
 			      if (summary?.running === true) return;
-			      const result = await history(connection, candidate.sessionId, candidate.runId);
+			      const result = await history(sessionApi, candidate.sessionId, candidate.runId);
 			      if (stopped || active !== candidate || result?.end === null || result.end.seq <= candidate.baselineSeq) return;
 			      if (result.end.kind === "completed" && result.chunks.length > 0) {
 			        const store = storage2();
@@ -2890,7 +3002,7 @@ window.__ModuleLoader__.load({
 			        return;
 			      }
 			      if (sessionId === null || snapshot.byId?.[sessionId] === void 0) {
-			        const created = await connection.api.sessions.create(currentSessionDefaults2(sessions));
+			        const created = await sessionApi.create(currentSessionDefaults2(sessions));
 			        if (!created?.result?.ok || stopped) {
 			          announce({ state: "error" });
 			          schedule();
@@ -2898,9 +3010,9 @@ window.__ModuleLoader__.load({
 			        }
 			        sessionId = created.result.value.sessionId;
 			        writeBackgroundSessionId(store, sessionId);
-			        await connection.api.sessions.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
+			        await sessionApi.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
 			      }
-			      const baselineSeq = (await history(connection, sessionId))?.end?.seq ?? -1;
+			      const baselineSeq = (await history(sessionApi, sessionId))?.end?.seq ?? -1;
 			      if (!reserveBackgroundRun(store, profile.dailyBudgetUsd, runId)) {
 			        announce({ state: "budget" });
 			        schedule();
@@ -2908,7 +3020,7 @@ window.__ModuleLoader__.load({
 			      }
 			      const learning = summarizeEditorialLearning(getLearningEvents(store));
 			      const prompt = buildBackgroundReservePrompt({ runId, profile, signals: reserve.signals, learning, codexFeatures });
-			      const submitted = await connection.api.sessions.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: prompt }] });
+			      const submitted = await sessionApi.prompt({ sessionId, mode: "queue", content: [{ type: "text", text: prompt }] });
 			      if (!submitted?.result?.ok || stopped) {
 			        announce({ state: "error" });
 			        schedule();
@@ -2918,7 +3030,7 @@ window.__ModuleLoader__.load({
 			      announce({ state: "working", mode: codexFeatures ? "codex-lead" : "native" });
 			      void settle();
 			      timeout = window.setTimeout(async () => {
-			        if (active?.sessionId === sessionId) await connection.api.sessions.cancel({ sessionId });
+			        if (active?.sessionId === sessionId) await sessionApi.cancel({ sessionId });
 			        active = null;
 			        announce({ state: "timed-out" });
 			        schedule();

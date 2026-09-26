@@ -60,7 +60,8 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /magazine-update-started/);
   assert.match(client, /manual-stream-update/);
   assert.match(client, /completed threads to one local magazine/);
-  assert.match(client, /sessions\.history/);
+  assert.match(client, /function createSessionApi/);
+  assert.match(client, /sessionApi\.history/);
   assert.match(client, /<vibe-chunk/);
   assert.match(client, /chat-directed/);
   assert.match(client, /dsh-vibeify:chat-result/);

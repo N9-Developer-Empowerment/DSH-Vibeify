@@ -270,10 +270,12 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
   const isChatResult = chunk.source === "chat-directed";
   const isWelcome = chunk.source === "welcome";
-  const isHero = index === 0 && !isChatResult;
+  const isHero = index === 0;
   const hasTable = markdownHasTable(chunk.markdown);
   const layout = panelLayoutForChunk(chunk, index);
   const [playerOpen, setPlayerOpen] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(false);
+  const isLongRead = chunk.kind !== "questionnaire" && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
   const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
   const shareUrl = contentLink?.href ?? player?.href ?? null;
   const shareLabel = contentLink === null && player !== null ? "Share media link" : "Share link";
@@ -285,6 +287,7 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
       data-source={chunk.source}
       data-layout={layout}
       data-has-table={hasTable}
+      data-expanded={isLongRead && expanded}
       data-visual-kind={media?.kind}
       data-visual-mode={media?.mode}
       data-chunk-id={chunk.id}
@@ -320,7 +323,16 @@ function StreamChunk({ chunk, index, visualOverride, saved, answer, skipped, sha
         </div>
         {chunk.kind === "questionnaire"
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} onLink={() => onEngage(chunk, "opened")} />
-          : <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} onLink={() => onEngage(chunk, "opened")} />}
+          : <>
+            <div id={`vfx-reading-${chunk.id}`} className={`vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`} onFocusCapture={() => { if (isLongRead) setExpanded(true); }}>
+              <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} onLink={() => onEngage(chunk, "opened")} />
+            </div>
+            {isLongRead ? <button type="button" className="vfx-read-more" aria-expanded={expanded} aria-controls={`vfx-reading-${chunk.id}`} onClick={(event) => {
+              const card = event.currentTarget.closest("article");
+              setExpanded(!expanded);
+              if (expanded) window.requestAnimationFrame(() => card?.scrollIntoView({ block: "start" }));
+            }}>{expanded ? "Back to magazine view" : "Read full article"}<Icon name="arrow" /></button> : null}
+          </>}
         {chunk.kind === "questionnaire" ? null : <InlineVisuals visuals={inlineVisuals} title={chunk.title} onOpen={() => onEngage(chunk, "opened")} />}
         {player === null ? null : playerOpen ? (
           <div className="vfx-player" data-media-provider={player.provider}>
@@ -884,8 +896,8 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trig
 .vfx-library-status { grid-column:1/-1; padding-top:18px; display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; border-top:1px solid rgba(255,255,255,.08); color:#978992; font-size:11px; }
 .vfx-library-status button { min-height:36px; padding:0 14px; border:1px solid rgba(255,255,255,.16); border-radius:999px; background:rgba(255,255,255,.04); cursor:pointer; font-size:11px; font-weight:760; }
 .vfx-library-empty { width:min(1180px,calc(100% - 40px)); margin:0 auto 36px; padding:42px 24px; border:1px dashed rgba(255,255,255,.14); border-radius:18px; color:#a99aa5; text-align:center; }
-.vfx-chunks { width:min(1240px,calc(100% - 40px)); min-width:0; margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:dense; align-items:start; gap:clamp(18px,2.4vw,34px); }
-.vfx-chunk { grid-column:span 6; min-width:0; max-width:100%; align-self:start; overflow:hidden; contain:inline-size; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
+.vfx-chunks { width:min(1240px,calc(100% - 40px)); min-width:0; margin:0 auto; display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); grid-auto-flow:row; align-items:start; gap:clamp(18px,2.4vw,34px); }
+.vfx-chunk { scroll-margin-top:100px; grid-column:span 6; min-width:0; max-width:100%; align-self:start; overflow:hidden; contain:inline-size; border:1px solid rgba(255,255,255,.1); border-radius:22px; background:linear-gradient(145deg,rgba(31,23,31,.96),rgba(16,12,17,.98)); box-shadow:0 22px 70px rgba(0,0,0,.18); }
 .vfx-chunk[data-layout="compact"] { grid-column:span 4; }
 .vfx-chunk[data-layout="feature"] { grid-column:span 8; }
 .vfx-chunk[data-layout="wide"] { grid-column:1/-1; }
@@ -893,12 +905,12 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trig
 .vfx-chunk[data-has-table="true"].is-hero { display:block; }
 .vfx-chunk[data-has-table="true"].is-hero .vfx-chunk-visual,.vfx-chunk[data-has-table="true"].is-hero .vfx-chunk-visual img { min-height:300px; height:clamp(300px,34vw,460px); }
 .vfx-chunk[data-kind="questionnaire"] { display:grid; grid-template-columns:minmax(260px,.42fr) minmax(0,1fr); background:radial-gradient(circle at 90% 0,color-mix(in srgb,var(--chunk-accent) 22%,transparent),transparent 42%),linear-gradient(145deg,#241522,#151018); }
-.vfx-chunk[data-source="chat-directed"] { grid-column:1/-1; border-color:rgba(255,133,170,.34); background:radial-gradient(circle at 100% 0,rgba(159,140,255,.16),transparent 38%),linear-gradient(145deg,#271522,#130e15); }
+.vfx-chunk[data-source="chat-directed"] { border-color:rgba(255,133,170,.34); background:radial-gradient(circle at 100% 0,rgba(159,140,255,.16),transparent 38%),linear-gradient(145deg,#271522,#130e15); }
 .vfx-chunk[data-kind="music"],.vfx-chunk[data-kind="video"] { background:linear-gradient(145deg,color-mix(in srgb,var(--chunk-accent) 12%,#201720),#100c11); }
-.vfx-chunk-visual { position:relative; min-height:210px; margin:0; overflow:hidden; background:#171117; }
-.vfx-chunk-visual img { width:100%; height:210px; display:block; object-fit:cover; }
-.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img { min-height:180px; height:180px; }
-.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img { min-height:250px; height:250px; }
+.vfx-chunk-visual { position:relative; min-height:260px; margin:0; overflow:hidden; background:#171117; }
+.vfx-chunk-visual img { width:100%; height:300px; display:block; object-fit:cover; }
+.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img { min-height:230px; height:230px; }
+.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img { min-height:320px; height:320px; }
 .vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { height:100%; min-height:330px; }
 .vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:100%; }
 .vfx-chunk[data-visual-mode="poster"] .vfx-chunk-visual img { transform:scale(1.06); filter:saturate(1.14) contrast(1.08); }
@@ -906,6 +918,7 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trig
 .vfx-chunk[data-visual-mode="close-crop"] .vfx-chunk-visual img { transform:scale(1.18); }
 .vfx-chunk[data-visual-kind="ai-graphic"] .vfx-visual-shade { background:linear-gradient(145deg,transparent 35%,rgba(5,3,6,.42)); }
 .vfx-chunk[data-visual-kind="photograph"],.vfx-chunk[data-visual-kind="editorial-image"] { border-color:color-mix(in srgb,var(--chunk-accent) 42%,rgba(255,255,255,.1)); }
+.vfx-chunk[data-visual-kind="typography"] .vfx-chunk-visual img { object-fit:contain; }
 .vfx-visual-shade { position:absolute; inset:0; background:linear-gradient(0deg,rgba(5,3,6,.72),transparent 60%); }
 .vfx-chunk-visual figcaption { position:absolute; right:16px; bottom:14px; color:#d7cad3; font-size:10px; }.vfx-chunk-visual a { color:#fff; }
 .vfx-chunk-copy { min-width:0; max-width:100%; padding:clamp(24px,3vw,42px); }
@@ -913,6 +926,12 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trig
 .vfx-chunk-heading span { color:var(--chunk-accent); font-size:9px; font-weight:850; letter-spacing:.14em; text-transform:uppercase; }
 .vfx-chunk h2 { max-width:100%; margin:8px 0 20px; overflow-wrap:normal; word-break:normal; hyphens:none; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
 .vfx-chunk.is-hero h2 { font-size:clamp(40px,3vw,60px); }
+.vfx-reading.is-excerpt { max-height:22rem; overflow:hidden; mask-image:linear-gradient(#000 78%,transparent); }
+.vfx-read-more { display:inline-flex; align-items:center; gap:10px; margin:18px 0 4px; padding:10px 0; border:0; border-bottom:1px solid currentColor; background:none; color:var(--accent,#ff9aba); font:inherit; font-size:14px; font-weight:750; cursor:pointer; }
+.vfx-chunk[data-expanded="true"] { grid-column:1/-1; display:block; scroll-margin-top:100px; }
+.vfx-chunk[data-expanded="true"] .vfx-chunk-copy { max-width:80ch; margin:0 auto; }
+.vfx-chunk[data-expanded="true"] .vfx-chunk-visual,.vfx-chunk[data-expanded="true"] .vfx-chunk-visual img { height:clamp(300px,38vw,480px); min-height:300px; }
+.vfx-chunk[data-layout="compact"] h2 { font-size:clamp(28px,2.6vw,40px); }
 .vfx-save { width:37px; height:37px; flex:none; display:grid; place-items:center; border:1px solid rgba(255,255,255,.17); border-radius:50%; background:rgba(255,255,255,.04); cursor:pointer; }
 .vfx-save[aria-pressed="true"] { color:#161016; border-color:#fff; background:#fff; }
 .vfx-markdown { min-width:0; max-width:100%; overflow-wrap:anywhere; color:#c7bbc4; font-size:15px; line-height:1.7; }.vfx-markdown p { margin:0 0 16px; }.vfx-markdown p:last-child { margin-bottom:0; }.vfx-markdown a { overflow-wrap:anywhere; color:#ffc0d4; text-decoration-color:#765466; text-underline-offset:3px; }.vfx-markdown blockquote { margin:20px 0 0; padding:18px 20px; border-left:2px solid var(--chunk-accent); border-radius:0 14px 14px 0; color:#efe5eb; background:rgba(255,255,255,.045); font-family:"Iowan Old Style",Georgia,serif; font-size:18px; }.vfx-markdown ul,.vfx-markdown ol { display:grid; gap:8px; padding-left:20px; }.vfx-markdown h1,.vfx-markdown h2,.vfx-markdown h3 { font-family:"Iowan Old Style",Georgia,serif; font-weight:500; }.vfx-markdown h2 { margin:30px 0 12px; font-size:clamp(26px,3vw,40px); line-height:1.06; }.vfx-markdown h3 { margin:24px 0 10px; font-size:clamp(21px,2.2vw,29px); line-height:1.14; }.vfx-markdown pre { display:block; max-width:100%; padding:18px; overflow-x:auto; white-space:pre-wrap; border:1px solid rgba(255,255,255,.11); border-radius:12px; background:#0a070b; }.vfx-markdown code { overflow-wrap:anywhere; word-break:break-word; }.vfx-math { max-width:100%; margin:24px 0; padding:18px 22px; overflow-x:auto; border-left:3px solid var(--chunk-accent); border-radius:0 12px 12px 0; background:rgba(255,255,255,.045); color:#fff7fb; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(20px,2.7vw,34px); line-height:1.25; letter-spacing:.015em; white-space:nowrap; }

@@ -217,3 +217,11 @@ if (new URLSearchParams(window.location.search).get("fixture") === "social") {
   window.setTimeout(() => window.clearInterval(openSocialFixture), 4_000);
 }
 window.addEventListener("beforeunload", () => cleanups.reverse().forEach((cleanup) => cleanup()));
+
+if (new URLSearchParams(window.location.search).get("fixture") === "magazine") {
+  window.setTimeout(() => window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
+    detail: { runId: "magazine-layout-preview", durationMs: 0, chunks: [
+      "The people who keep a city singing", "A kitchen table becomes a community", "A different way to listen", "The friendships behind the photographs", "What we inherit, what we change", "The conversation after the show", "A small place with a long memory"
+    ].map((title, index) => ({ id: `magazine-layout-${index}`, kind: "article", source: index % 2 ? "fresh-stream" : "chat-directed", title, markdown: Array.from({length: 7}, () => "This fictional preview story tests a full-length magazine article. Around the table, neighbours trade memories of the places that made them feel at home. The interesting part is not the building, but the relationships it makes possible: the friend who notices an absence, the musician who stays for one more song, and the stranger who becomes a regular.").join("\n\n"), topicId: null, publishedAt: Date.now() - index })), }
+  })), 500);
+}

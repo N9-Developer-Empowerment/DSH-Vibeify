@@ -260,7 +260,12 @@ test("rolling catalogue images require provenance and discard tracking parameter
 test("panel layout uses stable editorial spans instead of positional grid selectors", () => {
   assert.equal(panelLayoutForChunk({ kind: "image", source: "bundle", markdown: "Short" }, 0), "hero");
   assert.equal(panelLayoutForChunk({ kind: "questionnaire", source: "bundle", markdown: "Pick one" }, 4), "wide");
-  assert.equal(panelLayoutForChunk({ kind: "article", source: "chat-directed", markdown: "Complete answer" }, 3), "wide");
+  assert.equal(panelLayoutForChunk({ kind: "article", source: "chat-directed", markdown: "Complete answer" }, 3), "standard");
   assert.equal(panelLayoutForChunk({ kind: "image", source: "bundle", markdown: "Short" }, 2), "compact");
-  assert.equal(panelLayoutForChunk({ kind: "article", source: "bundle", markdown: "A useful short article" }, 3), "feature");
+  assert.equal(panelLayoutForChunk({ kind: "article", source: "bundle", markdown: "A useful short article" }, 3), "standard");
+});
+
+test("refreshed long articles retain a varied magazine grid", () => {
+  const articles = Array.from({ length: 7 }, (_, index) => ({ kind: "article", source: index % 2 ? "fresh-stream" : "chat-directed", markdown: "A complete long story. ".repeat(200) }));
+  assert.deepEqual(articles.map(panelLayoutForChunk), ["hero", "feature", "compact", "standard", "standard", "compact", "feature"]);
 });

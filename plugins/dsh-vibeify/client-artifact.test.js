@@ -83,7 +83,7 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /vibe-share:snapshot/);
   assert.doesNotMatch(client, /\/api\/articles/);
   assert.match(client, /dsh-vibeify-vibe-tab-style/);
-  assert.match(client, /grid-auto-flow:dense/);
+  assert.match(client, /grid-auto-flow:row/);
   assert.match(client, /overflow-x:clip/);
   assert.match(client, /overflow-wrap:anywhere/);
   assert.match(client, /\.vfx-chunk h2\s*\{[^}]*overflow-wrap:normal;[^}]*word-break:normal;[^}]*hyphens:none;/);

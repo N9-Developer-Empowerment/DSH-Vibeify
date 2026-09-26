@@ -374,11 +374,9 @@ export function visualMediaForChunk(catalog, chunk) {
   });
 }
 
-/** Stable editorial spans let CSS pack the page without fragile nth-child rules. */
+/** Keep an editorial rhythm regardless of article length or where it arrived. */
 export function panelLayoutForChunk(chunk, index) {
-  if (index === 0 && chunk?.source !== "chat-directed") return "hero";
-  if (chunk?.source === "chat-directed" || chunk?.kind === "questionnaire") return "wide";
-  if (typeof chunk?.markdown === "string" && chunk.markdown.length > 900) return "wide";
-  if (chunk?.kind === "image") return "compact";
-  return index % 2 === 1 ? "feature" : "compact";
+  if (index === 0) return "hero";
+  if (chunk?.kind === "questionnaire") return "wide";
+  return ["feature", "compact", "standard", "standard", "compact", "feature"][(Math.max(1, index) - 1) % 6];
 }

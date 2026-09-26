@@ -1205,7 +1205,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["connection", "sessions", "settingsScope", "slots"];
+		exports.inject = ["connection", "remote", "sessions", "settingsScope", "slots"];
 		return module.exports;
 	},
 });

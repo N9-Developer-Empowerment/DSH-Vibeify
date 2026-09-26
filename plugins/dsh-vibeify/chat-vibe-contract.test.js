@@ -12,6 +12,10 @@ test("completed Chat answers share one local magazine while explicit updates rem
   assert.match(contract, /newest-first/i);
   assert.match(contract, /must never copy the user's raw prompt/i);
   assert.match(contract, /make, create, write, or turn something into a Vibe or Vibe article/i);
+  assert.match(contract, /human reason to read it/i);
+  assert.match(contract, /user's actual commission and any stated editor direction govern topic/i);
+  assert.match(contract, /well-sourced public gossip/i);
+  assert.match(contract, /latest available ChatGPT image generation capability/i);
   assert.match(contract, /clearest unambiguous instruction/i);
   assert.match(contract, /show, find, discover, browse, or recommend/i);
   assert.match(contract, /commentary/i);

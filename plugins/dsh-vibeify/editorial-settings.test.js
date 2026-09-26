@@ -6,6 +6,7 @@ import {
   EDITORIAL_TRIBES,
   MAX_DEEPSEEK_DAILY_BUDGET_USD,
   createEditorialProfile,
+  editorialProfileKey,
   loadEditorialProfile,
   saveEditorialProfile,
 } from "./client-src/experience/editorial-settings.js";
@@ -21,7 +22,20 @@ test("editorial direction defaults to a global magazine editor rather than a top
   assert.match(profile.direction, /freedom, creativity and humour/i);
   assert.match(profile.direction, /UK, US, Canada, Australia and India/i);
   assert.match(profile.direction, /including China/i);
+  assert.match(profile.direction, /human reason to read it/i);
+  assert.match(profile.direction, /well-sourced public gossip/i);
+  assert.match(profile.direction, /Never invent a quote, private relationship/i);
+  assert.match(profile.direction, /article about VIBE, tabs, prompts/i);
   assert.equal(Object.hasOwn(EDITORIAL_TRIBES, "builders-nerds"), true);
+});
+
+test("prepared-page fingerprint changes with the editor direction without containing its text", () => {
+  const first = createEditorialProfile({ tribes: ["music-communities"], customDirection: "Focus on local musicians" });
+  const second = createEditorialProfile({ tribes: ["music-communities"], customDirection: "Focus on touring musicians" });
+  assert.match(editorialProfileKey(first), /^[a-f0-9]{16}$/);
+  assert.notEqual(editorialProfileKey(first), editorialProfileKey(second));
+  assert.notEqual(editorialProfileKey(first), editorialProfileKey(createEditorialProfile({ tribes: ["culture-arts"], customDirection: first.customDirection })));
+  assert.equal(editorialProfileKey(first).includes("local musicians"), false);
 });
 
 test("multiple explicit tribes and editor note remain local bounded configuration", () => {
@@ -33,6 +47,7 @@ test("multiple explicit tribes and editor note remain local bounded configuratio
   assert.deepEqual(profile.tribes, ["builders-nerds", "music-communities"]);
   assert.equal(profile.dailyBudgetUsd, 1.5);
   assert.match(profile.direction, /25%.*serendipity/i);
+  assert.match(profile.direction, /Follow this note for topic, angle and voice ahead of default regional or subject suggestions/i);
   assert.deepEqual(loadEditorialProfile(storage), profile);
   const persisted = JSON.parse(storage.values.get(EDITORIAL_STORAGE_KEY));
   assert.equal(persisted.version, 2);

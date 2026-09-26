@@ -41,13 +41,13 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /Photograph/);
   assert.match(client, /photographer/);
   assert.doesNotMatch(client, /AI concept art/);
-  assert.match(client, /You chose well\. Now make VIBE yours/);
+  assert.match(client, /People\. Stories\. Something worth your time/);
   assert.match(client, /Good choice\. You installed the part where AI becomes worth looking at/);
   assert.match(client, /DeepSeek Harness is the stage manager/);
   assert.match(client, /VIBE is a plugin/);
   assert.match(client, /Open source means the exit is visible/);
   assert.match(client, /Ask Chat to make a Vibe/);
-  assert.match(client, /Ask for your first new VIBE/);
+  assert.match(client, /Update my magazine/);
   assert.match(client, /all completed chats/);
   assert.match(client, /VIBE magazine update/);
   assert.match(client, /Pull to update/);

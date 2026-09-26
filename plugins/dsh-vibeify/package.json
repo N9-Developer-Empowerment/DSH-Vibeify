@@ -24,7 +24,8 @@
     "questionnaire-contract.js",
     "routing-policy.js",
     "update-check.js",
-    "skills/"
+    "skills/",
+    "editorial-contract.js"
   ],
   "scripts": {
     "build:client": "node scripts/build-client.mjs",

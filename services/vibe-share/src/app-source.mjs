@@ -1,4 +1,5 @@
 import { vibeMarkdownRuntimeSource } from "../../../shared/vibe-markdown.js";
+import { storyCoverRuntimeSource } from "../../../shared/vibe-cover.js";
 
 const APP_BODY = String.raw`const VERSION = 1;
 const READY = "vibe-share:ready";
@@ -10,99 +11,36 @@ const status = document.getElementById("status");
 let snapshot = null;
 let generatedCover = null;
 
-const VISUAL_PRIORITY = Object.freeze({ photograph: 0, "editorial-image": 1, "ai-generated": 2, "ai-graphic": 3, typography: 4 });
-
-function articleVisuals(value) {
-  const rows = [value.visual, ...(value.inlineVisuals ?? [])].filter((row) => row !== null && typeof row?.imageUrl === "string");
-  return rows.map((visual, index) => ({ visual, index }))
-    .sort((left, right) => (VISUAL_PRIORITY[left.visual.kind] ?? 9) - (VISUAL_PRIORITY[right.visual.kind] ?? 9) || left.index - right.index)
-    .map(({ visual }) => visual);
-}
-
-function wrapCoverText(context, text, x, y, maxWidth, lineHeight, maxLines) {
-  const words = String(text ?? "").split(/\s+/).filter(Boolean);
-  let line = "";
-  let lineIndex = 0;
-  for (const word of words) {
-    const candidate = line === "" ? word : line + " " + word;
-    if (context.measureText(candidate).width <= maxWidth || line === "") {
-      line = candidate;
-      continue;
-    }
-    context.fillText(line, x, y + lineIndex * lineHeight);
-    lineIndex += 1;
-    if (lineIndex >= maxLines) return;
-    line = word;
-  }
-  if (line !== "" && lineIndex < maxLines) context.fillText(line, x, y + lineIndex * lineHeight);
-}
-
-function createTypographicCover(value) {
+async function createTypographicCover(value) {
+  const svg = createStoryCoverSvg(value.title, value.markdown);
+  const image = new Image();
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error("The editorial cover could not be drawn"));
+    image.src = "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg);
+  });
   const canvas = document.createElement("canvas");
   canvas.width = 1200;
   canvas.height = 630;
   const context = canvas.getContext("2d");
-  const excerpt = String(value.markdown ?? "")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[*_#>|]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  const seed = [...String(value.title ?? "Vibe") + ":" + excerpt].reduce((sum, character) => {
-    const mixed = (sum ^ character.codePointAt(0)) >>> 0;
-    return Math.imul(mixed, 16777619) >>> 0;
-  }, 2166136261);
-  const hue = seed % 360;
-  const gradient = context.createLinearGradient(0, 0, 1200, 630);
-  gradient.addColorStop(0, "hsl(" + hue + " 42% 13%)");
-  gradient.addColorStop(1, "hsl(" + ((hue + 54) % 360) + " 48% 22%)");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 1200, 630);
-  context.globalAlpha = 0.22;
-  context.strokeStyle = "hsl(" + ((hue + 142) % 360) + " 82% 76%)";
-  context.lineWidth = 3;
-  for (let index = 0; index < 5; index += 1) {
-    context.beginPath();
-    context.arc(1040 - index * 43, 80 + index * 92, 105 + index * 24, 0, Math.PI * 2);
-    context.stroke();
-  }
-  context.globalAlpha = 1;
-  context.fillStyle = "hsl(" + ((hue + 145) % 360) + " 88% 78%)";
-  context.font = "800 25px system-ui, sans-serif";
-  context.letterSpacing = "5px";
-  context.fillText("VIBE · ONE ARTICLE", 72, 74);
-  context.letterSpacing = "0px";
-  context.fillStyle = "#fffafc";
-  context.font = "500 68px Georgia, serif";
-  wrapCoverText(context, value.title, 72, 176, 940, 78, 4);
-  context.fillStyle = "#d7cbd2";
-  context.font = "400 27px system-ui, sans-serif";
-  wrapCoverText(context, excerpt, 74, 515, 980, 36, 2);
+  if (context === null) throw new Error("The editorial cover could not be drawn");
+  context.drawImage(image, 0, 0, 1200, 630);
   return canvas.toDataURL("image/jpeg", 0.9);
 }
 
-async function prepareUniquePreview(value) {
-  generatedCover = createTypographicCover(value);
-  const visuals = articleVisuals(value);
-  const response = await fetch("/api/visuals/check", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ imageUrls: visuals.map((visual) => visual.imageUrl) }),
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error ?? "The public-image check is unavailable");
-  const used = new Set(result.used ?? []);
-  const fresh = visuals.filter((visual) => !used.has(visual.imageUrl));
-  if (fresh.length > 0) {
-    snapshot = { ...value, visual: fresh[0], inlineVisuals: fresh.slice(1, 4) };
+async function preparePreview(value) {
+  if (typeof value.visual?.imageUrl === "string" || (Array.isArray(value.inlineVisuals) && value.inlineVisuals.length > 0)) {
+    generatedCover = null;
+    snapshot = { ...value, visual: value.visual, inlineVisuals: value.inlineVisuals ?? [] };
   } else {
+    generatedCover = await createTypographicCover(value);
     snapshot = {
       ...value,
       visual: {
         imageUrl: generatedCover,
         sourceUrl: "https://dsh-vibeify.ezzye.chatgpt.site/",
-        alt: "Unique editorial typographic cover for " + value.title,
-        credit: "Editorial typography · created uniquely for this article",
+        alt: "Editorial typographic cover for " + value.title,
+        credit: "Editorial typography · created for this article",
         kind: "typography",
       },
       inlineVisuals: [],
@@ -110,9 +48,9 @@ async function prepareUniquePreview(value) {
   }
   renderSnapshot(snapshot);
   publish.disabled = false;
-  status.textContent = fresh.length > 0
-    ? "Private preview ready. This public image has not been used before."
-    : "Private preview ready. This public cover is unique to the article.";
+  status.textContent = generatedCover === null
+    ? "Private preview ready. The Vibe image will appear on the public article."
+    : "Private preview ready. Review this editorial cover before publishing.";
 }
 
 async function copyPublicLink(value, input) {
@@ -435,14 +373,14 @@ window.addEventListener("message", async (event) => {
   if (preview === null || publish === null || status === null) return;
   if (event.source !== window.opener || !ALLOWED_OPENERS.has(event.origin)) return;
   if (event.data?.type !== SNAPSHOT || event.data?.version !== VERSION || typeof event.data?.snapshot !== "object") return;
-  status.textContent = "Checking the public image…";
+  status.textContent = "Preparing the private preview…";
   try {
-    await prepareUniquePreview(event.data.snapshot);
+    await preparePreview(event.data.snapshot);
   } catch (error) {
     snapshot = null;
     generatedCover = null;
     publish.disabled = true;
-    status.textContent = error instanceof Error ? error.message : "The public-image check failed";
+    status.textContent = error instanceof Error ? error.message : "The preview could not be prepared";
   }
 }, { once: true });
 
@@ -498,4 +436,4 @@ publish?.addEventListener("click", async () => {
   }
 });`;
 
-export const APP_JS = `${vibeMarkdownRuntimeSource()}\n\n${APP_BODY}`;
+export const APP_JS = `${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\n${APP_BODY}`;

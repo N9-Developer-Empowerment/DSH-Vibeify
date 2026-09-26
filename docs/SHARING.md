@@ -6,16 +6,14 @@ Vibe is one private, browser-local magazine across all DSH threads. Sharing does
 
 1. For a link that is already public, choose **Share link** on the Vibe card. When the browser supports native sharing, **Share…** opens its share sheet; **Copy link** and the selectable URL remain available everywhere.
 2. To make a private Vibe article public, choose **Preview and share** on the finished article.
-3. A separate Coding for Justice page opens, checks the proposed public images against the permanent public-use register, and displays the exact article, fresh images or unique editorial cover, credits, supported embedded media, and source link that are eligible to leave DSH.
+3. A separate Coding for Justice page opens and displays the exact article, the selected Vibe image or an editorial cover for an image-free article, credits, supported embedded media, and source link that are eligible to leave DSH.
 4. Nothing is public yet. Read the preview and close it if it is not right.
 5. Choose **Publish public link** on the preview page.
 6. After publishing succeeds, the page shows the `share.codingforjustice.org.uk/a/...` URL in a selectable field with **Copy link** and, when supported, **Share…**. Copy failure selects the URL so it can be copied manually. Publishing does not post to a social network; any social post still needs the reader's separate action in that service.
 
 Opening a native share sheet is not evidence that a social post went live. The share page treats cancelling the sheet as normal and keeps the public URL available. Vibeify never schedules, queues or automatically posts a shared link.
 
-Every new public page must include a visual that has never appeared on another Vibeify public page. This is deliberately stricter than personal reading: the local magazine may reuse its small offline catalogue, but the public publisher may not. It removes crop and resize query strings before comparing URLs, permanently reserves each published visual, and does not release that reservation when an article expires or is removed.
-
-The public priority is: an unused, exactly relevant real image or documentary photograph; an unused, story-specific generated image when generation is available and authorised; a unique AI-assisted graphic; then a one-off typographic editorial cover. The publisher ranks eligible visuals by that order. If every proposed image has appeared before—or the article is text-only—the private preview creates a 1200×630 JPEG from the reviewed title and a short excerpt of the article. It does not use the prompt, transcript or reasoning. Generated work is labelled and is never presented as photography. The final first image becomes the responsive cover and Open Graph/X preview; further unused images remain an article gallery.
+The selected lead image in the local Vibe remains the lead image in the private preview and public article, including its Open Graph/X preview. Its source credit and alt text travel with it. The image may also appear on another public Vibe article; reuse does not cause a replacement. If the article has no shareable public image, the private preview creates a 1200×630 JPEG from the reviewed title and a short excerpt of the article. It does not use the prompt, transcript or reasoning. Generated work is labelled and is never presented as photography. Inline images remain in the article gallery.
 
 If the article contains a supported YouTube, Vimeo, Spotify or SoundCloud link that Vibe presented as a player, the preview and published page retain it as a **click-to-load** media card. Playback does not start automatically. SoundCloud tracks use the provider's compact 166-pixel player rather than a video-sized frame, so the waveform and controls are visible without a large empty panel. The public contract stores only the fixed provider name, media type, bounded label and validated original HTTPS link; it rejects supplied iframe URLs, embed HTML, credentials and unrelated hosts. The shared reader can always use the visible ordinary provider link if embedding is unavailable.
 
@@ -32,7 +30,7 @@ The shared contract is allow-list only:
 | Article title and kind | User prompt or Chat transcript |
 | Bounded rendered Markdown | Reasoning, progress, tools, or approvals |
 | Publication time | DSH session, message, thread, or local chunk identity |
-| Selected unused public image URLs, visual kind, alt text, credits, and source pages; or one generated cover made from the reviewed article | Attachments, private files, account data, credentials, prompts, or private Chat text |
+| Selected public image URLs, visual kind, alt text, credits, and source pages; or one generated cover made from the reviewed article | Attachments, private files, account data, credentials, prompts, or private Chat text |
 | One separate public content/source link | Tribes, settings, interactions, questionnaires, or browser history |
 | One optional YouTube, Vimeo, Spotify, or SoundCloud link and visible label | Arbitrary iframe sources, embed HTML, autoplay instructions, or unrecognised hosts |
 
@@ -40,7 +38,7 @@ DSH communicates only with the pinned HTTPS share origin. It checks both the res
 
 ## Publishing and removal
 
-The public service requires either a human check or the managed host's bounded daily publishing protection and stores the cleaned article plus the permanent public-image key register in a small database. Generated JPEG covers live in the service's object store under the random article slug. The managed protection hashes the request address with a secret and the current date, stores only that one-day fingerprint, and applies both per-reader and whole-service limits; it never stores a raw address. The service generates a random public slug and a separate high-entropy removal token. The token remains in the share site's browser storage; only its hash is stored with the article. Anyone with the public URL can read the article, but the URL does not grant deletion authority.
+The public service requires either a human check or the managed host's bounded daily publishing protection and stores the cleaned article in a small database. Generated JPEG covers live in the service's object store under the random article slug. The managed protection hashes the request address with a secret and the current date, stores only that one-day fingerprint, and applies both per-reader and whole-service limits; it never stores a raw address. The service generates a random public slug and a separate high-entropy removal token. The token remains in the share site's browser storage; only its hash is stored with the article. Anyone with the public URL can read the article, but the URL does not grant deletion authority.
 
 The operator chooses a maximum retention of 30, 90, or 365 days. The current configuration defaults to 365 days. An expiry or valid removal request makes the public URL unavailable without changing the local Vibe card.
 
@@ -49,7 +47,7 @@ The operator chooses a maximum retention of 30, 90, or 365 days. The current con
 The reference host is a dependency-free Cloudflare-compatible service plus D1 under `services/vibe-share/`. The managed Sites deployment supplies the runtime, database, versioning, and exact CNAME target for the `share` subdomain; the Coding for Justice apex site, Hover nameservers, and email records remain untouched. Before first deployment:
 
 1. build the Sites-compatible artifact with `npm run build:sites`;
-2. configure the managed D1 binding as `DB`, apply `drizzle/0001_articles.sql`, then apply `drizzle/0002_unique_public_visuals.sql` to backfill and protect every existing public image;
+2. configure the managed D1 binding as `DB` and apply `drizzle/0001_articles.sql`; existing deployments may retain the unused `published_visuals` table;
 3. configure the managed R2 binding as `COVERS` for one-off generated JPEG covers;
 4. set `VIBE_SHARE_RATE_SECRET` as a managed secret and keep the default per-reader and global daily limits, or explicitly configure stricter values;
 5. optionally create a Turnstile widget and set `TURNSTILE_SECRET` plus `TURNSTILE_SITE_KEY` to replace the managed rate check with a visible human check;

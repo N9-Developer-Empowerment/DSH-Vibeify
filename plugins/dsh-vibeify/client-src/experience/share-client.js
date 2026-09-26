@@ -81,7 +81,7 @@ export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, c
     alt: media.alt,
     credit: media.label,
     kind: media.kind ?? (/\bphotograph|\bphoto\b/i.test(media.label ?? "") ? "photograph" : undefined),
-  } : media?.kind !== "typography" && typeof publicPhoto?.publicImageUrl === "string" ? {
+  } : media?.kind === "photograph" && typeof publicPhoto?.publicImageUrl === "string" ? {
     imageUrl: publicPhoto.publicImageUrl,
     sourceUrl: publicPhoto.sourceUrl ?? media.href,
     alt: publicPhoto.alt ?? media.alt,

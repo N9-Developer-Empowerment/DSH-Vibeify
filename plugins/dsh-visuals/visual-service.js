@@ -11,6 +11,7 @@ const OPEN_IMAGE_HOSTS = Object.freeze(new Set([
 ]));
 const REUSABLE_LICENSE = /^(?:cc0|pdm|by|by-sa|public domain)$/i;
 const WIKIMEDIA_LICENSE = /^(?:CC0|CC BY(?:-SA)?(?: \d(?:\.\d)?)?|Public domain)$/i;
+const SEARCH_FILLER = new Set(["about", "after", "again", "against", "from", "getting", "have", "into", "more", "over", "that", "their", "these", "this", "those", "what", "when", "where", "which", "while", "with", "would", "your", "why", "how", "are", "the", "and", "for"]);
 
 function cleanText(value, limit = 240) {
   if (typeof value !== "string") return "";
@@ -44,13 +45,16 @@ function positiveDimension(value) {
 }
 
 function words(value) {
-  return [...new Set(cleanText(value, MAX_QUERY).toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])].slice(0, 16);
+  return [...new Set((cleanText(value, MAX_QUERY).toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) ?? [])
+    .filter((word) => !SEARCH_FILLER.has(word))
+    .map((word) => word.length > 4 && word.endsWith("ies") ? `${word.slice(0, -3)}y` : word.length > 4 && word.endsWith("s") ? word.slice(0, -1) : word))].slice(0, 16);
 }
 
 function relevanceScore(candidate, query) {
   const terms = words(query);
-  const haystack = `${candidate.alt} ${candidate.tags ?? ""} ${candidate.creator}`.toLowerCase();
-  const matches = terms.filter((term) => haystack.includes(term)).length;
+  const imageTerms = new Set(words(`${candidate.alt} ${candidate.tags ?? ""}`));
+  const matches = terms.filter((term) => imageTerms.has(term)).length;
+  if (matches === 0) return 0;
   const exact = cleanText(candidate.alt).toLowerCase().includes(cleanText(query).toLowerCase()) ? 5 : 0;
   const size = (candidate.width ?? 0) >= 1200 && (candidate.height ?? 0) >= 630 ? 2 : 0;
   return exact + matches * 2 + size;
@@ -101,13 +105,13 @@ export function normalizePexels(document, query) {
       provider: "pexels",
       imageUrl: photo?.src?.large2x ?? photo?.src?.large,
       sourceUrl: photo?.url,
-      alt: photo?.alt || `${query} photograph`,
+      alt: photo?.alt,
       creator: photo?.photographer,
       credit: `Photograph · ${cleanText(photo?.photographer || "Pexels contributor", 120)} · Pexels`,
       license: "Pexels licence",
       width: photo?.width,
       height: photo?.height,
-      tags: query,
+      tags: "",
     }, query);
     return item === null ? [] : [item];
   }));
@@ -120,7 +124,7 @@ export function normalizePixabay(document, query) {
       provider: "pixabay",
       imageUrl: photo?.largeImageURL ?? photo?.webformatURL,
       sourceUrl: photo?.pageURL,
-      alt: cleanText(photo?.tags, 240) || `${query} photograph`,
+      alt: photo?.tags,
       creator: photo?.user,
       credit: `Photograph · ${cleanText(photo?.user || "Pixabay contributor", 120)} · Pixabay`,
       license: "Pixabay Content License",
@@ -169,7 +173,7 @@ export function normalizeOpenverse(document, query) {
       provider: "openverse",
       imageUrl: row?.url,
       sourceUrl: row?.foreign_landing_url,
-      alt: row?.title || `${query} open image`,
+      alt: row?.title,
       creator,
       credit: `Image · ${creator} · ${license}`,
       license,
@@ -299,7 +303,7 @@ export function createVisualService({ getConfig, resolveCredential, fetchJson = 
       const candidates = settled.flatMap((item) => item.candidates)
         .sort((left, right) => right.score - left.score || left.provider.localeCompare(right.provider))
         .filter((item) => {
-          if (seen.has(item.imageUrl)) return false;
+          if (item.score <= 0 || seen.has(item.imageUrl)) return false;
           seen.add(item.imageUrl);
           return true;
         })

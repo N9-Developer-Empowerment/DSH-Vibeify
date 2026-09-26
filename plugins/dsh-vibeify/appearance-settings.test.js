@@ -1,0 +1,46 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  APPEARANCE_STORAGE_KEY,
+  MAGAZINE_PALETTES,
+  createAppearanceProfile,
+  loadAppearanceProfile,
+  saveAppearanceProfile,
+  shouldCloseAppearanceSettingsOnClick,
+} from "./client-src/experience/appearance-settings.js";
+
+function memoryStorage() {
+  const values = new Map();
+  return { values, getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+}
+
+test("magazine appearance persists separately from Chat colour", () => {
+  const storage = memoryStorage();
+  const profile = saveAppearanceProfile(storage, { palette: "forest", textSize: "large", spacing: "roomy" });
+  assert.deepEqual(profile, { version: 1, palette: "forest", textSize: "large", spacing: "roomy" });
+  assert.deepEqual(loadAppearanceProfile(storage), profile);
+  assert.deepEqual([...storage.values.keys()], [APPEARANCE_STORAGE_KEY]);
+  assert.deepEqual(Object.keys(MAGAZINE_PALETTES), ["midnight", "paper", "forest", "ocean"]);
+});
+
+test("invalid or corrupt appearance values fall back to the default", () => {
+  const storage = memoryStorage();
+  assert.deepEqual(createAppearanceProfile({ palette: "url(evil)", textSize: "tiny", spacing: "cramped" }), createAppearanceProfile());
+  storage.values.set(APPEARANCE_STORAGE_KEY, "not json");
+  assert.deepEqual(loadAppearanceProfile(storage), createAppearanceProfile());
+  storage.values.set(APPEARANCE_STORAGE_KEY, JSON.stringify({ version: 99, palette: "paper" }));
+  assert.deepEqual(loadAppearanceProfile(storage), createAppearanceProfile());
+});
+
+test("blocked local storage still returns the chosen appearance for this page", () => {
+  const storage = { setItem() { throw new Error("blocked"); }, getItem() { throw new Error("blocked"); } };
+  assert.equal(saveAppearanceProfile(storage, { palette: "ocean" }).palette, "ocean");
+  assert.equal(loadAppearanceProfile(storage).palette, "midnight");
+});
+
+test("the magazine settings trigger does not close its freshly opened popup", () => {
+  const picker = { contains: (target) => target === "inside" };
+  assert.equal(shouldCloseAppearanceSettingsOnClick(picker, { closest: () => ({}) }), false);
+  assert.equal(shouldCloseAppearanceSettingsOnClick(picker, "inside"), false);
+  assert.equal(shouldCloseAppearanceSettingsOnClick(picker, { closest: () => null }), true);
+});

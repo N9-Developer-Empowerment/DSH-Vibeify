@@ -1,10 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 
 import { SHARE_SNAPSHOT_VERSION } from "../../shared/vibe-share-contract.js";
 import { APP_JS } from "./src/app-source.mjs";
 import { markdownToHtml, renderPublicArticle } from "./src/render.mjs";
 import { handleRequest } from "./src/worker.mjs";
+import { createStoryCoverSvg, storyCoverRuntimeSource } from "../../shared/vibe-cover.js";
 
 const origin = "https://share.codingforjustice.org.uk";
 const publishedAt = Date.now() - 1_000;
@@ -314,14 +316,20 @@ test("social crawlers are explicitly allowed to inspect shared articles", async 
   assert.equal(await robotsHead.text(), "");
 });
 
-test("the preview checks public visual reuse and prepares a one-off JPEG fallback", () => {
-  assert.match(APP_JS, /\/api\/visuals\/check/);
+test("the preview keeps the Vibe lead image and prepares a JPEG only for image-free articles", () => {
+  assert.doesNotMatch(APP_JS, /\/api\/visuals\/check/);
   assert.match(APP_JS, /toDataURL\("image\/jpeg"/);
   assert.match(APP_JS, /generatedCover/);
-  assert.match(APP_JS, /public cover is unique/i);
+  assert.match(APP_JS, /visual: value\.visual/);
+  assert.match(APP_JS, /The Vibe image will appear on the public article/i);
+  const cover = createStoryCoverSvg(snapshot.title, snapshot.markdown);
+  assert.match(cover, /The copyright robot has found cubes/);
+  assert.match(APP_JS, /createStoryCoverSvg\(value\.title, value\.markdown\)/);
+  const publicCover = runInNewContext(`${storyCoverRuntimeSource()}\ncreateStoryCoverSvg(${JSON.stringify(snapshot.title)}, ${JSON.stringify(snapshot.markdown)})`);
+  assert.equal(publicCover, cover);
 });
 
-test("a text-only public page uses its unique generated editorial cover", async () => {
+test("a text-only public page uses its generated editorial cover", async () => {
   const db = new MemoryDb();
   const covers = new MemoryCovers();
   const response = await handleRequest(new Request(`${origin}/api/articles`, {
@@ -350,20 +358,20 @@ test("a text-only public page uses its unique generated editorial cover", async 
     headers: { origin, "content-type": "application/json" },
     body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, generatedCover, turnstileToken: "local-test" }),
   }), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" });
-  assert.equal(repeated.status, 409);
-  assert.match((await repeated.json()).error, /new preview/i);
+  assert.equal(repeated.status, 201);
+  assert.equal(covers.rows.size, 2);
 
   const removed = await handleRequest(new Request(`${origin}/api/articles/${created.slug}`, {
     method: "DELETE",
     headers: { authorization: `Bearer ${created.deleteToken}` },
   }), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
   assert.equal(removed.status, 200);
-  assert.equal(covers.rows.size, 0);
+  assert.equal(covers.rows.size, 1);
   const removedImage = await handleRequest(new Request(stored.visual.imageUrl), { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers });
   assert.equal(removedImage.status, 404);
 });
 
-test("a photograph cannot be reused after deletion and the checked preview uses a unique cover", async () => {
+test("publishing and republishing preserve the reviewed Vibe lead image in the article and social preview", async () => {
   const db = new MemoryDb();
   const covers = new MemoryCovers();
   const env = { VIBE_SHARE_DB: db, VIBE_SHARE_COVERS: covers, VIBE_SHARE_LOCAL_DEV: "true" };
@@ -381,40 +389,45 @@ test("a photograph cannot be reused after deletion and the checked preview uses 
   const removed = await handleRequest(new Request(`${origin}/api/articles/${first.slug}`, { method: "DELETE", headers: { authorization: `Bearer ${first.deleteToken}` } }), env);
   assert.equal(removed.status, 200);
 
-  const check = await handleRequest(new Request(`${origin}/api/visuals/check`, {
-    method: "POST",
-    headers: { origin, "content-type": "application/json" },
-    body: JSON.stringify({ imageUrls: [snapshot.visual.imageUrl] }),
-  }), env);
-  assert.deepEqual(await check.json(), { used: [snapshot.visual.imageUrl] });
-
-  const secondResponse = await handleRequest(new Request(`${origin}/api/articles`, {
-    method: "POST",
-    headers: { origin, "content-type": "application/json" },
-    body: JSON.stringify({ snapshot: { ...snapshot, visual: null, inlineVisuals: [] }, generatedCover, turnstileToken: "local-test" }),
-  }), env);
+  const secondResponse = await publishArticle();
   const second = await secondResponse.json();
   assert.equal(secondResponse.status, 201);
   const secondSnapshot = JSON.parse(db.rows.get(second.slug).snapshot_json);
-  assert.equal(secondSnapshot.visual.kind, "typography");
-  assert.equal(secondSnapshot.visual.imageUrl, `${origin}/i/${second.slug}.jpg`);
-  assert.equal(db.visuals.has("https://blog.luanti.org/static/blog/2026_dmca/cover.webp"), true);
+  assert.equal(secondSnapshot.visual.imageUrl, snapshot.visual.imageUrl);
+  assert.equal(covers.rows.size, 0);
 
-  const racedResponse = await publishArticle();
-  assert.equal(racedResponse.status, 409);
-  assert.match((await racedResponse.json()).error, /preview and share again/i);
+  const publicPage = await handleRequest(new Request(second.url), env);
+  const html = await publicPage.text();
+  assert.match(html, /<figure class="lead">/);
+  assert.match(html, /<meta property="og:image" content="https:\/\/blog\.luanti\.org\/static\/blog\/2026_dmca\/cover\.webp">/);
 });
 
-test("the visual check reports the same published image despite crop query changes", async () => {
+test("the public page keeps the selected lead ahead of a photographic inline visual", async () => {
   const db = new MemoryDb();
-  db.visuals.set("https://images.example.org/photo.jpg", { article_slug: "old" });
-  const response = await handleRequest(new Request(`${origin}/api/visuals/check`, {
+  const selected = {
+    ...snapshot,
+    inlineVisuals: [{
+      imageUrl: "https://images.example.org/second-photo.jpg",
+      sourceUrl: "https://images.example.org/second-photo",
+      alt: "A second image",
+      credit: "Photograph · Example",
+      kind: "photograph",
+    }],
+  };
+  const response = await handleRequest(new Request(`${origin}/api/articles`, {
     method: "POST",
     headers: { origin, "content-type": "application/json" },
-    body: JSON.stringify({ imageUrls: ["https://images.example.org/photo.jpg?crop=faces&w=1200"] }),
+    body: JSON.stringify({ snapshot: selected, turnstileToken: "local-test" }),
   }), { VIBE_SHARE_DB: db, VIBE_SHARE_LOCAL_DEV: "true" });
-  assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { used: ["https://images.example.org/photo.jpg?crop=faces&w=1200"] });
+  assert.equal(response.status, 201);
+  const stored = JSON.parse([...db.rows.values()][0].snapshot_json);
+  assert.equal(stored.visual.imageUrl, snapshot.visual.imageUrl);
+  assert.equal(stored.inlineVisuals[0].imageUrl, selected.inlineVisuals[0].imageUrl);
+  assert.equal(db.visuals.size, 0);
+  const gone = await handleRequest(new Request(`${origin}/api/visuals/check`, {
+    method: "POST", headers: { origin, "content-type": "application/json" }, body: "{}",
+  }), { VIBE_SHARE_DB: db });
+  assert.equal(gone.status, 404);
 });
 
 test("managed publishing stores only a salted daily fingerprint and enforces the public contract", async () => {

@@ -9,6 +9,7 @@ const pluginRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const outputRoot = join(pluginRoot, "..", "..", "tmp", "vibeify-preview");
 await mkdir(outputRoot, { recursive: true });
 await copyFile(join(pluginRoot, "preview", "index.html"), join(outputRoot, "index.html"));
+await copyFile(join(pluginRoot, "client.js"), join(outputRoot, "client-plugin.js"));
 await build({
   entryPoints: [join(pluginRoot, "preview", "preview.jsx")],
   bundle: true,

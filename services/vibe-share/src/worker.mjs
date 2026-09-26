@@ -39,11 +39,6 @@ async function sha256(value) {
   return bytesToBase64Url(new Uint8Array(digest));
 }
 
-async function sha256Bytes(value) {
-  const digest = await crypto.subtle.digest("SHA-256", value);
-  return bytesToBase64Url(new Uint8Array(digest));
-}
-
 async function verifyTurnstile(token, request, env) {
   if (env.VIBE_SHARE_LOCAL_DEV === "true") return true;
   if (typeof env.TURNSTILE_SECRET !== "string" || env.TURNSTILE_SECRET === "" || typeof token !== "string" || token === "") return false;
@@ -64,28 +59,6 @@ function database(env) {
 
 function coverStore(env) {
   return env.VIBE_SHARE_COVERS ?? env.COVERS;
-}
-
-function publicVisualKey(value) {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
-    url.hash = "";
-    url.search = "";
-    url.hostname = url.hostname.toLowerCase();
-    return url.href;
-  } catch {
-    return null;
-  }
-}
-
-const VISUAL_PRIORITY = Object.freeze({ photograph: 0, "editorial-image": 1, "ai-generated": 2, "ai-graphic": 3, typography: 4 });
-
-function rankedVisuals(snapshot) {
-  const rows = [snapshot.visual, ...(snapshot.inlineVisuals ?? [])].filter((row) => row !== null);
-  return rows.map((visual, index) => ({ visual, index }))
-    .sort((left, right) => (VISUAL_PRIORITY[left.visual.kind] ?? 9) - (VISUAL_PRIORITY[right.visual.kind] ?? 9) || left.index - right.index)
-    .map(({ visual }) => visual);
 }
 
 function snapshotWithVisuals(snapshot, visuals) {
@@ -110,20 +83,9 @@ function typographicVisual(url, slug, title) {
     imageUrl: `${url.origin}/i/${slug}.jpg`,
     sourceUrl: `${url.origin}/a/${slug}`,
     alt: `Editorial typographic cover for ${title}`,
-    credit: "Editorial typography · created uniquely for this article",
+    credit: "Editorial typography · created for this article",
     kind: "typography",
   });
-}
-
-async function reserveVisualKey(db, key, slug, kind, now) {
-  const result = await db.prepare("INSERT OR IGNORE INTO published_visuals (visual_key, article_slug, visual_kind, created_at) VALUES (?, ?, ?, ?)")
-    .bind(key, slug, kind, now).run();
-  return Number(result.meta?.changes ?? 0) === 1;
-}
-
-async function reserveVisual(db, visual, slug, now) {
-  const key = publicVisualKey(visual.imageUrl);
-  return key !== null && reserveVisualKey(db, key, slug, visual.kind, now);
 }
 
 function positiveLimit(value, fallback) {
@@ -177,8 +139,10 @@ async function createArticle(request, env, url) {
   try { body = await request.json(); } catch { return json({ error: "Invalid article request" }, 400); }
   const snapshot = cleanShareSnapshot(body?.snapshot);
   if (snapshot === null) return json({ error: "Article failed the public-share privacy contract" }, 400);
-  const generatedCover = cleanGeneratedCover(body?.generatedCover);
-  if (!hasShareVisual(snapshot) && generatedCover === null) return json({ error: "A public article needs a fresh image or its unique editorial cover" }, 400);
+  // A selected Vibe image stays selected through publication. Older clients may
+  // still send an unused fallback cover alongside it; ignore that cover.
+  const generatedCover = hasShareVisual(snapshot) ? null : cleanGeneratedCover(body?.generatedCover);
+  if (!hasShareVisual(snapshot) && generatedCover === null) return json({ error: "A public article needs an image or an editorial cover" }, 400);
   if (generatedCover !== null && coverStore(env) === undefined) return json({ error: "Unique editorial cover storage is not configured" }, 503);
   if (!await verifyPublishProtection(body?.turnstileToken, request, env)) return json({ error: "Publishing protection could not approve this request. Please try again later." }, 403);
 
@@ -206,61 +170,11 @@ async function createArticle(request, env, url) {
       await coverStore(env).put(`covers/${slug}.jpg`, generatedCover, { httpMetadata: { contentType: "image/jpeg", cacheControl: "public, max-age=31536000, immutable" } });
     } catch {
       await db.prepare("DELETE FROM articles WHERE slug = ?").bind(slug).run();
-      return json({ error: "The unique editorial cover could not be stored" }, 503);
+      return json({ error: "The editorial cover could not be stored" }, 503);
     }
   }
 
-  const selected = [];
-  try {
-    for (const visual of rankedVisuals(snapshot)) {
-      if (await reserveVisual(db, visual, slug, now)) selected.push(visual);
-    }
-  } catch {
-    await db.prepare("DELETE FROM articles WHERE slug = ?").bind(slug).run();
-    return json({ error: "Unique-image protection is not configured" }, 503);
-  }
-  if (selected.length === 0) {
-    if (hasShareVisual(snapshot)) {
-      await db.prepare("DELETE FROM articles WHERE slug = ?").bind(slug).run();
-      if (generatedCover !== null && typeof coverStore(env).delete === "function") await coverStore(env).delete(`covers/${slug}.jpg`);
-      return json({ error: "That image was published while this preview was open. Open Preview and Share again to review a fresh cover." }, 409);
-    }
-    if (generatedCover === null) {
-      await db.prepare("DELETE FROM articles WHERE slug = ?").bind(slug).run();
-      return json({ error: "That image has already appeared publicly. Reopen Preview and Share for a unique editorial cover." }, 409);
-    }
-    const fallback = typographicVisual(url, slug, snapshot.title);
-    const uniqueCover = await reserveVisualKey(db, `generated:${await sha256Bytes(generatedCover)}`, slug, fallback.kind, now);
-    if (!uniqueCover) {
-      await db.prepare("DELETE FROM articles WHERE slug = ?").bind(slug).run();
-      if (typeof coverStore(env).delete === "function") await coverStore(env).delete(`covers/${slug}.jpg`);
-      return json({ error: "That generated cover has already appeared publicly. Open a new preview to make a fresh one." }, 409);
-    }
-  } else {
-    await db.prepare("UPDATE articles SET snapshot_json = ? WHERE slug = ?").bind(JSON.stringify(snapshotWithVisuals(snapshot, selected)), slug).run();
-    if (generatedCover !== null && typeof coverStore(env).delete === "function") await coverStore(env).delete(`covers/${slug}.jpg`);
-  }
   return json({ slug, url: `${url.origin}/a/${slug}`, deleteToken, expiresAt }, 201);
-}
-
-async function checkVisuals(request, env, url) {
-  const db = database(env);
-  if (db === undefined) return json({ error: "Publishing storage is not configured" }, 503);
-  if (request.headers.get("origin") !== url.origin) return json({ error: "This check did not come from the share preview" }, 403);
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "Invalid visual check" }, 400); }
-  const imageUrls = Array.isArray(body?.imageUrls) ? body.imageUrls.slice(0, 4) : [];
-  if (imageUrls.some((value) => typeof value !== "string" || publicVisualKey(value) === null)) return json({ error: "Invalid public image URL" }, 400);
-  const used = [];
-  try {
-    for (const imageUrl of imageUrls) {
-      const row = await db.prepare("SELECT visual_key FROM published_visuals WHERE visual_key = ?").bind(publicVisualKey(imageUrl)).first();
-      if (row !== null) used.push(imageUrl);
-    }
-  } catch {
-    return json({ error: "Unique-image protection is not configured" }, 503);
-  }
-  return json({ used });
 }
 
 async function getCover(env, slug) {
@@ -315,7 +229,6 @@ export async function handleRequest(request, env = {}) {
     publishingReady: env.VIBE_SHARE_LOCAL_DEV === "true" || (typeof env.TURNSTILE_SECRET === "string" && env.TURNSTILE_SECRET !== "") || (typeof env.VIBE_SHARE_RATE_SECRET === "string" && env.VIBE_SHARE_RATE_SECRET.length >= 32),
   }));
   if (request.method === "GET" && url.pathname === "/app.js") return new Response(APP_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
-  if (request.method === "POST" && url.pathname === "/api/visuals/check") return checkVisuals(request, env, url);
   if (request.method === "POST" && url.pathname === "/api/articles") return createArticle(request, env, url);
   const cover = /^\/i\/([A-Za-z0-9_-]{8,24})\.jpg$/.exec(url.pathname);
   if ((request.method === "GET" || request.method === "HEAD") && cover !== null) {

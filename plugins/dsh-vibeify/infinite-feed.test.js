@@ -107,10 +107,10 @@ test("every valid stream tile receives a stable locally bundled photograph", () 
 test("bundled cards use their curated visuals while generated cards never inherit unrelated stock", () => {
   const stream = createBundledStream(catalog, "2026-08-28", 72);
   const media = stream.map((chunk) => visualMediaForChunk(catalog, chunk));
-  assert.ok(media.every(({ artwork, alt, href, label }) => artwork.length > 0 && alt.length > 0 && href.startsWith("https://") && label.length > 0));
+  assert.ok(media.every(({ artwork, externalUrl, alt, href, label }) => (artwork?.length > 0 || externalUrl?.startsWith("data:image/svg+xml")) && alt.length > 0 && href.startsWith("https://") && label.length > 0));
   assert.ok(media.some(({ kind }) => kind === "photograph"));
-  assert.ok(media.some(({ kind }) => kind === "ai-graphic"));
-  assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= catalog.episodes.length);
+  assert.ok(media.some(({ kind }) => kind === "typography"));
+  assert.ok(new Set(media.map(({ artwork, externalUrl }) => artwork ?? externalUrl)).size >= catalog.episodes.length);
   const generated = visualMediaForChunk(catalog, { id: "reader-jason-arday", kind: "article", source: "fresh-stream", title: "Jason Arday", markdown: "A finished article.", topicId: null });
   const chat = visualMediaForChunk(catalog, { id: "chat-jason-arday", kind: "article", source: "chat-directed", title: "Jason Arday", markdown: "A finished answer.", topicId: null });
   assert.equal(generated.kind, "typography");
@@ -119,14 +119,14 @@ test("bundled cards use their curated visuals while generated cards never inheri
   assert.notEqual(generated.externalUrl, chat.externalUrl);
 });
 
-test("the welcome magazine has an immediate visual on every panel and mixes photographs with labelled graphics", () => {
+test("the welcome magazine has an immediate visual on every panel and mixes photographs with shareable covers", () => {
   const welcome = createWelcomeEdition(catalog);
   const media = welcome.map((chunk) => visualMediaForChunk(catalog, chunk));
   assert.equal(media.length, welcome.length);
-  assert.ok(media.every(({ artwork, alt, href, label }) => artwork.length > 0 && alt.length > 0 && href.startsWith("https://") && label.length > 0));
+  assert.ok(media.every(({ artwork, externalUrl, alt, href, label }) => (artwork?.length > 0 || externalUrl?.startsWith("data:image/svg+xml")) && alt.length > 0 && href.startsWith("https://") && label.length > 0));
   assert.ok(media.some(({ kind }) => kind === "photograph"));
-  assert.ok(media.some(({ kind }) => kind === "ai-graphic"));
-  assert.ok(new Set(media.map(({ artwork }) => artwork)).size >= catalog.episodes.length);
+  assert.ok(media.some(({ kind }) => kind === "typography"));
+  assert.ok(new Set(media.map(({ artwork, externalUrl }) => artwork ?? externalUrl)).size >= catalog.episodes.length);
 });
 
 test("an approved generated image joins the rolling catalogue with visible provenance", () => {

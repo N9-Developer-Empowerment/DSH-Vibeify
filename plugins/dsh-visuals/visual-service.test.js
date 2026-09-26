@@ -145,6 +145,39 @@ test("service reports optional keyed providers as unavailable without making cre
   assert.equal(requests.some((url) => url.includes("pexels") || url.includes("pixabay")), false);
 });
 
+test("a provider's unrelated large photograph does not displace a story-specific image", async () => {
+  const service = createVisualService({
+    getConfig: () => ({ wikimedia: false, openverse: false, pexels: true, pixabay: false }),
+    resolveCredential: async () => "test-key",
+    fetchJson: async () => ({ photos: [
+      {
+        alt: "A woman relaxing on a tropical beach",
+        photographer: "Beach maker",
+        url: "https://www.pexels.com/photo/beach-1/",
+        width: 3000, height: 2000,
+        src: { large2x: "https://images.pexels.com/photos/1/beach.jpeg" },
+      },
+      {
+        alt: "City bicycle beside a station",
+        photographer: "Bike maker",
+        url: "https://www.pexels.com/photo/bicycle-2/",
+        width: 1800, height: 1200,
+        src: { large2x: "https://images.pexels.com/photos/2/bicycle.jpeg" },
+      },
+      {
+        alt: "",
+        photographer: "Unknown scene maker",
+        url: "https://www.pexels.com/photo/unknown-3/",
+        width: 1800, height: 1200,
+        src: { large2x: "https://images.pexels.com/photos/3/unknown.jpeg" },
+      },
+    ] }),
+  });
+
+  const result = await service.search({ query: "Why city bicycles are getting smaller", limit: 8 });
+  assert.deepEqual(result.candidates.map(({ alt }) => alt), ["City bicycle beside a station"]);
+});
+
 test("private or oversized search material is rejected before network activity", async () => {
   let requests = 0;
   const service = createVisualService({

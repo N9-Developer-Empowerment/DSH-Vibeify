@@ -109,6 +109,7 @@ test("a bundled Vibe photograph keeps a public copy when the article is shared",
     },
     markdown: "A finished public article.",
     media: {
+      kind: "photograph",
       artwork: "sayItBetter",
       alt: "Two people talking together",
       href: "https://unsplash.com/photos/example",
@@ -126,6 +127,24 @@ test("a bundled Vibe photograph keeps a public copy when the article is shared",
   assert.equal(result.visual.imageUrl, "https://images.unsplash.com/photo-example?auto=format&fit=crop&w=1600&q=82");
   assert.equal(result.visual.sourceUrl, "https://unsplash.com/photos/example");
   assert.equal(result.visual.kind, "photograph");
+});
+
+test("a local AI graphic does not silently publish its episode photograph", () => {
+  const result = shareSnapshotForChunk({
+    chunk: { title: "A graphic-led story", kind: "image", publishedAt: snapshot.publishedAt },
+    markdown: "Finished copy.",
+    media: {
+      kind: "ai-graphic",
+      artwork: "graphicCare",
+      alt: "A designed illustration",
+      href: "https://github.com/example/graphic",
+      label: "AI-assisted graphic · VIBE",
+      episode: { photo: { publicImageUrl: "https://images.unsplash.com/unrelated-photo" } },
+    },
+    inlineVisuals: [],
+    contentLink: null,
+  }, snapshot.publishedAt);
+  assert.equal(result.visual, null);
 });
 
 test("a card's fixed-provider player is preserved without transferring iframe source code", () => {

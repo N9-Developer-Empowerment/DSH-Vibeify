@@ -7,4 +7,15 @@ export {
   saveEditorialProfile,
 } from "./editorial-settings.js";
 export { resetEditorialLearning } from "./learning-store.js";
+export {
+  APPEARANCE_OPEN_EVENT,
+  APPEARANCE_SETTINGS_EVENT,
+  APPEARANCE_STORAGE_KEY,
+  MAGAZINE_UPDATE_EVENT,
+  MAGAZINE_PALETTES,
+  createAppearanceProfile,
+  loadAppearanceProfile,
+  saveAppearanceProfile,
+  shouldCloseAppearanceSettingsOnClick,
+} from "./appearance-settings.js";
 export { collapseCompletedThinking } from "./vibe-result.js";

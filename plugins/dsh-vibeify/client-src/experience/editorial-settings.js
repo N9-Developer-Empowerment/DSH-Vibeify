@@ -7,6 +7,9 @@ export const BACKGROUND_ACTIVITY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MAX_CUSTOM_DIRECTION = 360;
 const DEFAULT_SERENDIPITY = 0.2;
 
+import { HUMAN_EDITORIAL_CONTRACT } from "../../editorial-contract.js";
+export { HUMAN_EDITORIAL_CONTRACT };
+
 export const EDITORIAL_TRIBES = Object.freeze({
   "global-curious": Object.freeze({ id: "global-curious", label: "Global & curious", description: "The important, surprising and magazine-worthy things moving across the world." }),
   "gen-z": Object.freeze({ id: "gen-z", label: "Gen Z", description: "Youth culture, new language, work, identity, entertainment and emerging behaviour." }),
@@ -74,11 +77,12 @@ export function createEditorialProfile(presetOrOptions = "open", customDirection
   const serendipity = boundedSerendipity(options.serendipity);
   const direction = [
     "Act as one witty magazine editor: entertain, educate and inform; espouse freedom, creativity and humour; never optimise for anger, conflict or distress.",
+    HUMAN_EDITORIAL_CONTRACT,
     "Lead with genuinely global magazine-worthy subjects, then strong English-language perspectives from the UK, US, Canada, Australia and India, plus major-power coverage including China without excluding other regions.",
     `Selected editorial lenses: ${lensCopy}`,
     `Keep roughly ${Math.round(serendipity * 100)}% of the edition as useful serendipity outside those lenses.`,
     "Include politics, crime, celebrity and difficult stories when editorially worthwhile, using restrained context notes and non-graphic lead media.",
-    custom.length === 0 ? "" : `Additional editor note: ${custom}`,
+    custom.length === 0 ? "" : `Additional editor note: ${custom} Follow this note for topic, angle and voice ahead of default regional or subject suggestions, within sourcing and safety limits.`,
   ].filter(Boolean).join(" ");
   return Object.freeze({
     version: EDITORIAL_SETTINGS_VERSION,
@@ -93,6 +97,21 @@ export function createEditorialProfile(presetOrOptions = "open", customDirection
     contentNotes: options.contentNotes !== false,
     clickToLoadMedia: options.clickToLoadMedia !== false,
   });
+}
+
+// This opaque browser-local fingerprint lets prepared pages follow the direction
+// that produced them without copying the reader's note into each saved page.
+export function editorialProfileKey(profile) {
+  const normalized = createEditorialProfile(profile ?? "open");
+  const input = JSON.stringify([EDITORIAL_SETTINGS_VERSION, 2, normalized.tribes, normalized.customDirection, normalized.serendipity]);
+  let left = 2166136261;
+  let right = 3339675911;
+  for (let index = 0; index < input.length; index += 1) {
+    const code = input.charCodeAt(index);
+    left = Math.imul(left ^ code, 16777619);
+    right = Math.imul(right ^ code, 2246822519);
+  }
+  return `${(left >>> 0).toString(16).padStart(8, "0")}${(right >>> 0).toString(16).padStart(8, "0")}`;
 }
 
 export function loadEditorialProfile(storage) {

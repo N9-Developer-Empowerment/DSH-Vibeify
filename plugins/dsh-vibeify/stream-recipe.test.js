@@ -25,7 +25,9 @@ test("each explicit update renews the rolling visual catalogue without reusing r
   assert.match(prompt, /every generated non-questionnaire chunk must begin with a fresh verified public image/i);
   assert.match(prompt, /longer than 500 words.*two or three/i);
   assert.match(prompt, /documentary photography by default/i);
-  assert.match(prompt, /unique story-specific generated image/i);
+  assert.match(prompt, /latest available ChatGPT image generation capability/i);
+  assert.match(prompt, /Only after searching for a relevant reusable web image/i);
+  assert.match(prompt, /Label the result Generated illustration/i);
   assert.match(prompt, /typographic editorial cover/i);
   assert.match(prompt, /never present generated imagery as a real photograph/i);
   assert.match(prompt, /Google Images with its Usage rights filter/i);
@@ -43,4 +45,14 @@ test("visual freshness checks remember a broad recent pool", () => {
   assert.doesNotMatch(prompt, /photo-9(?:\D|$)/);
   assert.match(prompt, /photo-10(?:\D|$)/);
   assert.match(prompt, /photo-89(?:\D|$)/);
+});
+
+test("a magazine update follows the editor's direction with sourced human stories", () => {
+  const prompt = buildContinuousStreamPrompt({ runId: "refill-human", editorialProfile: { tribes: ["builders-nerds"], customDirection: "Focus on railway workers" } });
+  assert.match(prompt, /people involved or affected/i);
+  assert.match(prompt, /sourced public opinion or gossip/i);
+  assert.match(prompt, /Never invent a quote, motive, feeling, private relationship or scandal/i);
+  assert.match(prompt, /Rework or omit generic explainers/);
+  assert.match(prompt, /Focus on railway workers/);
+  assert.match(prompt, /Keep exact custom wording with the Codex lead/i);
 });

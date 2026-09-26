@@ -5,7 +5,7 @@ description: Configure, diagnose, or explain the optional DSH Visuals plugin for
 
 # DSH Visuals
 
-Treat this plugin as an optional public-image capability for Vibeify. Vibeify must retain its unique local typographic fallback whenever the plugin is absent, all providers fail, or no relevant reusable photograph is found.
+Treat this plugin as an optional public-image capability for Vibeify. Vibeify must retain its local typographic fallback whenever the plugin is absent, all providers fail, or no relevant reusable photograph is found.
 
 Keep these boundaries:
 
@@ -15,6 +15,6 @@ Keep these boundaries:
 - Keep the image URL, original source page, creator, licence, dimensions, provider, and relevance score together. Do not invent missing credit or licence data.
 - Prefer an exact named-person, place, object, work, or event match. A decorative mood match is not a documentary image.
 - A screenshot does not remove the source's copyright. Use it only where quotation/fair-dealing analysis genuinely supports it, and label it as a screenshot.
-- Public sharing may use only a fresh visual that has not appeared on another public Vibe article. Keep the original source credit after any permitted local copy or share-service ingestion.
+- Public sharing keeps the image selected in the local Vibe article, including its original source credit. Reusing a public image on another article does not replace the reader-reviewed image.
 
 Use DSH **Settings → Images** to see source status and enter Pexels or Pixabay keys. A blank key field never clears a stored key; removal is a separate explicit action.

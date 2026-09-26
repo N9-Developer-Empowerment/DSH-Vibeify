@@ -318,13 +318,8 @@ export function boundMagazinePresentation(chunks, dynamicLimit = 160) {
   return Object.freeze(chunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
 }
 
-/**
- * Stored chunks are append-only, while presentation reverses them. Put cached
- * reader material at the base, examples above it, and the authored welcome
- * series last so it opens in the intended order on every launch. New chunks
- * appended during this visit will naturally appear above the welcome series.
- */
-export function composeOpeningStream({ cached, bundle, welcome, now = Date.now(), dynamicLimit = 160 }) {
+/** Restore the reader's newest pages first; orientation is optional local help. */
+export function composeOpeningStream({ cached, bundle, welcome, includeOrientation = true, now = Date.now(), dynamicLimit = 160 }) {
   if (![cached, bundle, welcome].every(Array.isArray)) throw new TypeError("opening stream inputs must be arrays");
   if (!Number.isFinite(now) || now <= 0) throw new TypeError("opening stream time is invalid");
   if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("opening stream limit is invalid");
@@ -335,11 +330,13 @@ export function composeOpeningStream({ cached, bundle, welcome, now = Date.now()
     seen.add(chunk.id);
     chunks.push(Object.freeze({ ...chunk, publishedAt: chunk.publishedAt ?? now }));
   };
+  if (includeOrientation) {
+    for (const chunk of [...bundle].reverse()) append(chunk);
+    for (const chunk of [...welcome].reverse()) append(chunk);
+  }
   for (const chunk of cached) {
     if (chunk?.source === "bundle" || chunk?.source === "welcome") continue;
     append(chunk);
   }
-  for (const chunk of [...bundle].reverse()) append(chunk);
-  for (const chunk of [...welcome].reverse()) append(chunk);
   return boundMagazinePresentation(chunks, dynamicLimit);
 }

@@ -95,6 +95,31 @@ const ctx = {
 };
 
 registerExperienceShell(ctx);
+// Mount the settings effect from the compiled DSH client so the preview uses
+// the same controls and event handlers as the installed plugin.
+const settingsScript = document.createElement("script");
+window.__ModuleLoader__ = {
+  load(descriptor) {
+    if (descriptor.id !== "dsh-vibeify") return;
+    const plugin = descriptor.factory((name) => {
+      if (name === "react") return React;
+      throw new Error(`Unknown preview module: ${name}`);
+    });
+    plugin.apply({
+      connection: unavailableConnection,
+      get: ctx.get,
+      settingsScope: { bind: () => ({}) },
+      effect(setup, label) {
+        if (label !== "dsh-vibeify: local colour and editorial settings") return;
+        const cleanup = setup();
+        if (typeof cleanup === "function") cleanups.push(cleanup);
+      },
+      slots: { inject() {} },
+    });
+  },
+};
+settingsScript.src = "./client-plugin.js";
+document.body.appendChild(settingsScript);
 if (new URLSearchParams(window.location.search).get("fixture") === "table") {
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
     window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {

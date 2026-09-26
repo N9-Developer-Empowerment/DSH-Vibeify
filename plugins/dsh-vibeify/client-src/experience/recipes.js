@@ -12,6 +12,7 @@ ${recipe.goal}
 - Link every recommendation to its source page. When useful, also provide a separate official image/gallery link and an official or expert video/tutorial/trailer link. Do not copy protected media or invent media URLs.
 - Check that links resolve and label region, price and availability uncertainty. Default to the United Kingdom when a region is required, while making the region easy to change.
 - Credit the human experts, writers, artists, presenters, photographers and other creators whose work makes the guide useful. Never imply that linked work was created by VIBE.
+- Give this subject a human angle: who made, teaches, uses or is affected by it, which perspectives differ, and why someone would care now. Attribute reported reactions and opinions; never invent a private motive, relationship, quote or rumour. Stay on the selected topic rather than writing about VIBE, its tabs or the making of this guide.
 - Explain why each item was included. “Best” must mean best-supported for a stated need or trade-off, never a universal or paid ranking.
 - Do not use affiliate links unless they are unmistakably disclosed. Do not purchase, subscribe, publish, message or perform any other external write.
 

@@ -1,4 +1,5 @@
 import { validQuestionnaireMarkdown } from "./questionnaire.js";
+import { editorialProfileKey } from "./editorial-settings.js";
 
 export const RESERVE_STORE_KEY = "dsh-vibeify.reserve.v1";
 export const RESERVE_STORE_VERSION = 1;
@@ -12,6 +13,7 @@ export const BACKGROUND_RUN_RESERVATION_USD = 0.25;
 
 const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
 const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
+const PROFILE_KEY = /^[a-f0-9]{16}$/;
 
 function cleanText(value, limit, multiline = false) {
   if (typeof value !== "string") return null;
@@ -47,7 +49,7 @@ function cleanPage(candidate, now, state) {
   const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
   if (id === null || !ID.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
   if (candidate.kind === "questionnaire" && !validQuestionnaireMarkdown(markdown)) return null;
-  return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), generatedAt, state });
+  return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), profileKey: PROFILE_KEY.test(candidate.profileKey) ? candidate.profileKey : null, generatedAt, state });
 }
 
 function cleanLedger(rows, now) {
@@ -83,7 +85,12 @@ function writeStore(storage, store) {
   try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { return false; }
 }
 
-export function getEditorialReserve(storage, now = Date.now()) { return readStore(storage, now); }
+export function getEditorialReserve(storage, now = Date.now(), profile = null) {
+  const store = readStore(storage, now);
+  if (profile === null) return store;
+  const key = editorialProfileKey(profile);
+  return Object.freeze({ ...store, candidates: Object.freeze(store.candidates.filter((page) => page.profileKey === key)), approved: Object.freeze(store.approved.filter((page) => page.profileKey === key)) });
+}
 
 export function markVibeActivity(storage, now = Date.now()) {
   const store = readStore(storage, now);
@@ -116,19 +123,21 @@ export function appendReservePages(storage, candidates, state, now = Date.now())
   return Object.freeze(appended);
 }
 
-export function consumeApprovedPages(storage, count = 4, now = Date.now()) {
+export function consumeApprovedPages(storage, count = 4, now = Date.now(), profile = null) {
   const store = readStore(storage, now);
   const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
-  const consumed = store.approved.slice(0, take);
-  if (consumed.length > 0) writeStore(storage, { ...store, approved: store.approved.slice(consumed.length) });
+  const eligible = profile === null ? store.approved : store.approved.filter((page) => page.profileKey === editorialProfileKey(profile));
+  const consumed = eligible.slice(0, take);
+  if (consumed.length > 0 || eligible.length !== store.approved.length) writeStore(storage, { ...store, approved: eligible.slice(consumed.length) });
   return Object.freeze(consumed);
 }
 
-export function consumeCandidatePages(storage, count = 4, now = Date.now()) {
+export function consumeCandidatePages(storage, count = 4, now = Date.now(), profile = null) {
   const store = readStore(storage, now);
   const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
-  const consumed = store.candidates.slice(0, take);
-  if (consumed.length > 0) writeStore(storage, { ...store, candidates: store.candidates.slice(consumed.length) });
+  const eligible = profile === null ? store.candidates : store.candidates.filter((page) => page.profileKey === editorialProfileKey(profile));
+  const consumed = eligible.slice(0, take);
+  if (consumed.length > 0 || eligible.length !== store.candidates.length) writeStore(storage, { ...store, candidates: eligible.slice(consumed.length) });
   return Object.freeze(consumed);
 }
 

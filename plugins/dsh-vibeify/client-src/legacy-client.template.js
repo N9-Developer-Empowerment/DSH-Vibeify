@@ -141,6 +141,10 @@ window.__ModuleLoader__.load({
 		const EDITORIAL_PRESETS = __DshVibeifyExperience.EDITORIAL_PRESETS;
 		const EDITORIAL_TRIBES = __DshVibeifyExperience.EDITORIAL_TRIBES;
 		const EDITORIAL_SETTINGS_EVENT = __DshVibeifyExperience.EDITORIAL_SETTINGS_EVENT;
+		const APPEARANCE_OPEN_EVENT = __DshVibeifyExperience.APPEARANCE_OPEN_EVENT;
+		const APPEARANCE_SETTINGS_EVENT = __DshVibeifyExperience.APPEARANCE_SETTINGS_EVENT;
+		const MAGAZINE_UPDATE_EVENT = __DshVibeifyExperience.MAGAZINE_UPDATE_EVENT;
+		const MAGAZINE_PALETTES = __DshVibeifyExperience.MAGAZINE_PALETTES;
 
 		function muxUrl() {
 			const url = new URL("/api/events.mux", window.location.origin);
@@ -826,10 +830,12 @@ window.__ModuleLoader__.load({
 				let selected = "system";
 				let localVibeStorage = null;
 				let editorialProfile = __DshVibeifyExperience.loadEditorialProfile(null);
+				let appearanceProfile = __DshVibeifyExperience.loadAppearanceProfile(null);
 
 				try {
 					localVibeStorage = window.localStorage;
 					editorialProfile = __DshVibeifyExperience.loadEditorialProfile(localVibeStorage);
+					appearanceProfile = __DshVibeifyExperience.loadAppearanceProfile(localVibeStorage);
 					const stored = localVibeStorage.getItem(VIBE_STORAGE_KEY);
 					if (stored in VIBE_PRESETS) selected = stored;
 				} catch {
@@ -861,6 +867,11 @@ window.__ModuleLoader__.load({
 					editorialProfile = __DshVibeifyExperience.saveEditorialProfile(localVibeStorage, options);
 					window.dispatchEvent(new CustomEvent(EDITORIAL_SETTINGS_EVENT, { detail: editorialProfile }));
 					return editorialProfile;
+				};
+				const applyAppearance = (options) => {
+					appearanceProfile = __DshVibeifyExperience.saveAppearanceProfile(localVibeStorage, options);
+					window.dispatchEvent(new CustomEvent(APPEARANCE_SETTINGS_EVENT, { detail: appearanceProfile }));
+					return appearanceProfile;
 				};
 
 				const style = document.createElement("style");
@@ -1011,6 +1022,14 @@ window.__ModuleLoader__.load({
 			  color: var(--dsw-alias-label-tertiary);
 			  font-size: 10px;
 			}
+			#${VIBE_ROOT_ID} .dsh-vibeify-magazine-palette { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-magazine-choice { min-height:48px; display:flex; align-items:center; gap:9px; padding:7px 9px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); cursor:pointer; font:inherit; text-align:left; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-magazine-choice[aria-checked="true"] { border-color:var(--dsw-alias-state-business-primary); box-shadow:inset 0 0 0 1px var(--dsw-alias-state-business-primary); }
+			#${VIBE_ROOT_ID} .dsh-vibeify-magazine-swatch { flex:none; width:27px; height:27px; border-radius:6px; border:1px solid var(--magazine-border); background:var(--magazine-background); box-shadow:inset 0 -9px var(--magazine-accent); }
+			#${VIBE_ROOT_ID} .dsh-vibeify-appearance-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:10px 0; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-appearance-controls label { display:grid; gap:5px; color:var(--dsw-alias-label-primary); font-size:11px; font-weight:650; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-appearance-actions { display:flex; gap:7px; flex-wrap:wrap; }
+			#${VIBE_ROOT_ID} .dsh-vibeify-update-now { min-height:36px; padding:0 13px; color:var(--dsw-alias-label-primary); border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); cursor:pointer; font:inherit; font-weight:650; }
 #${VIBE_ROOT_ID} button:focus-visible,#${VIBE_ROOT_ID} select:focus-visible,#${VIBE_ROOT_ID} textarea:focus-visible {
   outline: 2px solid var(--dsw-alias-state-business-primary);
   outline-offset: 1px;
@@ -1025,9 +1044,18 @@ window.__ModuleLoader__.load({
 			<button class="dsh-vibeify-trigger" type="button" aria-haspopup="dialog" aria-expanded="false">VIBE settings</button>
 			<div class="dsh-vibeify-menu" role="dialog" aria-label="Vibe settings" hidden>
 			  <div class="dsh-vibeify-heading">Vibe settings</div>
-			  <p class="dsh-vibeify-intro">Colour changes the Chat surface. Editorial direction shapes the next content added to the top of Vibe.</p>
+			  <p class="dsh-vibeify-intro">Set the magazine's appearance and editorial direction here. Chat colour has its own setting below.</p>
+			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-appearance-heading">
+			    <div id="dsh-vibeify-appearance-heading" class="dsh-vibeify-heading">VIBE magazine appearance</div>
+			    <div class="dsh-vibeify-magazine-palette" role="radiogroup" aria-label="Magazine palette">${Object.entries(MAGAZINE_PALETTES).map(([id, { label, colors }]) => `<button class="dsh-vibeify-magazine-choice" type="button" role="radio" data-magazine-palette="${id}" aria-checked="false"><span class="dsh-vibeify-magazine-swatch" aria-hidden="true" style="--magazine-background:${colors.background};--magazine-accent:${colors.accent};--magazine-border:${colors.border}"></span>${label}</button>`).join("")}</div>
+			    <div class="dsh-vibeify-appearance-controls">
+			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
+			      <label>Spacing<select id="dsh-vibeify-spacing"><option value="standard">Standard</option><option value="roomy">Roomy</option></select></label>
+			    </div>
+			    <button class="dsh-vibeify-apply-appearance dsh-vibeify-apply" type="button">Apply magazine appearance</button>
+			  </section>
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-colour-heading">
-			    <div id="dsh-vibeify-colour-heading" class="dsh-vibeify-heading">Colour theme</div>
+			    <div id="dsh-vibeify-colour-heading" class="dsh-vibeify-heading">Chat colour theme</div>
 			    <div class="dsh-vibeify-palette" role="radiogroup" aria-label="Chat colour theme">
 			      <button class="dsh-vibeify-choice" type="button" role="radio" data-vibe="system" aria-label="System"><span class="dsh-vibeify-swatch" style="--vibe-swatch: linear-gradient(135deg,#ffffff 50%,#242424 50%)"></span>System</button>
 			      <button class="dsh-vibeify-choice" type="button" role="radio" data-vibe="ocean" aria-label="Ocean"><span class="dsh-vibeify-swatch" style="--vibe-swatch:#1769e0"></span>Ocean</button>
@@ -1049,7 +1077,7 @@ window.__ModuleLoader__.load({
 			      </div>
 			      <label for="dsh-vibeify-editor-note">Add your own editor note <span aria-hidden="true">(optional)</span></label>
 			      <textarea id="dsh-vibeify-editor-note" maxlength="360" aria-label="Add your own editor note" placeholder="For example: more independent voices, shorter articles, dry humour, and links to original creators"></textarea>
-			      <button class="dsh-vibeify-apply" type="button">Apply editorial direction</button>
+			      <div class="dsh-vibeify-appearance-actions"><button class="dsh-vibeify-apply-editorial dsh-vibeify-apply" type="button">Apply editorial direction</button><button class="dsh-vibeify-update-now" type="button">Update VIBE now</button></div>
 			      <button class="dsh-vibeify-reset" type="button">Reset what the editor has learned</button>
 			    </div>
 			    <p class="dsh-vibeify-status" aria-live="polite">Stored in this browser. Do not enter secrets.</p>
@@ -1064,29 +1092,49 @@ window.__ModuleLoader__.load({
 				const budget = picker.querySelector("#dsh-vibeify-budget");
 				const background = picker.querySelector("#dsh-vibeify-background");
 				const contentNotes = picker.querySelector("#dsh-vibeify-content-notes");
+				const textSize = picker.querySelector("#dsh-vibeify-text-size");
+				const spacing = picker.querySelector("#dsh-vibeify-spacing");
 				const status = picker.querySelector(".dsh-vibeify-status");
 				const renderSelection = () => {
 					for (const button of picker.querySelectorAll("[data-vibe]")) {
 						button.setAttribute("aria-checked", String(button.dataset.vibe === selected));
 					}
 					for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(editorialProfile.tribes.includes(button.dataset.tribe)));
+					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(appearanceProfile.palette === button.dataset.magazinePalette));
+					textSize.value = appearanceProfile.textSize;
+					spacing.value = appearanceProfile.spacing;
 					customDirection.value = editorialProfile.customDirection;
 					serendipity.value = String(Math.round(editorialProfile.serendipity * 100));
 					serendipityValue.textContent = `${serendipity.value}%`;
 					budget.value = Number(editorialProfile.dailyBudgetUsd).toFixed(2);
 					background.checked = editorialProfile.backgroundEditor;
 					contentNotes.checked = editorialProfile.contentNotes;
-					trigger.title = `Vibe settings · ${VIBE_PRESETS[selected].label} · ${editorialProfile.label}`;
+					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
 				};
 				const setOpen = (open) => {
 					menu.hidden = !open;
 					trigger.setAttribute("aria-expanded", String(open));
+					if (open) window.requestAnimationFrame(() => menu.querySelector('[data-magazine-palette][aria-checked="true"]')?.focus());
+				};
+				const saveAppearanceFromControls = () => applyAppearance({
+					palette: picker.querySelector('[data-magazine-palette][aria-checked="true"]')?.dataset.magazinePalette,
+					textSize: textSize.value,
+					spacing: spacing.value,
+				});
+				const saveEditorialFromControls = () => {
+					const selectedTribes = [...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe);
+					return applyEditorialDirection({ tribes: selectedTribes, customDirection: customDirection.value, serendipity: Number(serendipity.value) / 100, backgroundEditor: background.checked, dailyBudgetUsd: Number(budget.value), contentNotes: contentNotes.checked, clickToLoadMedia: true });
 				};
 				const onPickerClick = (event) => {
+					const magazineChoice = event.target instanceof Element ? event.target.closest("[data-magazine-palette]") : null;
+					if (magazineChoice && Object.hasOwn(MAGAZINE_PALETTES, magazineChoice.dataset.magazinePalette)) {
+						for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button === magazineChoice));
+						return;
+					}
 					const choice = event.target instanceof Element ? event.target.closest("[data-vibe]") : null;
 					if (choice?.dataset.vibe in VIBE_PRESETS) {
 						applyVibe(choice.dataset.vibe);
-						renderSelection();
+						for (const button of picker.querySelectorAll("[data-vibe]")) button.setAttribute("aria-checked", String(button.dataset.vibe === selected));
 						return;
 					}
 					const tribe = event.target instanceof Element ? event.target.closest("[data-tribe]") : null;
@@ -1096,11 +1144,22 @@ window.__ModuleLoader__.load({
 						for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(selectedTribes.has(button.dataset.tribe)));
 						return;
 					}
-					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply")) {
-						const selectedTribes = [...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe);
-						editorialProfile = applyEditorialDirection({ tribes: selectedTribes, customDirection: customDirection.value, serendipity: Number(serendipity.value) / 100, backgroundEditor: background.checked, dailyBudgetUsd: Number(budget.value), contentNotes: contentNotes.checked, clickToLoadMedia: true });
+					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply-appearance")) {
+						appearanceProfile = saveAppearanceFromControls();
+						status.textContent = `Magazine appearance applied: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
+						return;
+					}
+					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply-editorial")) {
+						editorialProfile = saveEditorialFromControls();
 						status.textContent = `Applied: ${editorialProfile.label}. New Vibe content will use this direction.`;
+						return;
+					}
+					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-update-now")) {
+						appearanceProfile = saveAppearanceFromControls();
+						editorialProfile = saveEditorialFromControls();
 						renderSelection();
+						setOpen(false);
+						window.dispatchEvent(new CustomEvent(MAGAZINE_UPDATE_EVENT));
 						return;
 					}
 					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-reset")) {
@@ -1114,18 +1173,20 @@ window.__ModuleLoader__.load({
 				};
 				const onSerendipity = () => { serendipityValue.textContent = `${serendipity.value}%`; };
 				const onDocumentClick = (event) => {
-					if (!picker.contains(event.target)) setOpen(false);
+					if (__DshVibeifyExperience.shouldCloseAppearanceSettingsOnClick(picker, event.target)) setOpen(false);
 				};
 				const onKeyDown = (event) => {
 					if (event.key !== "Escape" || menu.hidden) return;
 					setOpen(false);
 					trigger.focus();
 				};
+				const onOpenAppearance = () => setOpen(true);
 
 				picker.addEventListener("click", onPickerClick);
 				serendipity.addEventListener("input", onSerendipity);
 				document.addEventListener("click", onDocumentClick);
 				document.addEventListener("keydown", onKeyDown);
+				window.addEventListener(APPEARANCE_OPEN_EVENT, onOpenAppearance);
 				document.body.appendChild(picker);
 				applyVibe(selected);
 				renderSelection();
@@ -1134,7 +1195,8 @@ window.__ModuleLoader__.load({
 					picker.removeEventListener("click", onPickerClick);
 					serendipity.removeEventListener("input", onSerendipity);
 					document.removeEventListener("click", onDocumentClick);
-					document.removeEventListener("keydown", onKeyDown);
+				document.removeEventListener("keydown", onKeyDown);
+				window.removeEventListener(APPEARANCE_OPEN_EVENT, onOpenAppearance);
 					picker.remove();
 					style.remove();
 					restoreOriginals();

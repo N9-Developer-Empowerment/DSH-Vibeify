@@ -51,7 +51,7 @@ test("the opening edition sells the installed experience again without becoming 
   assert.doesNotMatch(copy, /configuration file|npm|pnpm|terminal command/i);
 });
 
-test("a relaunch places the current welcome edition above old local Chat cards without deleting them", () => {
+test("a relaunch restores reader pages above optional orientation", () => {
   const cached = Object.freeze([
     Object.freeze({ id: "chat-old", source: "chat-directed", title: "Old result", markdown: "Earlier material.", publishedAt: 100 }),
     Object.freeze({ id: "fresh-old", source: "fresh-stream", title: "Earlier magazine", markdown: "Earlier editorial material.", publishedAt: 200 }),
@@ -65,9 +65,9 @@ test("a relaunch places the current welcome edition above old local Chat cards w
   const composed = composeOpeningStream({ cached, bundle, welcome, now: 1_000, dynamicLimit: 160 });
   const visible = newestFirst(composed);
 
-  assert.deepEqual(visible.slice(0, welcome.length).map(({ id }) => id), welcome.map(({ id }) => id));
-  assert.deepEqual(visible.slice(welcome.length, welcome.length + bundle.length).map(({ id }) => id), bundle.map(({ id }) => id));
-  assert.deepEqual(visible.slice(-2).map(({ id }) => id), ["fresh-old", "chat-old"]);
+  assert.deepEqual(visible.slice(2, 2 + welcome.length).map(({ id }) => id), welcome.map(({ id }) => id));
+  assert.deepEqual(visible.slice(2 + welcome.length, 2 + welcome.length + bundle.length).map(({ id }) => id), bundle.map(({ id }) => id));
+  assert.deepEqual(visible.slice(0, 2).map(({ id }) => id), ["fresh-old", "chat-old"]);
   assert.equal(visible.some(({ id }) => id === "bundle-yesterday"), false);
 });
 
@@ -128,4 +128,11 @@ test("presentation refills keep a protected reserve of completed Chat Vibes", ()
   assert.equal(retainedChat.length, 96);
   assert.equal(retainedChat[0].id, "chat-12");
   assert.equal(retainedChat.at(-1).id, "chat-107");
+});
+
+ test("configured magazines omit orientation and unrelated bundle without generating work", () => {
+  const cached = [{ id: "reader", source: "fresh-stream", title: "A community story", markdown: "A complete article.", publishedAt: 100 }];
+  const options = { cached, bundle: [{ id: "sample", source: "bundle" }], welcome: createWelcomeEdition(catalog), includeOrientation: false, now: 1000 };
+  assert.deepEqual(composeOpeningStream(options).map(({ id }) => id), ["reader"]);
+  assert.deepEqual(composeOpeningStream({ ...options, cached: [] }), []);
 });

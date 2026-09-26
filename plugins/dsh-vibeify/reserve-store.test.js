@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { appendReservePages, consumeApprovedPages, dailyBackgroundSpend, getEditorialReserve, markVibeActivity, replaceRadarSignals, reserveBackgroundRun } from "./client-src/experience/reserve-store.js";
+import { appendReservePages, consumeApprovedPages, consumeCandidatePages, dailyBackgroundSpend, getEditorialReserve, markVibeActivity, replaceRadarSignals, reserveBackgroundRun } from "./client-src/experience/reserve-store.js";
+import { createEditorialProfile, editorialProfileKey } from "./client-src/experience/editorial-settings.js";
 
 function storage() { const values = new Map(); return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) }; }
 const NOW = Date.parse("2026-08-28T20:00:00Z");
@@ -26,6 +27,24 @@ test("a conservative reservation makes two dollars a hard daily background ceili
   assert.equal(dailyBackgroundSpend(local, NOW + 20), 2);
   assert.equal(reserveBackgroundRun(local, 2, "run-nine", NOW + 21), false);
   assert.equal(reserveBackgroundRun(local, 0, "disabled", NOW + 22), false);
+});
+
+test("changed editor direction hides and purges stale or untagged reserve pages", () => {
+  const local = storage();
+  const oldProfile = createEditorialProfile({ customDirection: "People behind local music" });
+  const newProfile = createEditorialProfile({ customDirection: "People behind public transport" });
+  appendReservePages(local, [
+    { id: "old", kind: "article", title: "Old", markdown: "Old music story", profileKey: editorialProfileKey(oldProfile) },
+    { id: "new", kind: "article", title: "New", markdown: "New transport story", profileKey: editorialProfileKey(newProfile) },
+    { id: "legacy", kind: "article", title: "Legacy", markdown: "No direction tag" },
+  ], "approved", NOW);
+  appendReservePages(local, [{ id: "old-draft", kind: "article", title: "Old draft", markdown: "Old", profileKey: editorialProfileKey(oldProfile) }], "candidate", NOW);
+  assert.deepEqual(getEditorialReserve(local, NOW, newProfile).approved.map(({ id }) => id), ["new"]);
+  assert.deepEqual(consumeApprovedPages(local, 4, NOW, newProfile).map(({ id }) => id), ["new"]);
+  assert.deepEqual(consumeCandidatePages(local, 4, NOW, newProfile), []);
+  assert.equal(getEditorialReserve(local, NOW).approved.length, 0);
+  assert.equal(getEditorialReserve(local, NOW).candidates.length, 0);
+  assert.doesNotMatch(local.getItem("dsh-vibeify.reserve.v1"), /People behind/);
 });
 
 test("the hidden reserve rejects article-shaped questionnaires", () => {

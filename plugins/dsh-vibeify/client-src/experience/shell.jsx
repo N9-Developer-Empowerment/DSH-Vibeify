@@ -1,4 +1,5 @@
 import React from "react";
+import { APPEARANCE_OPEN_EVENT, APPEARANCE_SETTINGS_EVENT, MAGAZINE_UPDATE_EVENT, createAppearanceProfile, loadAppearanceProfile } from "./appearance-settings.js";
 
 import { createExperienceCatalog } from "./catalog.js";
 import { createEditorialEdition } from "./editorial.js";
@@ -113,10 +114,12 @@ function browserStorage() {
 function initialStream() {
   const now = Date.now();
   const cached = getCachedStream(browserStorage(), now);
+  const profile = loadEditorialProfile(browserStorage());
   return composeOpeningStream({
     cached: cached.chunks,
     bundle: BUNDLED_STREAM,
     welcome: WELCOME_STREAM,
+    includeOrientation: profile.customDirection === "" && profile.tribes.length === 1 && profile.tribes[0] === "global-curious" && cached.chunks.length === 0,
     now,
     dynamicLimit: MAX_STREAM_CHUNKS,
   });
@@ -215,6 +218,7 @@ function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFi
       >
         {updateState === "stopping" ? "Stopping…" : updating ? "Stop update" : "Update"}
       </button>
+      <button type="button" className="vfx-find vfx-settings" onClick={() => window.dispatchEvent(new CustomEvent(APPEARANCE_OPEN_EVENT))}>Look & feel</button>
       <button type="button" className="vfx-chat" onClick={onChat}><Icon name="chat" /> Chat</button>
     </header>
   );
@@ -359,6 +363,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [state, dispatch] = React.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
   const [chunks, setChunks] = React.useState(initialStream);
   const [editorialProfile, setEditorialProfile] = React.useState(() => loadEditorialProfile(browserStorage()));
+  const [appearance, setAppearance] = React.useState(() => loadAppearanceProfile(browserStorage()));
   const [updateState, setUpdateState] = React.useState("idle");
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
@@ -401,9 +406,9 @@ function ExperienceShell({ codexFeatures, connection }) {
     markVibeActivity(browserStorage());
     const answerLabels = Object.values(answersRef.current).slice(-12);
     const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
-    const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
-    const approved = consumeApprovedPages(browserStorage(), 6);
-    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length));
+    const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles).filter(({ kind }) => kind === "questionnaire");
+    const approved = consumeApprovedPages(browserStorage(), 6, Date.now(), editorialProfileRef.current);
+    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length), Date.now(), editorialProfileRef.current);
     const reservedChunks = [...approved, ...nativeCandidates].map((page, index) => Object.freeze({
       id: `reserve:${page.id}`,
       kind: page.kind,
@@ -445,6 +450,25 @@ function ExperienceShell({ codexFeatures, connection }) {
     record("magazine-update-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
   }, [codexFeatures, record]);
+
+  React.useEffect(() => {
+    const onAppearance = (event) => setAppearance(createAppearanceProfile(event.detail));
+    const onUpdate = () => {
+      stateRef.current = { ...stateRef.current, view: "home" };
+      dispatch({ type: "home" });
+      setLibraryOpen(false);
+      startRun();
+    };
+    const onStorageAppearance = (event) => { if (event.key === "dsh-vibeify.appearance.v1" || event.key === null) setAppearance(loadAppearanceProfile(browserStorage())); };
+    window.addEventListener(APPEARANCE_SETTINGS_EVENT, onAppearance);
+    window.addEventListener(MAGAZINE_UPDATE_EVENT, onUpdate);
+    window.addEventListener("storage", onStorageAppearance);
+    return () => {
+      window.removeEventListener(APPEARANCE_SETTINGS_EVENT, onAppearance);
+      window.removeEventListener(MAGAZINE_UPDATE_EVENT, onUpdate);
+      window.removeEventListener("storage", onStorageAppearance);
+    };
+  }, [startRun]);
 
   const stopRun = React.useCallback(() => {
     const current = scheduler.current;
@@ -559,6 +583,7 @@ function ExperienceShell({ codexFeatures, connection }) {
       const profile = createEditorialProfile(event.detail);
       editorialProfileRef.current = profile;
       setEditorialProfile(profile);
+      setChunks((current) => current.filter(({ source }) => source !== "welcome" && source !== "bundle"));
       record("editorial-direction-changed", "home", 0, "user");
     };
     const onStorage = (event) => {
@@ -734,10 +759,10 @@ function ExperienceShell({ codexFeatures, connection }) {
     complete: "Magazine updated. It will stay still until another Chat answer completes or you request an update.",
     stopped: "Magazine update stopped.",
     "timed-out": "Magazine update reached its time limit and stopped.",
-    error: "The magazine could not update. Your existing edition is unchanged.",
+    error: "Fresh articles could not be added. Your saved articles are still here.",
   }[updateState];
   return (
-    <div className="vfx-shell" data-view={state.view}>
+    <div className="vfx-shell" data-view={state.view} data-palette={appearance.palette} data-text-size={appearance.textSize} data-spacing={appearance.spacing}>
       {state.view === "home" ? (
         <main
           ref={streamRef}
@@ -782,10 +807,10 @@ function ExperienceShell({ codexFeatures, connection }) {
             </section>
           ) : (
             <section className="vfx-edition-intro">
-              <span>Welcome edition · {editorialProfile.label}</span>
-              <h1>You chose well. Now make VIBE yours.</h1>
-              <p>This opening issue shows what you installed and how to enjoy it. Start in Chat, let complete visual pages stream into VIBE, then preview and share the ones worth passing on. Your older local pages are still here further down.</p>
-              <button type="button" className="vfx-intro-cta" onClick={enterChat}><Icon name="chat" /> Ask for your first new VIBE</button>
+              <span>Your magazine · {editorialProfile.label}</span>
+              <h1>People. Stories. Something worth your time.</h1>
+              <p>Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return.</p>
+              <button type="button" className="vfx-intro-cta" disabled={["starting", "submitted", "stopping"].includes(updateState)} onClick={startRun}>Update my magazine</button>
               {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
             </section>
             )}
@@ -811,7 +836,7 @@ function ExperienceShell({ codexFeatures, connection }) {
                 />
               ))}
             </div>
-            <footer className="vfx-footer"><span>{libraryOpen ? "Your local library is bounded and private to this browser." : "Older pages continue below; VIBE always returns to the newest arrival."}</span><span>Creators credited · sharing stays reviewed</span></footer>
+            <footer className="vfx-footer"><span>{libraryOpen ? "Your local library is bounded and private to this browser." : displayChunks.length === 0 ? "Your first edition is one update away." : "Your saved edition · newest stories first."}</span><span>Creators credited · sharing stays reviewed</span></footer>
           </>
         </main>
       ) : null}
@@ -821,7 +846,7 @@ function ExperienceShell({ codexFeatures, connection }) {
 
 const CSS = `
 body[data-vibeify-experience="home"] { overflow:hidden; }
-body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker { display:none; }
+body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trigger { display:none; }
 .vfx-shell,.vfx-shell * { box-sizing:border-box; }
 .vfx-shell { --ink:#fffafc; --muted:#b9adb8; position:fixed; inset:0; z-index:9990; overflow:hidden; color:var(--ink); color-scheme:dark; background:#080609; font-family:Inter,"SF Pro Display","Helvetica Neue",sans-serif; letter-spacing:-.01em; }
 .vfx-shell[data-view="chat"] { pointer-events:none; background:transparent; }
@@ -922,11 +947,40 @@ const PUBLIC_SHARE_CSS = `
 @media (max-width:560px) { .vfx-share-link-panel { right:-2px; width:min(360px,calc(100vw - 40px)); } }
 `;
 
+const APPEARANCE_CSS = `
+.vfx-shell { --page:#080609; --surface:#19121b; --ink:#fffafc; --muted:#c7bac4; --accent:#ff9aba; --edge:#58424f; --wash:#ffffff0b; }
+.vfx-shell[data-palette="paper"] { --page:#f4efe5; --surface:#fffdf7; --ink:#29251f; --muted:#60574d; --accent:#963b37; --edge:#c8bdae; --wash:#33251408; color-scheme:light; }
+.vfx-shell[data-palette="forest"] { --page:#eaf0e7; --surface:#f9fcf6; --ink:#18392c; --muted:#496355; --accent:#176648; --edge:#b0c8b6; --wash:#163a2708; color-scheme:light; }
+.vfx-shell[data-palette="ocean"] { --page:#081b2b; --surface:#102b40; --ink:#f0f9ff; --muted:#b8cfdd; --accent:#7bd8e9; --edge:#3d687e; --wash:#b0e7ff0b; }
+.vfx-shell:not([data-view="chat"]),.vfx-shell .vfx-stream { color:var(--ink); background:var(--page); }
+.vfx-shell .vfx-stream { background:radial-gradient(ellipse at 85% 0,color-mix(in srgb,var(--accent) 8%,transparent),transparent 40%),var(--page); scrollbar-color:var(--edge) transparent; }
+.vfx-shell .vfx-header { background:color-mix(in srgb,var(--page) 94%,transparent); border-color:var(--edge); }
+.vfx-shell .vfx-wordmark span { background:none; color:var(--ink); }
+.vfx-shell .vfx-wordmark small,.vfx-shell .vfx-edition,.vfx-shell .vfx-edition-intro p,.vfx-shell .vfx-library p,.vfx-shell .vfx-library-status,.vfx-shell .vfx-footer,.vfx-shell .vfx-pull,.vfx-shell .vfx-chunk-meta,.vfx-shell .vfx-share-link-panel p { color:var(--muted); }
+.vfx-shell .vfx-edition-intro>span,.vfx-shell .vfx-source-link,.vfx-shell .vfx-markdown a,.vfx-shell .vfx-chunk-heading>div>span { color:var(--accent); }
+.vfx-shell .vfx-chunk { background:var(--surface); border-color:var(--edge); box-shadow:0 14px 42px #0000000a; }
+.vfx-shell .vfx-markdown { color:var(--muted); }
+.vfx-shell .vfx-markdown blockquote,.vfx-shell .vfx-markdown th,.vfx-shell .vfx-math { color:var(--ink); background:var(--wash); }
+.vfx-shell .vfx-markdown pre,.vfx-shell .vfx-inline-visuals figure,.vfx-shell .vfx-share-link-panel { color:var(--ink); background:var(--surface); border-color:var(--edge); }
+.vfx-shell .vfx-inline-visuals figcaption,.vfx-shell .vfx-inline-visuals a { color:var(--muted); }
+.vfx-shell .vfx-share,.vfx-shell .vfx-skip,.vfx-shell .vfx-chat-cta,.vfx-shell .vfx-find,.vfx-shell .vfx-chat,.vfx-shell .vfx-save,.vfx-shell .vfx-update,.vfx-shell .vfx-question-options button { color:var(--ink); background:var(--wash); border-color:var(--edge); }
+.vfx-shell .vfx-question-options button[aria-pressed="true"],.vfx-shell .vfx-save[aria-pressed="true"] { color:var(--ink); background:color-mix(in srgb,var(--accent) 18%,var(--surface)); border-color:var(--accent); }
+.vfx-shell .vfx-intro-cta,.vfx-shell .vfx-update.is-active,.vfx-shell .vfx-media-button { color:var(--page)!important; background:var(--accent); border-color:var(--accent); }
+.vfx-shell .vfx-intro-cta:disabled { opacity:.65; cursor:wait; }
+.vfx-shell .vfx-library-search>div,.vfx-shell .vfx-share-link-panel input { background:var(--surface); border-color:var(--edge); color:var(--ink); }
+.vfx-shell .vfx-library-search input { color:var(--ink); }
+.vfx-shell button:focus-visible,.vfx-shell a:focus-visible { outline-color:var(--accent); }
+.vfx-shell[data-text-size="large"] .vfx-markdown { font-size:18px; line-height:1.8; }
+.vfx-shell[data-spacing="roomy"] .vfx-chunks { gap:32px; }
+.vfx-shell[data-spacing="roomy"] .vfx-chunk-copy { padding:clamp(26px,4vw,52px); }
+@media(max-width:760px) { .vfx-header { height:auto; min-height:78px; padding:12px 16px; gap:8px; flex-wrap:wrap; } .vfx-wordmark { margin-right:auto; } .vfx-edition { display:none; } .vfx-header .vfx-find,.vfx-header .vfx-update,.vfx-header .vfx-chat { padding:0 10px; font-size:11px; } }
+`;
+
 function installStyles(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}`;
+    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}\n${APPEARANCE_CSS}`;
     document.getElementById(STYLE_ID)?.remove();
     document.head.appendChild(style);
     return () => style.remove();

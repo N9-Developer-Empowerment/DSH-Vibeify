@@ -23,6 +23,10 @@ appSource = appSource.replace(
   'from "../../../shared/vibe-markdown.js"',
   'from "./vibe-markdown.js"',
 );
+appSource = appSource.replace(
+  'from "../../../shared/vibe-cover.js"',
+  'from "./vibe-cover.js"',
+);
 
 await Promise.all([
   writeFile(resolve(server, "index.js"), worker),
@@ -30,4 +34,5 @@ await Promise.all([
   writeFile(resolve(server, "app-source.mjs"), appSource),
   copyFile(resolve(project, "../../shared/vibe-share-contract.js"), resolve(server, "vibe-share-contract.js")),
   copyFile(resolve(project, "../../shared/vibe-markdown.js"), resolve(server, "vibe-markdown.js")),
+  copyFile(resolve(project, "../../shared/vibe-cover.js"), resolve(server, "vibe-cover.js")),
 ]);

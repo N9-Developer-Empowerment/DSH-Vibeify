@@ -1,4 +1,5 @@
 import { questionnaireParts } from "./questionnaire.js";
+import { createStoryCoverSvg } from "../../../../shared/vibe-cover.js";
 
 export const STREAM_BATCH_SIZE = 8;
 export const GENERATED_STREAM_BATCH_SIZE = 6;
@@ -318,48 +319,10 @@ export function markdownWithoutLeadVisual(markdown) {
     .replace(/^\s+/, "");
 }
 
-function escapeXml(value) {
-  return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
-}
-
-function coverLines(value, width, limit) {
-  const words = String(value ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-  const lines = [];
-  let line = "";
-  for (const word of words) {
-    const candidate = line === "" ? word : `${line} ${word}`;
-    if (candidate.length <= width || line === "") {
-      line = candidate;
-    } else {
-      lines.push(line);
-      line = word;
-      if (lines.length >= limit) break;
-    }
-  }
-  if (line !== "" && lines.length < limit) lines.push(line);
-  if (words.length > 0 && lines.join(" ").length < words.join(" ").length) lines[lines.length - 1] = `${lines.at(-1).replace(/[.…]+$/, "")}…`;
-  return lines;
-}
-
 /** A relevant unique cover is safer than assigning an unrelated catalogue photograph. */
 export function storyCoverForChunk(chunk) {
   const title = String(chunk?.title ?? "A new Vibe").replace(/\s+/g, " ").trim().slice(0, 180);
-  const excerpt = String(chunk?.markdown ?? "")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-    .replace(/[*_#>|`\\{}]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 240);
-  const seed = hashText(`${title}:${excerpt}`);
-  const hue = seed % 360;
-  const accent = (hue + 142) % 360;
-  const titleLines = coverLines(title, 27, 4);
-  const excerptLines = coverLines(excerpt, 68, 2);
-  const titleMarkup = titleLines.map((line, index) => `<tspan x="72" y="${176 + index * 78}">${escapeXml(line)}</tspan>`).join("");
-  const excerptMarkup = excerptLines.map((line, index) => `<tspan x="74" y="${515 + index * 36}">${escapeXml(line)}</tspan>`).join("");
-  const circles = Array.from({ length: 5 }, (_value, index) => `<circle cx="${1040 - index * 43}" cy="${80 + index * 92}" r="${105 + index * 24}"/>`).join("");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="${escapeXml(title)}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${hue} 42% 13%)"/><stop offset="1" stop-color="hsl(${(hue + 54) % 360} 48% 22%)"/></linearGradient></defs><rect width="1200" height="630" fill="url(#g)"/><g fill="none" stroke="hsl(${accent} 82% 76%)" stroke-width="3" opacity=".22">${circles}</g><text x="72" y="74" fill="hsl(${accent} 88% 78%)" font-family="Arial,sans-serif" font-size="25" font-weight="800" letter-spacing="5">VIBE · ONE ARTICLE</text><text fill="#fffafc" font-family="Georgia,serif" font-size="68" font-weight="500">${titleMarkup}</text><text fill="#d7cbd2" font-family="Arial,sans-serif" font-size="27">${excerptMarkup}</text></svg>`;
+  const svg = createStoryCoverSvg(title, chunk?.markdown);
   return Object.freeze({
     kind: "typography",
     externalUrl: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
@@ -398,18 +361,7 @@ export function visualMediaForChunk(catalog, chunk) {
   const useGraphic = chunk?.kind === "image"
     && episode.graphic !== undefined
     && (chunk?.source === "welcome" || (chunk?.source === "bundle" && mediaHash % 5 === 0));
-  if (useGraphic) {
-    return Object.freeze({
-      kind: episode.graphic.kind,
-      artwork: episode.graphic.artwork,
-      alt: episode.graphic.alt,
-      focalPoint: episode.graphic.focalPoint,
-      href: episode.graphic.provenanceUrl,
-      label: "AI-assisted graphic · VIBE",
-      mode: VISUAL_MODES[mediaHash % VISUAL_MODES.length],
-      episode,
-    });
-  }
+  if (useGraphic) return Object.freeze({ ...storyCoverForChunk(chunk), episode });
   return Object.freeze({
     kind: episode.photo.kind,
     artwork: episode.artwork,

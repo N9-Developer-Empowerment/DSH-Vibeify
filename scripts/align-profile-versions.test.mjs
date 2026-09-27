@@ -4,8 +4,9 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const script = new URL("./align-profile-versions.mjs", import.meta.url).pathname;
+const script = fileURLToPath(new URL("./align-profile-versions.mjs", import.meta.url));
 
 test("legacy profile pins are aligned and backed up without changing unrelated entries", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "vibeify-align-"));

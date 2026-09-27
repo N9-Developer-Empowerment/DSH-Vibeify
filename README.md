@@ -6,7 +6,7 @@ DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://git
 
 [![Watch the real DSH Vibeify welcome edition and finished walkthrough](docs/assets/dsh-vibeify-magazine-social.png)](https://youtu.be/jda4uplWsiI)
 
-[Download Vibeify 0.16.0](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.16.0) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
+[Download Vibeify 0.16.1](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.16.1) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
 
 The real 2:24 demonstration opens Vibe with content, turns a Chat request into a visual card, uses an explicit Update, then previews one article privately before optional publication. [Watch it on YouTube.](https://youtu.be/jda4uplWsiI)
 
@@ -201,9 +201,9 @@ DSH-Vibeify/
 
 The bridge currently pins:
 
-- `@deepseek-ai/dsh` `0.1.5-rc.3`
-- `@openai/codex` `0.157.0`
-- DSH Vibeify `0.16.0`
+- `@deepseek-ai/dsh` `0.1.7-rc.2`
+- `@openai/codex` `0.157.1` inside the governed bridge
+- DSH Vibeify `0.16.1`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

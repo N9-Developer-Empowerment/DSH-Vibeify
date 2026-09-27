@@ -44,7 +44,7 @@ test("macOS installer completes against the current checkout with all mutations 
 import { appendFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 const args=process.argv.slice(2);appendFileSync(process.env.OPERATIONS,\`npm \${args.join(" ")}\\n\`);
-if(args[0]==="view"){console.log("0.1.5-rc.3");process.exit(0)}
+if(args[0]==="view"){console.log("0.1.7-rc.2");process.exit(0)}
 if(args[0]==="install")process.exit(0);
 if(args[0]==="pack"){const r=spawnSync(process.env.REAL_NPM,args,{stdio:"inherit",env:process.env});process.exit(r.status??1)}
 if(args[0]==="--version"){console.log("11.6.2");process.exit(0)}
@@ -54,7 +54,7 @@ process.exit(0);
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 const args=process.argv.slice(2);appendFileSync(process.env.OPERATIONS,\`dsh \${args.join(" ")}\\n\`);
-if(args.includes("--version")){console.log("0.1.5-rc.3");process.exit(0)}
+if(args.includes("--version")){console.log("0.1.7-rc.2");process.exit(0)}
 if(args[0]==="plugin"&&args.includes("add")){
  const profile=args[args.indexOf("--profile")+1]||"web";const source=args[args.indexOf("--workspace-root")+1]||"";
  const name=source.includes("dsh-social-desk")?"dsh-social-desk":source.includes("dsh-visuals")?"dsh-visuals":source.includes("dsh-vibeify-experience")?"dsh-vibeify-experience":"dsh-vibeify";

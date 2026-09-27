@@ -171,7 +171,7 @@ try {
       }
     }
 
-    $TargetVersion = "0.1.5-rc.3" # Qualified with this Vibeify compatibility bundle
+    $TargetVersion = "0.1.7-rc.2" # Qualified with this Vibeify compatibility bundle
     if (-not $TargetVersion) { throw "The official npm registry did not return a DSH version." }
     $CurrentVersion = $null
     if (Get-Command dsh -ErrorAction SilentlyContinue) {
@@ -191,6 +191,8 @@ try {
     $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
     $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
     $ProfilePackage = Join-Path $ProfileDirectory "package.json"
+    & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage
+    Assert-Native "Aligning legacy DSH profile versions"
     $PluginName = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify" } else { "dsh-vibeify-experience" }
     $OppositePlugin = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify-experience" } else { "dsh-vibeify" }
     $PluginDirectory = Join-Path $ProjectDirectory "plugins\$PluginName"

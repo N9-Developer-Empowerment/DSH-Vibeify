@@ -59,6 +59,7 @@ const requiredFiles = [
   "scripts/install-dsh-vibeify-linux.sh",
   "scripts/install-dsh.sh",
   "scripts/install-vibeify.sh",
+  "scripts/align-profile-versions.mjs",
   "scripts/validate-package-archive.mjs",
 ];
 
@@ -112,6 +113,7 @@ for (const relativePath of [
   "plugins/dsh-social-desk/social-queue-store.js",
   "plugins/dsh-social-desk/social-rpc.js",
   "scripts/validate-package-archive.mjs",
+  "scripts/align-profile-versions.mjs",
 ]) {
   checkJavaScript(relativePath);
 }

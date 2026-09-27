@@ -66,19 +66,19 @@ Requirements:
 - Git;
 - one provider account when you are ready to ask the agent to work.
 
-The currently tested combination is:
+The tested compatibility bundle is:
 
-- `@deepseek-ai/dsh` `0.1.5-rc.3` (also the official `latest` dist-tag at the time of this release);
-- `@openai/codex` `0.157.0` inside the governed bridge;
-- DSH Vibeify `0.16.0`.
+- `@deepseek-ai/dsh` `0.1.7-rc.2` (the official `latest` dist-tag on 27 September 2026);
+- `@openai/codex` `0.157.1` inside the governed bridge;
+- DSH Vibeify `0.16.1`.
 
-The optional native `@deepseek-ai/dsh-subagent-codex` worker is a separate DSH route. If it is already enabled in the profile, the installer keeps it at the DSH-matched `0.1.5-rc.3` package; that upstream package declares its own `@openai/codex` dependency at `0.153.4`. The Vibeify lead bridge uses its separately pinned `0.157.0` dependency.
+The optional native `@deepseek-ai/dsh-subagent-codex` worker is a separate DSH route. If it is already enabled in the profile, the installer keeps it at the DSH-matched `0.1.7-rc.2` package; that upstream package still declares its own `@openai/codex` dependency at `0.153.4`. The Vibeify lead bridge uses its separately pinned `0.157.1` dependency.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.16.0&path:/plugins/dsh-vibeify-experience'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.16.1&path:/plugins/dsh-vibeify-experience'
 ```
 
 This keeps native DSH/DeepSeek in the lead. Use the friendly installer or the

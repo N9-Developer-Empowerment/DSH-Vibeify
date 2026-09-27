@@ -12,10 +12,24 @@ try {
   throw error;
 }
 const profile = JSON.parse(source);
+// These packages were retired or split after 0.1.5; keeping their old pins
+// forces an incompatible legacy runtime into the current bundle.
+const retired = new Set([
+  "@deepseek-ai/dsh-code-runtime",
+  "@deepseek-ai/dsh-code-runtime-worker-thread",
+  "@deepseek-ai/dsh-agent-presets",
+  "@deepseek-ai/dsh-settings-file",
+  "@deepseek-ai/dsh-workflow-worker-thread",
+]);
 let changes = 0;
 for (const entries of [profile.dependencies, profile.devDependencies, profile.pnpm?.overrides]) {
   if (!entries || typeof entries !== "object" || Array.isArray(entries)) continue;
   for (const [name, version] of Object.entries(entries)) {
+    if (retired.has(name) && version === "0.1.5-rc.3") {
+      delete entries[name];
+      changes += 1;
+      continue;
+    }
     let qualified;
     if ((name === "@deepseek-ai/dsh" || name.startsWith("@deepseek-ai/dsh-")) && version === "0.1.5-rc.3") {
       qualified = "0.1.7-rc.2";

@@ -17,6 +17,7 @@ test("legacy profile pins are aligned and backed up without changing unrelated e
   const original = {
     dependencies: {
       "@deepseek-ai/dsh-subagent-codex": "0.1.5-rc.3",
+      "@deepseek-ai/dsh-code-runtime": "0.1.5-rc.3",
       "dsh-vibeify": "file:private-snapshot.tgz",
     },
     pnpm: { overrides: {
@@ -30,6 +31,7 @@ test("legacy profile pins are aligned and backed up without changing unrelated e
   await writeFile(path, `${JSON.stringify(original)}\n`);
   execFileSync(process.execPath, [script, path]);
   const updated = JSON.parse(await readFile(path, "utf8"));
+  assert.equal(updated.dependencies["@deepseek-ai/dsh-code-runtime"], undefined);
   assert.equal(updated.dependencies["@deepseek-ai/dsh-subagent-codex"], "0.1.7-rc.2");
   assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-session"], "0.1.7-rc.2");
   assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-settings"], "0.1.7-rc.2");

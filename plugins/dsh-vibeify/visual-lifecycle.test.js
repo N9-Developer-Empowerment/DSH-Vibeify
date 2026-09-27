@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createVisualLifecycle, visualNeedsLocalCover } from "./client-src/experience/visual-lifecycle.js";
 
+import { articleImageKey } from "./client-src/experience/article-image.js";
+
 const chunk = (id, markdown = "") => ({ id, kind: "article", source: "fresh-stream", title: `Story ${id}`, markdown });
 const photo = (url) => ({ provider: "pexels", imageUrl: url, sourceUrl: "https://www.pexels.com/photo/example/", alt: "A real photograph", creator: "Someone", credit: "Photograph · Someone · Pexels", license: "Pexels licence", width: 1200, height: 800 });
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -83,7 +85,7 @@ test("generated image is restored before search on reload", async () => {
   let searched = 0;
   const lifecycle = createVisualLifecycle({
     capability: async () => true,
-    generatedCache: { read: async () => new Map([["one", generated]]), write: async () => true },
+    generatedCache: { read: async () => new Map([[articleImageKey(chunk("one")), generated]]), write: async () => true },
     search: async () => { searched++; return []; }, load: async () => true,
     generate: async () => null,
     onSelect: (id) => selected.push(id),
@@ -102,8 +104,8 @@ test("restored generated image outranks an older cached photograph", async () =>
   const loaded = [];
   const lifecycle = createVisualLifecycle({
     capability: async () => true,
-    generatedCache: { read: async () => new Map([["one", generated]]), write: async () => true },
-    cached: new Map([["one", oldPhoto]]),
+    generatedCache: { read: async () => new Map([[articleImageKey(chunk("one")), generated]]), write: async () => true },
+    cached: new Map([[articleImageKey(chunk("one")), oldPhoto]]),
     search: async () => { throw Error("already restored"); },
     load: async (url) => { loaded.push(url); return true; },
     generate: async () => null,

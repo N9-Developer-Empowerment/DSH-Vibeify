@@ -44,7 +44,7 @@ The optional `dsh-visuals` capability improves those pictures with subject-speci
 
 Open **Settings → Images** to see the four sources. Provider credentials remain in DSH's credential service and never enter browser results, caches or sharing snapshots. Search and AI generation use only an explicit public magazine brief. Ordinary Chat may resolve an explicitly linked public Commons image without sending its title or prose. Private Chat, missing services, provider-neutral mode and offline reading all retain a locally selected illustration.
 
-The image lifecycle restores saved choices before searching, retries transient failures with bounded backoff, and makes Update an explicit retry. It validates external leads before replacing the local picture. Generated bitmaps persist separately from small browser preferences; a storage failure cannot remove the bundled image. Generation remains bounded and optional rather than a prerequisite for an illustrated magazine.
+The central image resolver tries the credited direct image before saved choices or search. Explicit Commons credits resolve only that file; unrelated stock and generated artwork cannot override them. Article-content fingerprints invalidate old saved choices after edits. Transient capability and search failures receive bounded retries, and Update explicitly retries failures. It validates every selected image before replacing the local picture. See [Article images](ARTICLE-IMAGES.md) for the single entry point and module responsibilities. Generated bitmaps persist separately from small browser preferences; a storage failure cannot remove the bundled image. Generation remains bounded and optional rather than a prerequisite for an illustrated magazine.
 
 Sharing preserves the selected photograph or illustration. A bundled drawing crosses the boundary by a fixed, allow-listed artwork ID, never arbitrary SVG or private data. The sharing host reconstructs that exact drawing, previews a JPEG and stores the previewed JPEG only when the reader chooses **Publish public link**. The same hosted image becomes the article and social preview cover, with its creator and CC0 credit intact.
 
@@ -79,8 +79,7 @@ Magazine images are checked against their original source metadata. Commons
 file links (including filenames with parentheses) and Commons thumbnails are
 supported. A missing licence in an old caption can be recovered from Commons;
 new captions must include the verified licence. A selected replacement must
-load at a usable size before it is cached. Failed photos trigger another search
-instead of silently swapping in unrelated catalogue artwork.
+load at a usable size before it is cached. Failed exact Commons images retain the credited local fallback with a visible retry message. General public image searches can try other candidates when no exact Commons choice exists.
 
 In ChatGPT mode, public magazine stories can use the installed Codex image tool
 as a last resort after image search. Only a short public image brief is supplied;
@@ -102,3 +101,8 @@ Use up to three panels, up to 12,000 characters of HTML per panel, and keep the 
 The existing `:::vibe-game mochi-meadow` block uses one portable game implementation in the magazine, private sharing preview and published article. Future games use the reusable `vibe-app` format and require no plugin update. Games, forms, graphs and apps retain their interactions when shared. Publishing remains a separate reader action.
 
 Magazine palette, text size and spacing now apply and save immediately when selected in Look & feel. Chat colour remains separate. Appearance changes do not request new articles or change model settings.
+
+Standalone Commons image credits (including “Video still · Creator · Licence”) are resolved through Commons metadata even when the article omits image markup. Only the public file URL is sent for resolution; the verified image replaces the illustration once it loads.
+Caption-style credits also resolve when the creator and licence sit outside the Commons link, for example `Image: Creator; public domain via [Wikimedia Commons](...)`. Italic and bold caption formatting are supported. Ordinary prose links do not become cover-image requests.
+
+The magazine and update checker obtain the current DSH connection through its service registry (`ctx.get("connection")`). This is required for image lookup on DSH 0.1.7; a missing legacy property must not silently disable the image queue.

@@ -1,3 +1,4 @@
+import { REUSABLE_IMAGE_FAMILIES } from "./image-policy.js";
 export const SHARE_ORIGIN = "https://share.codingforjustice.org.uk";
 export const SHARE_SNAPSHOT_VERSION = 1;
 export const SHARE_MESSAGE_READY = "vibe-share:ready";
@@ -13,13 +14,7 @@ const GENERATED_IMAGE_CREDIT = "Generated illustration · ChatGPT";
 const ARTICLE_KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 const VISUAL_KINDS = new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography", "illustration"]);
 const TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
-const REUSABLE_IMAGE_FAMILIES = Object.freeze([
-  { image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i },
-  { image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i },
-  { image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i },
-  { image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i },
-  { image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i },
-]);
+
 
 function cleanText(value, limit, multiline = false) {
   if (typeof value !== "string") return null;

@@ -1,168 +1,118 @@
-import { remoteVisualForMarkdown } from "./feed.js";
-import { publicVisualBriefForChunk } from "./visual-source-client.js";
+import { parseArticleImages } from "./article-image-source.js";
+import { resolveArticleImage, articleImageKey, articleImageStatus } from "./article-image.js";
 
+// Compatibility helper for callers outside the magazine. The magazine uses resolver results.
 export function visualNeedsLocalCover(media, artworkUrl, verifiedUrls, failedUrls) {
   const url = media?.externalUrl ?? artworkUrl;
   return typeof url === "string" && (failedUrls.has(url) || (url.startsWith("https://") && !verifiedUrls.has(url)));
 }
 
-/** One queue for one mounted magazine. Changing the chunk list never cancels in-flight work. */
+/** Scheduling/cache ownership only. All image choices belong to resolveArticleImage. */
 export function createVisualLifecycle({
   capability, search, generate, load, generatedCache = null, cached = new Map(),
-  onSelect = () => {}, onVerified = () => {}, onStatus = () => {}, onFailure = () => {},
-  retryDelays = [1000, 4000, 15000], getLead = remoteVisualForMarkdown,
+  onResult = () => {}, onSelect = () => {}, onVerified = () => {}, onStatus = () => {}, onFailure = () => {},
+  retryDelays = [1000, 4000, 15000], getLead = null,
 }) {
   const chunks = new Map();
   const pending = new Set();
-  const complete = new Set();
-  const failedIds = new Set();
-  const selectedUrls = new Map();
-  const failedUrls = new Set();
-  let disposed = false;
-  let running = null;
-  let retryTimer = null;
-  let attempts = 0;
-  let available = false;
-  let generatedLoaded = false;
+  const results = new Map();
+  const blocked = new Map();
+  let disposed = false, running = null, retryTimer = null, attempts = 0;
+  let generated = new Map(), restored = false, capabilityResult = null;
   let retryRequested = false;
 
-  function emitSelect(id, visual) {
-    if (!disposed && chunks.has(id)) { onSelect(id, visual); selectedUrls.set(id, visual.imageUrl); complete.add(id); failedIds.delete(id); }
-  }
-
-  async function restoreGenerated() {
-    if (generatedLoaded) return;
-    generatedLoaded = true;
-    try {
-      const restored = await generatedCache?.read();
-      if (disposed || !(restored instanceof Map)) return;
-      for (const [id, visual] of restored) {
-        if (chunks.has(id) && !failedUrls.has(visual?.imageUrl) && await load(visual.imageUrl)) emitSelect(id, visual);
-      }
-    } catch { /* IndexedDB can be disabled; local pictures and host cache still work. */ }
-  }
-
-  async function checkExisting(chunk) {
-    const visual = cached.get(chunk.id);
-    if (visual?.imageUrl && !failedUrls.has(visual.imageUrl)) {
-      if (await load(visual.imageUrl)) { emitSelect(chunk.id, visual); return true; }
-      failedUrls.add(visual.imageUrl);
-      if (!disposed) onFailure(visual.imageUrl);
+  const available = () => capabilityResult ??= Promise.resolve().then(capability).then((value) => value === true, () => false);
+  async function run() {
+    if (!restored) {
+      restored = true;
+      try { const value = await generatedCache?.read(); if (value instanceof Map) generated = value; } catch { /* Optional cache. */ }
     }
-    const lead = getLead(chunk.markdown);
-    if (lead?.imageUrl && !failedUrls.has(lead.imageUrl)) {
-      if (await load(lead.imageUrl)) {
-        if (!disposed) { onVerified(chunk.id, lead.imageUrl); selectedUrls.set(chunk.id, lead.imageUrl); complete.add(chunk.id); failedIds.delete(chunk.id); }
-        return true;
-      }
-      failedUrls.add(lead.imageUrl);
-      if (!disposed) onFailure(lead.imageUrl);
-    }
-    return false;
-  }
-
-  async function photosFor(chunk) {
-    if (disposed || complete.has(chunk.id) || !chunks.has(chunk.id)) return false;
-    if (await checkExisting(chunk)) return true;
-    if (disposed || publicVisualBriefForChunk(chunk) === null) return false;
-    onStatus(chunk.id, "Finding a photograph…");
-    const candidates = await search(chunk, [...failedUrls]);
-    if (disposed) return false;
-    for (const candidate of (Array.isArray(candidates) ? candidates : []).slice(0, 8)) {
-      if (failedUrls.has(candidate.imageUrl)) continue;
-      if (await load(candidate.imageUrl)) { emitSelect(chunk.id, candidate); return true; }
-      failedUrls.add(candidate.imageUrl);
-    }
-    return false;
-  }
-
-  async function pass() {
-    await restoreGenerated();
-    if (disposed) return;
-    // Linked and browser-cached pictures are local display decisions, even if RPC is down.
-    for (const id of pending) {
-      const chunk = chunks.get(id);
-      if (complete.has(id)) pending.delete(id);
-      else if (chunk && await checkExisting(chunk)) pending.delete(id);
-      else if (chunk && publicVisualBriefForChunk(chunk) === null) { complete.add(id); pending.delete(id); }
-      if (disposed) return;
-    }
-    if (pending.size === 0) return;
-    if (!available) {
-      try { available = await capability() === true; } catch { available = false; }
-      if (disposed) return;
-      if (!available) {
-        const delay = retryDelays[attempts++];
-        if (delay !== undefined) retryTimer = setTimeout(() => { retryTimer = null; schedule(); }, delay);
-        return;
-      }
-      attempts = 0;
-    }
-    while (pending.size > 0 && !disposed) {
-      const batch = [...pending].map((id) => chunks.get(id)).filter(Boolean);
+    while (pending.size && !disposed) {
+      // Resolve editor-selected images before spending time on optional discovery/generation.
+      const priority = (id) => {
+        const parsed = parseArticleImages(chunks.get(id)?.markdown);
+        return parsed.visuals.length > 0 || parsed.sourceUrls.length > 0 ? 0 : 1;
+      };
+      const batch = [...pending].sort((a, b) => priority(a) - priority(b));
       pending.clear();
       let cursor = 0;
-      const illustrationQueue = [];
       const worker = async () => {
         while (!disposed && cursor < batch.length) {
-          const chunk = batch[cursor++];
-          if (!await photosFor(chunk) && !disposed && !complete.has(chunk.id) && publicVisualBriefForChunk(chunk) !== null) illustrationQueue.push(chunk);
+          const id = batch[cursor++], chunk = chunks.get(id);
+          if (!chunk) continue;
+          const key = articleImageKey(chunk);
+          const stale = () => disposed || articleImageKey(chunks.get(id)) !== key;
+          let result;
+          try {
+            result = await resolveArticleImage(chunk, {
+              load, search, generate, available, getLead,
+              cached: cached.get(key), generated: generated.get(key),
+              blockedUrls: blocked.get(id), cancelled: stale,
+              onStatus: (status) => { if (!stale()) onStatus(id, status); },
+            });
+          } catch { result = { visual: null, origin: "fallback", reason: "image-unavailable", retryable: true }; }
+          if (stale()) continue;
+          results.set(id, result); onResult(id, result); onStatus(id, articleImageStatus(result));
+          if (result.visual) {
+            if (result.origin === "linked") onVerified(id, result.visual.imageUrl);
+            else onSelect(id, result.visual);
+            if (result.origin === "generated") {
+              generated.set(key, result.visual);
+              try { await generatedCache?.write(key, result.visual); } catch { /* Display still succeeds. */ }
+            }
+          }
         }
       };
       await Promise.all([worker(), worker()]);
-      // The free photo pass finishes for the batch before paid generation starts.
-      for (const chunk of illustrationQueue) {
-        if (disposed || complete.has(chunk.id) || !chunks.has(chunk.id)) continue;
-        onStatus(chunk.id, "Creating an illustration…");
-        let image = null;
-        try { image = await generate(chunk); } catch { /* Keep the bundled picture. */ }
-        if (disposed) return;
-        if (image?.imageUrl && await load(image.imageUrl)) {
-          if (disposed) return;
-          emitSelect(chunk.id, image);
-          try { await generatedCache?.write(chunk.id, image); } catch { /* Host cache remains available. */ }
-        } else if (!disposed) {
-          onStatus(chunk.id, "");
-          complete.add(chunk.id); // A later explicit Update may retry; chunk changes do not.
-          failedIds.add(chunk.id);
-        }
-      }
+    }
+    if (!disposed && [...results.values()].some((result) => ["service-unavailable", "search-unavailable"].includes(result.reason))) {
+      const delay = retryDelays[attempts++];
+      if (delay !== undefined) retryTimer = setTimeout(() => { retryTimer = null; requeue(false); }, delay);
     }
   }
-
   function schedule() {
     if (disposed || running) return;
-    running = pass().finally(() => {
+    running = run().finally(() => {
       running = null;
-      const retry = retryRequested;
-      retryRequested = false;
-      if (!disposed && pending.size > 0 && (available || retry)) schedule();
+      if (retryRequested) { retryRequested = false; requeue(false); }
+      else if (!disposed && pending.size) schedule();
     });
   }
-
+  function requeue(explicit) {
+    if (disposed) return;
+    clearTimeout(retryTimer); retryTimer = null;
+    if (explicit) { attempts = 0; blocked.clear(); }
+    capabilityResult = null;
+    for (const [id] of chunks) if (!results.has(id) || results.get(id).retryable) pending.add(id);
+    if (running) retryRequested = true;
+    schedule();
+  }
   return Object.freeze({
     enqueue(items) {
       if (disposed) return;
       for (const chunk of items) {
-        if (!chunks.has(chunk.id)) { chunks.set(chunk.id, chunk); pending.add(chunk.id); }
-        else chunks.set(chunk.id, chunk);
+        const old = chunks.get(chunk.id);
+        chunks.set(chunk.id, chunk);
+        if (!old || articleImageKey(old) !== articleImageKey(chunk)) {
+          pending.add(chunk.id); results.delete(chunk.id); blocked.delete(chunk.id);
+          // Clear an old cover immediately; stale in-flight results cannot restore it.
+          onResult(chunk.id, { visual: null, origin: "fallback", reason: "pending", retryable: false });
+        }
       }
-      if (pending.size > 0) schedule();
+      if (pending.size) schedule();
     },
-    retry() {
-      if (disposed) return;
-      clearTimeout(retryTimer); retryTimer = null;
-      attempts = 0;
-      available = false;
-      failedUrls.clear();
-      for (const id of chunks.keys()) if (!complete.has(id)) pending.add(id);
-      // Failed generation was marked complete to prevent loops; Update deliberately requeues it.
-      for (const id of failedIds) { complete.delete(id); pending.add(id); }
-      failedIds.clear();
-      retryRequested = Boolean(running);
+    retry() { requeue(true); },
+    failure(url) {
+      if (!url || disposed) return;
+      onFailure(url);
+      for (const [id, result] of results) if (result.visual?.imageUrl === url) {
+        const urls = blocked.get(id) ?? new Set(); urls.add(url); blocked.set(id, urls);
+        const failed = { visual: null, origin: "fallback", reason: "image-load-failed", retryable: true };
+        results.set(id, failed); onResult(id, failed); onStatus(id, articleImageStatus(failed)); pending.add(id);
+        cached.delete(articleImageKey(chunks.get(id)));
+      }
       schedule();
     },
-    failure(url) { if (url) { failedUrls.add(url); for (const [id, chunk] of chunks) if (selectedUrls.get(id) === url || getLead(chunk.markdown)?.imageUrl === url) { complete.delete(id); pending.add(id); cached.delete(id); } schedule(); } },
     whenIdle() { return running ?? Promise.resolve(); },
     dispose() { disposed = true; clearTimeout(retryTimer); pending.clear(); },
   });

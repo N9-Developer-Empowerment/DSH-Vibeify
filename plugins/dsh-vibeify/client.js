@@ -379,6 +379,171 @@ window.__ModuleLoader__.load({
 			  });
 			}
 
+			// ../../shared/image-policy.js
+			var REUSABLE_IMAGE_FAMILIES = Object.freeze([
+			  { image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i },
+			  { image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i },
+			  { image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i },
+			  { image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i },
+			  { image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i }
+			]);
+
+			// client-src/experience/article-image-source.js
+			var REMOTE_IMAGE_HOSTS = Object.freeze(/* @__PURE__ */ new Set([
+			  "images.unsplash.com",
+			  "images.pexels.com",
+			  "cdn.pixabay.com"
+			]));
+			var REMOTE_IMAGE_QUERY_KEYS = Object.freeze(/* @__PURE__ */ new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
+			var IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
+			var MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
+			var VISUAL_CREDIT_LABEL = /^(?:(?:video still|visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?|artwork(?:\s+and\s+source)?|credit)\b/i;
+			var IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
+			var TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
+			function reusableImageFamily(imageHost, sourceHost, credit = "") {
+			  return REUSABLE_IMAGE_FAMILIES.some((family) => family.image.test(imageHost) && family.source.test(sourceHost) && family.licence.test(credit));
+			}
+			function allowedImageUrl(value, sourceValue = null, credit = "") {
+			  try {
+			    const url = new URL(value);
+			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+			    const host = url.hostname.toLowerCase();
+			    const reviewedHost = REMOTE_IMAGE_HOSTS.has(host);
+			    let firstParty = false;
+			    let reusableFamily = false;
+			    if (typeof sourceValue === "string") {
+			      const source = new URL(sourceValue);
+			      firstParty = source.protocol === "https:" && source.username === "" && source.password === "" && source.hostname.toLowerCase() === host && !IMAGE_FILE_PATH.test(source.pathname);
+			      reusableFamily = source.protocol === "https:" && source.username === "" && source.password === "" && reusableImageFamily(host, source.hostname.toLowerCase(), credit);
+			    }
+			    if (!reviewedHost && !reusableFamily && (!firstParty || !IMAGE_FILE_PATH.test(url.pathname))) return null;
+			    url.hash = "";
+			    for (const key of [...url.searchParams.keys()]) {
+			      if (!REMOTE_IMAGE_QUERY_KEYS.has(key.toLowerCase())) url.searchParams.delete(key);
+			    }
+			    return url.href;
+			  } catch {
+			    return null;
+			  }
+			}
+			function visualSource(value) {
+			  try {
+			    const parsed = new URL(value);
+			    if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "") return null;
+			    parsed.hash = "";
+			    return parsed.href;
+			  } catch {
+			    return null;
+			  }
+			}
+			function visualCaption(line, allowDescriptive = false) {
+			  const text = String(line ?? "").trim().replace(/^[-*]\s+/, "").replace(/^[*_]+|[*_]+$/g, "");
+			  if (text.length > 1200) return null;
+			  const links = [...text.matchAll(MARKDOWN_LINK_PATTERN)];
+			  if (links.length !== 1) return null;
+			  const link = links[0];
+			  const before = text.slice(0, link.index).replace(/[*_]/g, "").trim();
+			  const after = text.slice(link.index + link[0].length).replace(/[*.\s]+$/g, "").trim();
+			  const prefix = /^(video still|photo(?:graph)?|image|visual|artwork|graphic|credit)(?:\s+(?:source|credit))?\s*[:·—-]\s*/i.exec(before);
+			  const labelledLink = before === "" && VISUAL_CREDIT_LABEL.test(link[1]);
+			  const explicitCredit = prefix !== null || labelledLink;
+			  if (after.length > 100 || /https?:\/\//i.test(before + after)) return null;
+			  if (!explicitCredit && (!allowDescriptive || before !== "" || after !== "")) return null;
+			  const credit = [prefix?.[1], prefix ? before.slice(prefix[0].length) : before, link[1], after.replace(/^[,;·—–\s]+/, "")].filter(Boolean).join(" \xB7 ").replace(/\s+/g, " ").trim();
+			  return { sourceUrl: visualSource(link[2]), credit, explicitCredit };
+			}
+			function captionAfterImage(markdown, images, index) {
+			  const image = images[index];
+			  const start = (image.index ?? 0) + image[0].length;
+			  const end = images[index + 1]?.index ?? markdown.length;
+			  const line = markdown.slice(start, end).split(/\r?\n/).find((value) => value.trim().length > 0);
+			  const caption = visualCaption(line, true);
+			  if (caption === null || caption.sourceUrl === null || caption.explicitCredit) return caption;
+			  const imageUrl = visualSource(image[2]);
+			  if (imageUrl === null) return null;
+			  const imagePage = new URL(imageUrl);
+			  const sourcePage = new URL(caption.sourceUrl);
+			  return imagePage.hostname.toLowerCase() === sourcePage.hostname.toLowerCase() && IMAGE_FILE_PATH.test(imagePage.pathname) && !IMAGE_FILE_PATH.test(sourcePage.pathname) ? caption : null;
+			}
+			function parseArticleImages(markdown) {
+			  if (typeof markdown !== "string") return { visuals: [], sourceUrls: [], body: "", firstImageAlt: null };
+			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
+			  const visuals = [];
+			  const seen = /* @__PURE__ */ new Set();
+			  const sources = /* @__PURE__ */ new Set();
+			  const attachedCredits = /* @__PURE__ */ new Set();
+			  const addCommons = (sourceUrl) => {
+			    if (!sourceUrl || sources.size >= 4) return;
+			    const source = new URL(sourceUrl);
+			    if (source.hostname === "commons.wikimedia.org" && source.pathname.startsWith("/wiki/File:")) {
+			      source.search = "";
+			      source.hash = "";
+			      sources.add(source.href);
+			    }
+			  };
+			  for (let index = 0; index < images.length; index++) {
+			    const image = images[index];
+			    const caption = captionAfterImage(markdown, images, index);
+			    if (!caption?.sourceUrl) continue;
+			    attachedCredits.add(caption.sourceUrl);
+			    addCommons(caption.sourceUrl);
+			    const imageUrl = allowedImageUrl(image[2], caption.sourceUrl, caption.credit);
+			    if (!imageUrl || seen.has(imageUrl)) continue;
+			    seen.add(imageUrl);
+			    visuals.push(Object.freeze({ imageUrl, sourceUrl: caption.sourceUrl, alt: image[1].replace(/\s+/g, " ").trim(), credit: caption.credit }));
+			  }
+			  for (const line of markdown.split(/\r?\n/)) {
+			    const caption = visualCaption(line);
+			    if (caption?.explicitCredit) addCommons(caption.sourceUrl);
+			  }
+			  const body = markdown.replace(IMAGE_PATTERN, "").split(/\r?\n/).filter((line) => !attachedCredits.has(visualCaption(line, true)?.sourceUrl)).join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
+			  return Object.freeze({ visuals: Object.freeze(visuals), sourceUrls: Object.freeze([...sources]), body, firstImageAlt: images[0]?.[1] ?? null });
+			}
+			var remoteVisualsForMarkdown = (markdown) => typeof markdown === "string" ? parseArticleImages(markdown).visuals : null;
+			var remoteVisualForMarkdown = (markdown) => parseArticleImages(markdown).visuals[0] ?? null;
+			var markdownWithoutLeadVisual = (markdown) => parseArticleImages(markdown).body;
+			function contentUrl(value) {
+			  try {
+			    const url = new URL(value);
+			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
+			    if (REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || IMAGE_FILE_PATH.test(url.pathname)) return null;
+			    url.hash = "";
+			    for (const key of [...url.searchParams.keys()]) {
+			      if (TRACKING_QUERY_KEY.test(key)) url.searchParams.delete(key);
+			    }
+			    return url.href;
+			  } catch {
+			    return null;
+			  }
+			}
+			function isVisualCreditPage(url) {
+			  const host = url.hostname.toLowerCase();
+			  return (host === "unsplash.com" || host === "www.unsplash.com") && url.pathname.startsWith("/photos/") || (host === "pexels.com" || host === "www.pexels.com") && url.pathname.startsWith("/photo/") || (host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/") || host === "commons.wikimedia.org" && url.pathname.startsWith("/wiki/File:");
+			}
+			function contentLinkForMarkdown(markdown) {
+			  if (typeof markdown !== "string") return null;
+			  const visual = remoteVisualForMarkdown(markdown);
+			  for (const match of markdown.matchAll(MARKDOWN_LINK_PATTERN)) {
+			    const href = contentUrl(match[2]);
+			    if (href === null || href === visual?.sourceUrl) continue;
+			    const parsed = new URL(href);
+			    const label = match[1].replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+			    if (label.length === 0 || VISUAL_CREDIT_LABEL.test(label) || isVisualCreditPage(parsed)) continue;
+			    return Object.freeze({ href, label: label.slice(0, 120) });
+			  }
+			  return null;
+			}
+			function commonsImageIdentity(value) {
+			  try {
+			    const url = new URL(value);
+			    if (url.protocol !== "https:" || url.hostname !== "commons.wikimedia.org" || url.username || url.password) return null;
+			    const path = decodeURIComponent(url.pathname).replace(/_/g, " ");
+			    return path.startsWith("/wiki/File:") ? path.slice(6) : null;
+			  } catch {
+			    return null;
+			  }
+			}
+
 			// questionnaire-contract.js
 			var QUESTIONNAIRE_MIN_OPTIONS = 2;
 			var QUESTIONNAIRE_MAX_OPTIONS = 6;
@@ -632,175 +797,14 @@ window.__ModuleLoader__.load({
 			  return catalog.episodes[(hash2 >>> 0) % catalog.episodes.length];
 			}
 			var VISUAL_MODES = Object.freeze(["cinema", "poster", "duotone", "close-crop"]);
-			var REMOTE_IMAGE_HOSTS = Object.freeze(/* @__PURE__ */ new Set([
-			  "images.unsplash.com",
-			  "images.pexels.com",
-			  "cdn.pixabay.com"
-			]));
-			var REUSABLE_IMAGE_FAMILIES = Object.freeze([
-			  Object.freeze({ image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i }),
-			  Object.freeze({ image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i }),
-			  Object.freeze({ image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i }),
-			  Object.freeze({ image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i }),
-			  Object.freeze({ image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i })
-			]);
-			var REMOTE_IMAGE_QUERY_KEYS = Object.freeze(/* @__PURE__ */ new Set(["auto", "crop", "cs", "dpr", "fit", "fm", "h", "q", "w"]));
-			var IMAGE_PATTERN = /!\[([^\]]{1,240})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
-			var SOURCE_LINK_PATTERN = /^\[([^\]]{1,120})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/i;
-			var MARKDOWN_LINK_PATTERN = /(?<!!)\[([^\]]{1,200})\]\((https:\/\/(?:[^\s()]|\([^()\s]*\))+)(?:\s+"[^"]*")?\)/gi;
-			var VISUAL_CREDIT_LABEL = /^(?:(?:visual|image|photo|photograph|graphic)(?:\s+(?:source|credit))?|artwork(?:\s+and\s+source)?|credit)\b/i;
-			var IMAGE_FILE_PATH = /\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
-			var TRACKING_QUERY_KEY = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
-			function reusableImageFamily(imageHost, sourceHost, credit = "") {
-			  return REUSABLE_IMAGE_FAMILIES.some((family) => family.image.test(imageHost) && family.source.test(sourceHost) && family.licence.test(credit));
-			}
-			function allowedImageUrl(value, sourceValue = null, credit = "") {
-			  try {
-			    const url = new URL(value);
-			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
-			    const host = url.hostname.toLowerCase();
-			    const reviewedHost = REMOTE_IMAGE_HOSTS.has(host);
-			    let firstParty = false;
-			    let reusableFamily = false;
-			    if (typeof sourceValue === "string") {
-			      const source = new URL(sourceValue);
-			      firstParty = source.protocol === "https:" && source.username === "" && source.password === "" && source.hostname.toLowerCase() === host && !IMAGE_FILE_PATH.test(source.pathname);
-			      reusableFamily = source.protocol === "https:" && source.username === "" && source.password === "" && reusableImageFamily(host, source.hostname.toLowerCase(), credit);
-			    }
-			    if (!reviewedHost && !reusableFamily && (!firstParty || !IMAGE_FILE_PATH.test(url.pathname))) return null;
-			    url.hash = "";
-			    for (const key of [...url.searchParams.keys()]) {
-			      if (!REMOTE_IMAGE_QUERY_KEYS.has(key.toLowerCase())) url.searchParams.delete(key);
-			    }
-			    return url.href;
-			  } catch {
-			    return null;
-			  }
-			}
-			function visualSource(value) {
-			  try {
-			    const parsed = new URL(value);
-			    if (parsed.protocol !== "https:" || parsed.username !== "" || parsed.password !== "") return null;
-			    parsed.hash = "";
-			    return parsed.href;
-			  } catch {
-			    return null;
-			  }
-			}
-			function visualCaption(line, allowDescriptive = false) {
-			  const text = String(line ?? "").trim().replace(/^[-*]\s+/, "").replace(/^[*_]/, "");
-			  const prefix = /^(photo(?:graph)?|image|visual|artwork|graphic)(?:\s+(?:source|credit))?\s*:\s*/i.exec(text);
-			  const linkText = text.slice(prefix?.[0].length ?? 0);
-			  const link = SOURCE_LINK_PATTERN.exec(linkText);
-			  if (link === null) return null;
-			  const suffix = linkText.slice(link[0].length).replace(/[*.\s]+$/g, "").trim();
-			  if (suffix.length > 100 || /\]\(|https?:\/\//i.test(suffix)) return null;
-			  const explicitCredit = prefix !== null || VISUAL_CREDIT_LABEL.test(link[1]);
-			  if (!explicitCredit && (!allowDescriptive || suffix !== "")) return null;
-			  const credit = [prefix?.[1], link[1], suffix.replace(/^[,;·—–\s]+/, "")].filter(Boolean).join(" \xB7 ").replace(/\s+/g, " ").trim();
-			  return { sourceUrl: visualSource(link[2]), credit, explicitCredit };
-			}
-			function captionAfterImage(markdown, images, index) {
-			  const image = images[index];
-			  const start = (image.index ?? 0) + image[0].length;
-			  const end = images[index + 1]?.index ?? markdown.length;
-			  const line = markdown.slice(start, end).split(/\r?\n/).find((value) => value.trim().length > 0);
-			  const caption = visualCaption(line, true);
-			  if (caption === null || caption.sourceUrl === null || caption.explicitCredit) return caption;
-			  const imageUrl = visualSource(image[2]);
-			  if (imageUrl === null) return null;
-			  const imagePage = new URL(imageUrl);
-			  const sourcePage = new URL(caption.sourceUrl);
-			  return imagePage.hostname.toLowerCase() === sourcePage.hostname.toLowerCase() && IMAGE_FILE_PATH.test(imagePage.pathname) && !IMAGE_FILE_PATH.test(sourcePage.pathname) ? caption : null;
-			}
-			function commonsSourceUrlsForMarkdown(markdown) {
-			  if (typeof markdown !== "string") return [];
-			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
-			  const sources = /* @__PURE__ */ new Set();
-			  for (let index = 0; index < images.length && sources.size < 4; index += 1) {
-			    const imageUrl = visualSource(images[index][2]);
-			    if (imageUrl === null || !/^(?:upload|thumb|commons)\.wikimedia\.org$/.test(new URL(imageUrl).hostname.toLowerCase())) continue;
-			    const sourceUrl = captionAfterImage(markdown, images, index)?.sourceUrl;
-			    if (sourceUrl === null || sourceUrl === void 0) continue;
-			    const source = new URL(sourceUrl);
-			    if (source.hostname.toLowerCase() === "commons.wikimedia.org" && source.pathname.startsWith("/wiki/File:")) {
-			      source.search = "";
-			      sources.add(source.href);
-			    }
-			  }
-			  return [...sources];
-			}
-			function remoteVisualsForMarkdown(markdown) {
-			  if (typeof markdown !== "string") return null;
-			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
-			  const visuals = [];
-			  const seen = /* @__PURE__ */ new Set();
-			  for (let index = 0; index < images.length; index += 1) {
-			    const image = images[index];
-			    const caption = captionAfterImage(markdown, images, index);
-			    const sourceUrl = caption?.sourceUrl ?? null;
-			    if (sourceUrl === null) continue;
-			    const credit = caption.credit;
-			    const imageUrl = allowedImageUrl(image[2], sourceUrl, credit);
-			    if (imageUrl === null || seen.has(imageUrl)) continue;
-			    seen.add(imageUrl);
-			    visuals.push(Object.freeze({
-			      imageUrl,
-			      sourceUrl,
-			      alt: image[1].replace(/\s+/g, " ").trim(),
-			      credit
-			    }));
-			  }
-			  return Object.freeze(visuals);
-			}
-			function remoteVisualForMarkdown(markdown) {
-			  return remoteVisualsForMarkdown(markdown)?.[0] ?? null;
-			}
-			function contentUrl(value) {
-			  try {
-			    const url = new URL(value);
-			    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
-			    if (REMOTE_IMAGE_HOSTS.has(url.hostname.toLowerCase()) || IMAGE_FILE_PATH.test(url.pathname)) return null;
-			    url.hash = "";
-			    for (const key of [...url.searchParams.keys()]) {
-			      if (TRACKING_QUERY_KEY.test(key)) url.searchParams.delete(key);
-			    }
-			    return url.href;
-			  } catch {
-			    return null;
-			  }
-			}
-			function isVisualCreditPage(url) {
-			  const host = url.hostname.toLowerCase();
-			  return (host === "unsplash.com" || host === "www.unsplash.com") && url.pathname.startsWith("/photos/") || (host === "pexels.com" || host === "www.pexels.com") && url.pathname.startsWith("/photo/") || (host === "pixabay.com" || host === "www.pixabay.com") && url.pathname.startsWith("/photos/") || host === "commons.wikimedia.org" && url.pathname.startsWith("/wiki/File:");
-			}
-			function contentLinkForMarkdown(markdown) {
-			  if (typeof markdown !== "string") return null;
-			  const visual = remoteVisualForMarkdown(markdown);
-			  for (const match of markdown.matchAll(MARKDOWN_LINK_PATTERN)) {
-			    const href = contentUrl(match[2]);
-			    if (href === null || href === visual?.sourceUrl) continue;
-			    const parsed = new URL(href);
-			    const label = match[1].replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
-			    if (label.length === 0 || VISUAL_CREDIT_LABEL.test(label) || isVisualCreditPage(parsed)) continue;
-			    return Object.freeze({ href, label: label.slice(0, 120) });
-			  }
-			  return null;
-			}
-			function markdownWithoutLeadVisual(markdown) {
-			  if (typeof markdown !== "string") return "";
-			  const images = [...markdown.matchAll(IMAGE_PATTERN)];
-			  const creditUrls = new Set(images.map((_image, index) => captionAfterImage(markdown, images, index)?.sourceUrl).filter(Boolean));
-			  return markdown.replace(IMAGE_PATTERN, "").split(/\r?\n/).filter((line) => !creditUrls.has(visualCaption(line, true)?.sourceUrl)).join("\n").replace(/\n{3,}/g, "\n\n").replace(/^\s+/, "");
-			}
 			function storyCoverForChunk(chunk) {
 			  return illustrationForChunk(chunk);
 			}
-			function visualMediaForChunk(catalog, chunk) {
+			function visualMediaForChunk(catalog, chunk, { includeLinked = true } = {}) {
 			  const episode = visualEpisodeForChunk(catalog, chunk);
 			  if (episode === null) return null;
 			  const mediaHash = hashText(`${chunk.id}:visual-media`);
-			  const remote = remoteVisualForMarkdown(chunk.markdown);
+			  const remote = includeLinked ? remoteVisualForMarkdown(chunk.markdown) : null;
 			  if (remote !== null) {
 			    return Object.freeze({
 			      kind: "fresh-image",
@@ -834,6 +838,7 @@ window.__ModuleLoader__.load({
 			  if (chunk?.kind === "questionnaire") return "wide";
 			  return ["feature", "compact", "standard", "standard", "compact", "feature"][(Math.max(1, index) - 1) % 6];
 			}
+			var fallbackMediaForChunk = (catalog, chunk) => visualMediaForChunk(catalog, chunk, { includeLinked: false });
 
 			// client-src/experience/content-retention.js
 			var MAX_STREAM_CHUNKS = 160;
@@ -3351,13 +3356,6 @@ window.__ModuleLoader__.load({
 			var ARTICLE_KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 			var VISUAL_KINDS = /* @__PURE__ */ new Set(["photograph", "editorial-image", "ai-generated", "ai-graphic", "typography", "illustration"]);
 			var TRACKING_QUERY_KEY2 = /^(?:utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i;
-			var REUSABLE_IMAGE_FAMILIES2 = Object.freeze([
-			  { image: /^(?:upload|thumb)\.wikimedia\.org$/, source: /^commons\.wikimedia\.org$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|public domain)\b/i },
-			  { image: /^live\.staticflickr\.com$/, source: /^(?:www\.)?flickr\.com$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)(?: \d(?:\.\d)?)?|no known copyright restrictions|public domain)\b/i },
-			  { image: /^images-assets\.nasa\.gov$/, source: /^images\.nasa\.gov$/, licence: /\b(?:NASA|public domain)\b/i },
-			  { image: /^tile\.loc\.gov$/, source: /^(?:www\.)?loc\.gov$/, licence: /\b(?:no known copyright restrictions|public domain)\b/i },
-			  { image: /^ids\.si\.edu$/, source: /^(?:www\.)?si\.edu$/, licence: /\b(?:CC0|CC BY(?:-SA)?(?!-)|public domain)\b/i }
-			]);
 			function cleanText4(value, limit, multiline = false) {
 			  if (typeof value !== "string") return null;
 			  const control = multiline ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g : /[\u0000-\u001f\u007f]/g;
@@ -3415,7 +3413,7 @@ window.__ModuleLoader__.load({
 			  } else {
 			    const imageHost = new URL(imageUrl).hostname.toLowerCase();
 			    const sourceHost = new URL(sourceUrl).hostname.toLowerCase();
-			    const family = REUSABLE_IMAGE_FAMILIES2.find((row) => row.image.test(imageHost));
+			    const family = REUSABLE_IMAGE_FAMILIES.find((row) => row.image.test(imageHost));
 			    if (family !== void 0 && (!family.source.test(sourceHost) || !family.licence.test(credit))) return null;
 			  }
 			  const declaredKind = VISUAL_KINDS.has(candidate.kind) ? candidate.kind : null;
@@ -3697,17 +3695,17 @@ window.__ModuleLoader__.load({
 			    return [cleaned];
 			  }));
 			}
-			function publicVisualBriefForChunk(chunk) {
+			function publicVisualBriefForChunk(chunk, parsed = parseArticleImages(chunk?.markdown)) {
 			  if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire") return null;
 			  if (!PUBLIC_SOURCES.has(chunk.source)) {
-			    const sourceUrls = commonsSourceUrlsForMarkdown(chunk.markdown);
+			    const sourceUrls = parsed.sourceUrls;
 			    return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
 			  }
-			  const imageAlt = typeof chunk.markdown === "string" ? /!\[([^\]]{3,180})\]\(https:\/\//.exec(chunk.markdown)?.[1] : null;
+			  const imageAlt = parsed.firstImageAlt;
 			  const publicBody = typeof chunk.markdown === "string" ? chunk.markdown.replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[[^\]]*\]\([^)]*\)/g, " ").replace(/[#*_`>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 220) : "";
 			  const query = cleanText5(imageAlt ?? `${chunk.title ?? ""}. ${publicBody}`, 180);
 			  if (query === null || query.length < 3) return null;
-			  return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
+			  return Object.freeze({ query, orientation: "landscape", sourceUrls: parsed.sourceUrls });
 			}
 			function createGeneratedVisualCache(indexedDB = globalThis.indexedDB) {
 			  const open = () => new Promise((resolve) => {
@@ -3836,12 +3834,15 @@ window.__ModuleLoader__.load({
 			    const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "search", {
 			      ...brief,
 			      limit: 12,
+			      exactOnly: brief.sourceUrls.length > 0,
 			      excludeUrls: Array.isArray(excludeUrls) ? excludeUrls.slice(-80) : []
 			    });
-			    if (response?.ok !== true) return Object.freeze([]);
-			    return cleanVisualSearchResult(response.value);
+			    if (response?.ok !== true) throw new Error("Image search is unavailable");
+			    const candidates = cleanVisualSearchResult(response.value);
+			    if (candidates.length === 0 && response.value?.failedProviders?.length > 0) throw new Error("Image search is unavailable");
+			    return candidates;
 			  } catch {
-			    return Object.freeze([]);
+			    throw new Error("Image search is unavailable");
 			  }
 			}
 			function mediaFromVisualCandidate(visual, fallbackArtwork, mode = "cinema") {
@@ -3860,6 +3861,7 @@ window.__ModuleLoader__.load({
 			    license: cleaned.license
 			  });
 			}
+			var usableImageDimensions = (image) => image.naturalWidth >= 480 && image.naturalHeight >= 240;
 			function visualImageLoads(url, ImageClass = globalThis.Image, timeoutMs = 8e3) {
 			  if (typeof ImageClass !== "function") return Promise.resolve(false);
 			  return new Promise((resolve) => {
@@ -3872,7 +3874,7 @@ window.__ModuleLoader__.load({
 			    };
 			    const timer = setTimeout(() => finish(false), timeoutMs);
 			    image.referrerPolicy = "no-referrer";
-			    image.onload = () => finish(image.naturalWidth >= 480 && image.naturalHeight >= 240);
+			    image.onload = () => finish(usableImageDimensions(image));
 			    image.onerror = () => finish(false);
 			    image.src = url;
 			  });
@@ -3891,11 +3893,106 @@ window.__ModuleLoader__.load({
 			  }
 			}
 
-			// client-src/experience/visual-lifecycle.js
-			function visualNeedsLocalCover(media, artworkUrl, verifiedUrls, failedUrls) {
-			  const url = media?.externalUrl ?? artworkUrl;
-			  return typeof url === "string" && (failedUrls.has(url) || url.startsWith("https://") && !verifiedUrls.has(url));
+			// client-src/experience/article-image.js
+			function articleImageKey(chunk) {
+			  let hash2 = 2166136261;
+			  for (const char of JSON.stringify([chunk.source, chunk.kind, chunk.title, chunk.markdown])) {
+			    hash2 ^= char.codePointAt(0);
+			    hash2 = Math.imul(hash2, 16777619);
+			  }
+			  return `${String(chunk.id).slice(0, 64)}:${(hash2 >>> 0).toString(16)}`;
 			}
+			async function resolveArticleImage(chunk, {
+			  load,
+			  search,
+			  generate,
+			  available = async () => true,
+			  cached = null,
+			  generated = null,
+			  blockedUrls = /* @__PURE__ */ new Set(),
+			  getLead = null,
+			  cancelled = () => false,
+			  onStatus = () => {
+			  }
+			}) {
+			  const parsed = parseArticleImages(chunk.markdown);
+			  const exact = parsed.sourceUrls.length > 0;
+			  const sources = new Set(parsed.sourceUrls.map(commonsImageIdentity));
+			  const matchesSource = (visual) => sources.has(commonsImageIdentity(visual?.sourceUrl));
+			  const attempted = new Set(blockedUrls);
+			  const fallback = (reason, retryable = true) => ({ visual: null, origin: "fallback", reason, retryable });
+			  const attempt = async (visual, origin) => {
+			    if (cancelled() || !visual?.imageUrl || attempted.has(visual.imageUrl)) return null;
+			    attempted.add(visual.imageUrl);
+			    try {
+			      if (await load(visual.imageUrl) && !cancelled()) return { visual, origin, reason: null, retryable: false };
+			    } catch {
+			    }
+			    return null;
+			  };
+			  const lead = getLead ? getLead(chunk.markdown) : parsed.visuals[0];
+			  let result = await attempt(lead, "linked");
+			  if (result) return result;
+			  if (cancelled()) return fallback("cancelled");
+			  if (exact && cached && matchesSource(cached)) {
+			    result = await attempt(cached, "cached");
+			    if (result) return result;
+			  }
+			  if (!exact) {
+			    result = await attempt(generated, "generated-cache") || await attempt(cached, "cached");
+			    if (result) return result;
+			  }
+			  const brief = publicVisualBriefForChunk(chunk, parsed);
+			  if (!brief) return fallback(lead ? "image-load-failed" : "no-public-image-brief", Boolean(lead));
+			  let ready = false;
+			  try {
+			    ready = await available();
+			  } catch {
+			  }
+			  if (!ready || cancelled()) return fallback(cancelled() ? "cancelled" : "service-unavailable");
+			  onStatus(exact ? "Loading the credited image\u2026" : "Finding a photograph\u2026");
+			  let candidates;
+			  try {
+			    candidates = await search(chunk, [...blockedUrls]);
+			  } catch {
+			    return fallback("search-unavailable");
+			  }
+			  for (const candidate of (Array.isArray(candidates) ? candidates : []).slice(0, 8)) {
+			    if (exact && !matchesSource(candidate)) continue;
+			    result = await attempt(candidate, "search");
+			    if (result) return result;
+			  }
+			  if (cancelled()) return fallback("cancelled");
+			  if (exact) return fallback("credited-image-unavailable");
+			  onStatus("Creating an illustration\u2026");
+			  let image;
+			  try {
+			    image = await generate(chunk);
+			  } catch {
+			    return fallback("generation-unavailable");
+			  }
+			  return await attempt(image, "generated") || fallback("image-unavailable");
+			}
+			function articleImageMedia(result, fallback) {
+			  if (!result?.visual) return fallback;
+			  const visual = result.visual;
+			  const media = result.origin === "linked" ? {
+			    kind: "editorial-image",
+			    externalUrl: visual.imageUrl,
+			    href: visual.sourceUrl,
+			    alt: visual.alt,
+			    label: visual.credit,
+			    focalPoint: "center",
+			    mode: fallback?.mode
+			  } : mediaFromVisualCandidate(visual, fallback?.episode?.artwork, fallback?.mode);
+			  return media ? { ...media, episode: fallback?.episode } : fallback;
+			}
+			function articleImageStatus(result) {
+			  if (!result?.retryable || result.reason === "cancelled") return "";
+			  return result.reason === "credited-image-unavailable" || result.reason === "image-load-failed" ? "The credited image could not load. Update retries it." : "Image lookup is unavailable. Update retries it.";
+			}
+
+			// client-src/experience/visual-lifecycle.js
 			function createVisualLifecycle({
 			  capability,
 			  search,
@@ -3903,6 +4000,8 @@ window.__ModuleLoader__.load({
 			  load,
 			  generatedCache = null,
 			  cached = /* @__PURE__ */ new Map(),
+			  onResult = () => {
+			  },
 			  onSelect = () => {
 			  },
 			  onVerified = () => {
@@ -3912,197 +4011,141 @@ window.__ModuleLoader__.load({
 			  onFailure = () => {
 			  },
 			  retryDelays = [1e3, 4e3, 15e3],
-			  getLead = remoteVisualForMarkdown
+			  getLead = null
 			}) {
 			  const chunks = /* @__PURE__ */ new Map();
 			  const pending = /* @__PURE__ */ new Set();
-			  const complete = /* @__PURE__ */ new Set();
-			  const failedIds = /* @__PURE__ */ new Set();
-			  const selectedUrls = /* @__PURE__ */ new Map();
-			  const failedUrls = /* @__PURE__ */ new Set();
-			  let disposed = false;
-			  let running = null;
-			  let retryTimer = null;
-			  let attempts = 0;
-			  let available = false;
-			  let generatedLoaded = false;
+			  const results = /* @__PURE__ */ new Map();
+			  const blocked = /* @__PURE__ */ new Map();
+			  let disposed = false, running = null, retryTimer = null, attempts = 0;
+			  let generated = /* @__PURE__ */ new Map(), restored = false, capabilityResult = null;
 			  let retryRequested = false;
-			  function emitSelect(id, visual) {
-			    if (!disposed && chunks.has(id)) {
-			      onSelect(id, visual);
-			      selectedUrls.set(id, visual.imageUrl);
-			      complete.add(id);
-			      failedIds.delete(id);
-			    }
-			  }
-			  async function restoreGenerated() {
-			    if (generatedLoaded) return;
-			    generatedLoaded = true;
-			    try {
-			      const restored = await generatedCache?.read();
-			      if (disposed || !(restored instanceof Map)) return;
-			      for (const [id, visual] of restored) {
-			        if (chunks.has(id) && !failedUrls.has(visual?.imageUrl) && await load(visual.imageUrl)) emitSelect(id, visual);
-			      }
-			    } catch {
-			    }
-			  }
-			  async function checkExisting(chunk) {
-			    const visual = cached.get(chunk.id);
-			    if (visual?.imageUrl && !failedUrls.has(visual.imageUrl)) {
-			      if (await load(visual.imageUrl)) {
-			        emitSelect(chunk.id, visual);
-			        return true;
-			      }
-			      failedUrls.add(visual.imageUrl);
-			      if (!disposed) onFailure(visual.imageUrl);
-			    }
-			    const lead = getLead(chunk.markdown);
-			    if (lead?.imageUrl && !failedUrls.has(lead.imageUrl)) {
-			      if (await load(lead.imageUrl)) {
-			        if (!disposed) {
-			          onVerified(chunk.id, lead.imageUrl);
-			          selectedUrls.set(chunk.id, lead.imageUrl);
-			          complete.add(chunk.id);
-			          failedIds.delete(chunk.id);
-			        }
-			        return true;
-			      }
-			      failedUrls.add(lead.imageUrl);
-			      if (!disposed) onFailure(lead.imageUrl);
-			    }
-			    return false;
-			  }
-			  async function photosFor(chunk) {
-			    if (disposed || complete.has(chunk.id) || !chunks.has(chunk.id)) return false;
-			    if (await checkExisting(chunk)) return true;
-			    if (disposed || publicVisualBriefForChunk(chunk) === null) return false;
-			    onStatus(chunk.id, "Finding a photograph\u2026");
-			    const candidates = await search(chunk, [...failedUrls]);
-			    if (disposed) return false;
-			    for (const candidate of (Array.isArray(candidates) ? candidates : []).slice(0, 8)) {
-			      if (failedUrls.has(candidate.imageUrl)) continue;
-			      if (await load(candidate.imageUrl)) {
-			        emitSelect(chunk.id, candidate);
-			        return true;
-			      }
-			      failedUrls.add(candidate.imageUrl);
-			    }
-			    return false;
-			  }
-			  async function pass() {
-			    await restoreGenerated();
-			    if (disposed) return;
-			    for (const id of pending) {
-			      const chunk = chunks.get(id);
-			      if (complete.has(id)) pending.delete(id);
-			      else if (chunk && await checkExisting(chunk)) pending.delete(id);
-			      else if (chunk && publicVisualBriefForChunk(chunk) === null) {
-			        complete.add(id);
-			        pending.delete(id);
-			      }
-			      if (disposed) return;
-			    }
-			    if (pending.size === 0) return;
-			    if (!available) {
+			  const available = () => capabilityResult ??= Promise.resolve().then(capability).then((value) => value === true, () => false);
+			  async function run() {
+			    if (!restored) {
+			      restored = true;
 			      try {
-			        available = await capability() === true;
+			        const value = await generatedCache?.read();
+			        if (value instanceof Map) generated = value;
 			      } catch {
-			        available = false;
 			      }
-			      if (disposed) return;
-			      if (!available) {
-			        const delay = retryDelays[attempts++];
-			        if (delay !== void 0) retryTimer = setTimeout(() => {
-			          retryTimer = null;
-			          schedule();
-			        }, delay);
-			        return;
-			      }
-			      attempts = 0;
 			    }
-			    while (pending.size > 0 && !disposed) {
-			      const batch = [...pending].map((id) => chunks.get(id)).filter(Boolean);
+			    while (pending.size && !disposed) {
+			      const priority = (id) => {
+			        const parsed = parseArticleImages(chunks.get(id)?.markdown);
+			        return parsed.visuals.length > 0 || parsed.sourceUrls.length > 0 ? 0 : 1;
+			      };
+			      const batch = [...pending].sort((a, b) => priority(a) - priority(b));
 			      pending.clear();
 			      let cursor = 0;
-			      const illustrationQueue = [];
 			      const worker = async () => {
 			        while (!disposed && cursor < batch.length) {
-			          const chunk = batch[cursor++];
-			          if (!await photosFor(chunk) && !disposed && !complete.has(chunk.id) && publicVisualBriefForChunk(chunk) !== null) illustrationQueue.push(chunk);
+			          const id = batch[cursor++], chunk = chunks.get(id);
+			          if (!chunk) continue;
+			          const key = articleImageKey(chunk);
+			          const stale = () => disposed || articleImageKey(chunks.get(id)) !== key;
+			          let result;
+			          try {
+			            result = await resolveArticleImage(chunk, {
+			              load,
+			              search,
+			              generate,
+			              available,
+			              getLead,
+			              cached: cached.get(key),
+			              generated: generated.get(key),
+			              blockedUrls: blocked.get(id),
+			              cancelled: stale,
+			              onStatus: (status2) => {
+			                if (!stale()) onStatus(id, status2);
+			              }
+			            });
+			          } catch {
+			            result = { visual: null, origin: "fallback", reason: "image-unavailable", retryable: true };
+			          }
+			          if (stale()) continue;
+			          results.set(id, result);
+			          onResult(id, result);
+			          onStatus(id, articleImageStatus(result));
+			          if (result.visual) {
+			            if (result.origin === "linked") onVerified(id, result.visual.imageUrl);
+			            else onSelect(id, result.visual);
+			            if (result.origin === "generated") {
+			              generated.set(key, result.visual);
+			              try {
+			                await generatedCache?.write(key, result.visual);
+			              } catch {
+			              }
+			            }
+			          }
 			        }
 			      };
 			      await Promise.all([worker(), worker()]);
-			      for (const chunk of illustrationQueue) {
-			        if (disposed || complete.has(chunk.id) || !chunks.has(chunk.id)) continue;
-			        onStatus(chunk.id, "Creating an illustration\u2026");
-			        let image = null;
-			        try {
-			          image = await generate(chunk);
-			        } catch {
-			        }
-			        if (disposed) return;
-			        if (image?.imageUrl && await load(image.imageUrl)) {
-			          if (disposed) return;
-			          emitSelect(chunk.id, image);
-			          try {
-			            await generatedCache?.write(chunk.id, image);
-			          } catch {
-			          }
-			        } else if (!disposed) {
-			          onStatus(chunk.id, "");
-			          complete.add(chunk.id);
-			          failedIds.add(chunk.id);
-			        }
-			      }
+			    }
+			    if (!disposed && [...results.values()].some((result) => ["service-unavailable", "search-unavailable"].includes(result.reason))) {
+			      const delay = retryDelays[attempts++];
+			      if (delay !== void 0) retryTimer = setTimeout(() => {
+			        retryTimer = null;
+			        requeue(false);
+			      }, delay);
 			    }
 			  }
 			  function schedule() {
 			    if (disposed || running) return;
-			    running = pass().finally(() => {
+			    running = run().finally(() => {
 			      running = null;
-			      const retry = retryRequested;
-			      retryRequested = false;
-			      if (!disposed && pending.size > 0 && (available || retry)) schedule();
+			      if (retryRequested) {
+			        retryRequested = false;
+			        requeue(false);
+			      } else if (!disposed && pending.size) schedule();
 			    });
+			  }
+			  function requeue(explicit) {
+			    if (disposed) return;
+			    clearTimeout(retryTimer);
+			    retryTimer = null;
+			    if (explicit) {
+			      attempts = 0;
+			      blocked.clear();
+			    }
+			    capabilityResult = null;
+			    for (const [id] of chunks) if (!results.has(id) || results.get(id).retryable) pending.add(id);
+			    if (running) retryRequested = true;
+			    schedule();
 			  }
 			  return Object.freeze({
 			    enqueue(items) {
 			      if (disposed) return;
 			      for (const chunk of items) {
-			        if (!chunks.has(chunk.id)) {
-			          chunks.set(chunk.id, chunk);
+			        const old = chunks.get(chunk.id);
+			        chunks.set(chunk.id, chunk);
+			        if (!old || articleImageKey(old) !== articleImageKey(chunk)) {
 			          pending.add(chunk.id);
-			        } else chunks.set(chunk.id, chunk);
+			          results.delete(chunk.id);
+			          blocked.delete(chunk.id);
+			          onResult(chunk.id, { visual: null, origin: "fallback", reason: "pending", retryable: false });
+			        }
 			      }
-			      if (pending.size > 0) schedule();
+			      if (pending.size) schedule();
 			    },
 			    retry() {
-			      if (disposed) return;
-			      clearTimeout(retryTimer);
-			      retryTimer = null;
-			      attempts = 0;
-			      available = false;
-			      failedUrls.clear();
-			      for (const id of chunks.keys()) if (!complete.has(id)) pending.add(id);
-			      for (const id of failedIds) {
-			        complete.delete(id);
-			        pending.add(id);
-			      }
-			      failedIds.clear();
-			      retryRequested = Boolean(running);
-			      schedule();
+			      requeue(true);
 			    },
 			    failure(url) {
-			      if (url) {
-			        failedUrls.add(url);
-			        for (const [id, chunk] of chunks) if (selectedUrls.get(id) === url || getLead(chunk.markdown)?.imageUrl === url) {
-			          complete.delete(id);
-			          pending.add(id);
-			          cached.delete(id);
-			        }
-			        schedule();
+			      if (!url || disposed) return;
+			      onFailure(url);
+			      for (const [id, result] of results) if (result.visual?.imageUrl === url) {
+			        const urls = blocked.get(id) ?? /* @__PURE__ */ new Set();
+			        urls.add(url);
+			        blocked.set(id, urls);
+			        const failed2 = { visual: null, origin: "fallback", reason: "image-load-failed", retryable: true };
+			        results.set(id, failed2);
+			        onResult(id, failed2);
+			        onStatus(id, articleImageStatus(failed2));
+			        pending.add(id);
+			        cached.delete(articleImageKey(chunks.get(id)));
 			      }
+			      schedule();
 			    },
 			    whenIdle() {
 			      return running ?? Promise.resolve();
@@ -4579,12 +4622,8 @@ window.__ModuleLoader__.load({
 			    }
 			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
-			  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
-			  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
-			  const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
-			  const proposedUrl = proposedMedia?.externalUrl ?? ARTWORK[proposedMedia?.artwork];
-			  const media = visualNeedsLocalCover(proposedMedia, proposedUrl, verifiedVisuals, failedVisuals) ? storyCoverForChunk(chunk) : proposedMedia;
+			function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+			  const media = articleImageMedia(visualOverride, fallbackMediaForChunk(CATALOG, chunk));
 			  const externalContentLink = contentLinkForMarkdown(chunk.markdown);
 			  const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
 			  const hasInteractive = hasLocalGame || splitInteractiveBlocks(chunk.markdown).some((part) => part.type === "interactive");
@@ -4632,7 +4671,7 @@ window.__ModuleLoader__.load({
 			          if (media.kind !== "illustration") onVisualFailure(visual);
 			        },
 			        onLoad: (event) => {
-			          if (media.kind !== "illustration" && (event.currentTarget.naturalWidth < 480 || event.currentTarget.naturalHeight < 240)) onVisualFailure(visual);
+			          if (media.kind !== "illustration" && !usableImageDimensions(event.currentTarget)) onVisualFailure(visual);
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
@@ -4668,11 +4707,8 @@ window.__ModuleLoader__.load({
 			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
 			  const [visualStatus, setVisualStatus] = import_react.default.useState(() => /* @__PURE__ */ new Map());
-			  const [failedVisuals, setFailedVisuals] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const visualLifecycle = import_react.default.useRef(null);
-			  const [verifiedVisuals, setVerifiedVisuals] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const onVisualFailure = import_react.default.useCallback((url) => {
-			    setFailedVisuals((current) => current.has(url) ? current : /* @__PURE__ */ new Set([...current, url]));
 			    visualLifecycle.current?.failure(url);
 			  }, []);
 			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => /* @__PURE__ */ new Map());
@@ -4802,36 +4838,12 @@ window.__ModuleLoader__.load({
 			      load: (url) => visualImageLoads(url),
 			      cached: readVisualCache(browserStorage()),
 			      generatedCache: createGeneratedVisualCache(),
-			      onSelect: (id, visual) => {
-			        setVisualOverrides((current) => new Map(current).set(id, visual));
-			        setVerifiedVisuals((current) => new Set(current).add(visual.imageUrl));
-			        setFailedVisuals((current) => {
-			          const next = new Set(current);
-			          next.delete(visual.imageUrl);
-			          return next;
-			        });
-			        writeVisualCache(browserStorage(), id, visual);
-			        setVisualStatus((current) => {
-			          const next = new Map(current);
-			          next.delete(id);
-			          return next;
-			        });
+			      onResult: (id, result) => {
+			        setVisualOverrides((current) => new Map(current).set(id, result));
+			        const chunk = chunksRef.current.find((item) => item.id === id);
+			        if (chunk && result.visual && result.origin !== "linked") writeVisualCache(browserStorage(), articleImageKey(chunk), result.visual);
 			      },
-			      onVerified: (id, url) => {
-			        setVerifiedVisuals((current) => new Set(current).add(url));
-			        setFailedVisuals((current) => {
-			          const next = new Set(current);
-			          next.delete(url);
-			          return next;
-			        });
-			        setVisualStatus((current) => {
-			          const next = new Map(current);
-			          next.delete(id);
-			          return next;
-			        });
-			      },
-			      onStatus: (id, status2) => setVisualStatus((current) => new Map(current).set(id, status2)),
-			      onFailure: (url) => setFailedVisuals((current) => new Set(current).add(url))
+			      onStatus: (id, status2) => setVisualStatus((current) => new Map(current).set(id, status2))
 			    });
 			    visualLifecycle.current = lifecycle;
 			    lifecycle.enqueue(chunksRef.current);
@@ -5100,9 +5112,7 @@ window.__ModuleLoader__.load({
 			        chunk,
 			        index,
 			        visualOverride: visualOverrides.get(chunk.id),
-			        verifiedVisuals,
 			        visualStatus: visualStatus.get(chunk.id),
-			        failedVisuals,
 			        onVisualFailure,
 			        saved: state.savedChunkIds.includes(chunk.id),
 			        answer: answers[chunk.id],
@@ -5284,7 +5294,7 @@ window.__ModuleLoader__.load({
 			  installRecipeRunner(ctx);
 			  installThreadMagazineBridge(ctx);
 			  installBackgroundEditor(ctx, { codexFeatures });
-			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.connection })));
+			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.get("connection") })));
 			}
 			return module.exports;
 		})();
@@ -5751,7 +5761,7 @@ window.__ModuleLoader__.load({
 				id: "vibeify-updates",
 				order: 17,
 				label: "Updates",
-			}, updatesSection(ctx.connection)));
+			}, updatesSection(ctx.get("connection"))));
 
 			ctx.effect(() => {
 				const style = document.createElement("style");

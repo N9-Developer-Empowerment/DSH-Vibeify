@@ -157,3 +157,26 @@ test("reader cards expose direct public-link sharing without Social Desk or sche
   assert.doesNotMatch(client, /Optional automatic posting|Approve and schedule|Schedule post/);
   assert.doesNotMatch(client, /setSocialOpen|vfx-social-desk|vfx-social-tab|vfx-social-prepare/);
 });
+
+
+test("magazine receives the injected RPC connection without a context property alias", () => {
+  let descriptor;
+  runInNewContext(client, { window: { __ModuleLoader__: { load(value) { descriptor = value; } } } });
+  const react = { createElement: (type, props) => ({ type, props }) };
+  const plugin = descriptor.factory(() => react);
+  const connection = { api: { sessions: {} }, rpc: { call: async () => ({ ok: true }) } };
+  const registrations = new Map();
+  const ctx = {
+    get: (name) => name === "connection" ? connection : {},
+    effect: () => {},
+    configForms: { get: () => ({}) },
+    slots: {
+      inject: (_name, register) => register(),
+      register: (slot, render) => { registrations.set(slot.id, { slot, render }); },
+    },
+  };
+  plugin.apply(ctx);
+  const shell = [...registrations.values()].find(({ slot }) => slot.name === "shell.overlay");
+  assert.ok(shell);
+  assert.equal(shell.render().props.connection, connection);
+});

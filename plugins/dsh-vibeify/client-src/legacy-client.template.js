@@ -468,7 +468,7 @@ window.__ModuleLoader__.load({
 				id: "vibeify-updates",
 				order: 17,
 				label: "Updates",
-			}, updatesSection(ctx.connection)));
+			}, updatesSection(ctx.get("connection"))));
 
 			ctx.effect(() => {
 				const style = document.createElement("style");

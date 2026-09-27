@@ -60,7 +60,7 @@ window.__ModuleLoader__.load({
 			module.exports = __toCommonJS(index_exports);
 
 			// client-src/experience/shell.jsx
-			var import_react = __toESM(require("react"), 1);
+			var import_react2 = __toESM(require("react"), 1);
 
 			// client-src/experience/appearance-settings.js
 			var APPEARANCE_STORAGE_KEY = "dsh-vibeify.appearance.v1";
@@ -1125,6 +1125,9 @@ window.__ModuleLoader__.load({
 			  return profile;
 			}
 
+			// interactive-authoring.js
+			var INTERACTIVE_AUTHORING_CONTRACT = `When the user asks for a playable game, interactive graph, calculator, form or small app inside an article, include a working self-contained embedded panel in the article body. Use a fenced code block whose language is vibe-app. Its contents must be a JSON object with title (short accessible name), html (a complete self-contained HTML document or fragment with inline CSS and JavaScript), and height (240\u2013900 pixels, normally 480). JSON-escape newlines and quotes in html correctly. Use at most three panels per article, at most 12000 characters of HTML per panel, and keep the entire article under 16000 characters. Include the finished implementation, not an external file path, localhost link, screenshot, placeholder or promise. Do not change the plugin merely to add a new game. The reader opens the panel inside the article. It runs offline in an isolated frame: use inline scripts, styles, SVG or canvas and data images; no CDN libraries, fetch, remote assets, nested frames, cookies, storage, parent access, navigation, popup windows, downloads or external form submissions. Forms may validate inputs and show local calculations or results with preventDefault; they do not send data anywhere. Bind events using addEventListener in inline script elements rather than HTML onclick attributes, so the same app works in the shared preview. Provide keyboard and touch controls, clear labels, reset controls, readable responsive layout and a complete useful interaction. Never embed credentials, private files or user history. Test the actual interaction before claiming it works. Example block contents: {"title":"A small counter","height":300,"html":"<button id='add'>Add one</button><output id='count'>0</output><script>let n=0;document.getElementById('add').onclick=()=>document.getElementById('count').textContent=++n;<\/script>"}. For the existing built-in game only, a standalone :::vibe-game mochi-meadow line followed by ::: embeds Mochi Meadow; new games use vibe-app.`;
+
 			// client-src/experience/stream-recipe.js
 			function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels = [], recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null }) {
 			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
@@ -1142,6 +1145,8 @@ window.__ModuleLoader__.load({
 			  return `# VIBE magazine update
 
 			You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. The browser has also released two locally prepared pages for this update immediately: one visual short and one questionnaire. Do not duplicate or count those two pages. Add ${count} further complete, worthwhile generated semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
+
+			${INTERACTIVE_AUTHORING_CONTRACT}
 
 			## Editorial contract
 
@@ -3118,6 +3123,72 @@ window.__ModuleLoader__.load({
 			  }, "dsh-vibeify: bounded hidden editorial reserve");
 			}
 
+			// ../../shared/vibe-interactive.js
+			var INTERACTIVE_SANDBOX = "allow-scripts allow-forms";
+			var INTERACTIVE_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'";
+			function normalizedInteractive(value) {
+			  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+			  if (typeof value.html !== "string" || !value.html.trim() || value.html.length > 12e3) return null;
+			  if (typeof value.title !== "string" || !value.title.trim() || value.title.length > 120) return null;
+			  const height = typeof value.height === "number" && Number.isFinite(value.height) ? Math.min(900, Math.max(240, Math.round(value.height))) : 480;
+			  return { type: "interactive", title: value.title.trim(), html: value.html, height };
+			}
+			function splitInteractiveBlocks(markdown) {
+			  if (typeof markdown !== "string" || !markdown) return [];
+			  const parts = [];
+			  const lines = markdown.match(/[^\n]*\n|[^\n]+$/g) || [];
+			  let offset = 0;
+			  let textStart = 0;
+			  let fence = null;
+			  let count = 0;
+			  for (const line of lines) {
+			    const content = line.replace(/\r?\n$/, "");
+			    if (fence) {
+			      const closing = content.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+			      if (closing && closing[1][0] === fence.mark && closing[1].length >= fence.length) {
+			        if (fence.interactive && count < 3) {
+			          let part = null;
+			          try {
+			            part = normalizedInteractive(JSON.parse(markdown.slice(fence.bodyStart, offset)));
+			          } catch {
+			          }
+			          if (part) {
+			            if (fence.start > textStart) parts.push({ type: "markdown", value: markdown.slice(textStart, fence.start) });
+			            parts.push(part);
+			            count += 1;
+			            textStart = offset + line.length;
+			          }
+			        }
+			        fence = null;
+			      }
+			    } else {
+			      const opening = content.match(/^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/);
+			      if (opening && !(opening[1][0] === "`" && opening[2].includes("`"))) {
+			        fence = {
+			          mark: opening[1][0],
+			          length: opening[1].length,
+			          start: offset,
+			          bodyStart: offset + line.length,
+			          interactive: opening[2].trim() === "vibe-app"
+			        };
+			      }
+			    }
+			    offset += line.length;
+			  }
+			  if (textStart < markdown.length) parts.push({ type: "markdown", value: markdown.slice(textStart) });
+			  return parts;
+			}
+			function escapeAttribute(value) {
+			  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&#39;");
+			}
+			function interactiveDocument(html, nonce = "") {
+			  if (typeof html !== "string" || html.length > 12e3) throw new TypeError("Invalid interactive document");
+			  const trustedNonce = typeof nonce === "string" && /^[A-Za-z0-9+/_=-]+$/.test(nonce) ? nonce : "";
+			  const policy = INTERACTIVE_CSP;
+			  const content = trustedNonce ? html.replace(/<script(?=[\s/>])/gi, `<script nonce="${trustedNonce}"`) : html;
+			  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeAttribute(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{color-scheme:light}body{margin:0;font-family:system-ui,sans-serif}*,*::before,*::after{box-sizing:border-box}</style></head><body>${content}</body></html>`;
+			}
+
 			// client-src/experience/media-embed.js
 			function httpsUrl(value) {
 			  try {
@@ -3151,6 +3222,202 @@ window.__ModuleLoader__.load({
 			    }
 			  }
 			  return null;
+			}
+
+			// client-src/experience/playable-game.jsx
+			var import_react = __toESM(require("react"), 1);
+
+			// client-src/experience/playable-game-contract.js
+			var GAME_DIRECTIVE = ":::vibe-game mochi-meadow";
+			function splitPlayableGameBlocks(markdown) {
+			  const source = String(markdown ?? "").replace(/\r\n?/g, "\n");
+			  const lines = source.split("\n");
+			  const parts = [];
+			  let pending = [];
+			  let fenceCharacter = null;
+			  let fenceLength = 0;
+			  const flush = () => {
+			    const value = pending.join("\n");
+			    if (value.trim() !== "") parts.push(Object.freeze({ type: "markdown", value }));
+			    pending = [];
+			  };
+			  for (let index = 0; index < lines.length; index += 1) {
+			    const line = lines[index];
+			    const fence = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+			    if (fence !== null) {
+			      const marker = fence[1];
+			      if (fenceCharacter === null) {
+			        fenceCharacter = marker[0];
+			        fenceLength = marker.length;
+			      } else if (marker[0] === fenceCharacter && marker.length >= fenceLength) {
+			        fenceCharacter = null;
+			        fenceLength = 0;
+			      }
+			      pending.push(line);
+			      continue;
+			    }
+			    if (fenceCharacter === null && line === GAME_DIRECTIVE && lines[index + 1] === ":::") {
+			      flush();
+			      parts.push(Object.freeze({ type: "game", gameId: "mochi-meadow" }));
+			      index += 1;
+			      continue;
+			    }
+			    pending.push(line);
+			  }
+			  flush();
+			  return Object.freeze(parts.length > 0 ? parts : [Object.freeze({ type: "markdown", value: source })]);
+			}
+			function hasMochiMeadowBlock(markdown) {
+			  return splitPlayableGameBlocks(markdown).some((part) => part.type === "game");
+			}
+			function playableGameAnchorId(chunkId) {
+			  const safeId = String(chunkId ?? "article").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80) || "article";
+			  return `vfx-game-${safeId}`;
+			}
+			function removeLocalGamesForShare(markdown) {
+			  return splitPlayableGameBlocks(markdown).map((part) => part.type === "game" ? "*Mochi Meadow is playable in the local Vibe reader.*" : part.value).join("\n\n").replace(/\n{3,}/g, "\n\n").trim();
+			}
+
+			// client-src/experience/playable-game.jsx
+			var ROUND_MS = 3e4;
+			var TICK_MS = 80;
+			var PLAYABLE_GAME_CSS = `
+			.vfx-mochi-game { margin:26px 0 30px; padding:clamp(16px,3vw,24px); overflow:hidden; border:1px solid color-mix(in srgb,var(--chunk-accent) 40%,#e9dce5); border-radius:22px; color:#30243a; background:radial-gradient(ellipse at 15% 0,#fff8d9 0,transparent 44%),linear-gradient(145deg,#fff8ed,#f4eaff 58%,#e8f8ec); box-shadow:0 18px 42px #160b1618; }
+			.vfx-mochi-game:focus-visible { outline:3px solid var(--chunk-accent); outline-offset:4px; }
+			.vfx-mochi-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }.vfx-mochi-heading h3 { margin:4px 0 0; color:#382745; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(25px,3vw,34px); font-weight:650; letter-spacing:-.03em; }.vfx-mochi-eyebrow { color:#805b7e; font-size:10px; font-weight:850; letter-spacing:.12em; text-transform:uppercase; }.vfx-mochi-mascot { display:grid; width:48px; height:48px; place-items:center; border:1px solid #ffffffc9; border-radius:17px; background:#ffffff9c; font-size:27px; }
+			.vfx-mochi-instructions { max-width:62ch; margin:12px 0 17px; color:#5e5261; font-size:13px; line-height:1.55; }
+			.vfx-mochi-stats { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px 14px; margin-bottom:10px; color:#6d5a71; font-size:11px; }.vfx-mochi-stats span { display:flex; align-items:center; gap:5px; }.vfx-mochi-stats strong { color:#36213e; font-size:14px; font-variant-numeric:tabular-nums; }
+			.vfx-mochi-board { position:relative; height:clamp(190px,30vw,250px); overflow:hidden; border:1px solid #ffffffc9; border-radius:17px; background:linear-gradient(180deg,#bcecf0 0%,#e3f4f4 61%,#d7efcd 100%); box-shadow:inset 0 2px 12px #3d70831b; isolation:isolate; }
+			.vfx-mochi-cloud { position:absolute; z-index:0; opacity:.62; font-size:27px; }.vfx-mochi-cloud-one { top:13px; left:14%; }.vfx-mochi-cloud-two { top:31px; right:15%; font-size:21px; }
+			.vfx-mochi-drop { position:absolute; z-index:2; transform:translate(-50%,-50%); font-size:clamp(20px,3vw,27px); line-height:1; filter:drop-shadow(0 3px 3px #526b7540); will-change:top; }.vfx-mochi-drop.is-rain { font-size:23px; }.vfx-mochi-drop.is-sparkle { font-size:22px; }
+			.vfx-mochi-basket { position:absolute; z-index:3; bottom:15%; transform:translateX(-50%); font-size:clamp(29px,4vw,36px); line-height:1; filter:drop-shadow(0 4px 3px #4f665344); transition:left 90ms ease-out; }
+			.vfx-mochi-ground { position:absolute; z-index:1; right:0; bottom:0; left:0; height:10%; border-top:1px solid #aacb8e; background:linear-gradient(180deg,#b9dc9c,#9dca81); }
+			.vfx-mochi-message { min-height:22px; margin:12px 0 9px; color:#514058; font-size:12px; font-weight:680; text-align:center; }
+			.vfx-mochi-controls { display:grid; grid-template-columns:54px minmax(0,1fr) 54px; align-items:center; gap:10px; }.vfx-mochi-controls button { min-height:44px; padding:0 12px; border:1px solid #d7c7dc; border-radius:13px; color:#4b3655; background:#ffffffb8; font:700 17px/1 Inter,"SF Pro Display","Helvetica Neue",sans-serif; cursor:pointer; touch-action:manipulation; }.vfx-mochi-controls button:hover { border-color:#a579a8; background:#fff; }.vfx-mochi-controls .vfx-mochi-start { color:#fff; border-color:#855b89; background:#855b89; font-size:13px; }.vfx-mochi-controls>span { color:#735d78; font-size:11px; font-weight:750; text-align:center; }
+			.vfx-mochi-footnote { margin:12px 0 0; color:#887b8d; font-size:10px; line-height:1.45; text-align:center; }
+			.vfx-shell .vfx-mochi-game { color:#30243a; }.vfx-shell[data-palette="paper"] .vfx-mochi-game,.vfx-shell[data-palette="forest"] .vfx-mochi-game,.vfx-shell[data-palette="ocean"] .vfx-mochi-game { color:#30243a; }
+			@media(max-width:560px) { .vfx-mochi-game { margin:22px 0; padding:15px; border-radius:17px; }.vfx-mochi-stats { justify-content:flex-start; column-gap:14px; }.vfx-mochi-controls { grid-template-columns:48px minmax(0,1fr) 48px; gap:7px; }.vfx-mochi-controls button { min-height:46px; padding:0 7px; } }
+			@media(prefers-reduced-motion:reduce) { .vfx-mochi-basket { transition:none; } }
+			`;
+			function createIdleRound() {
+			  return Object.freeze({
+			    phase: "ready",
+			    score: 0,
+			    hearts: 3,
+			    secondsLeft: 30,
+			    basket: 50,
+			    drops: Object.freeze([]),
+			    spawnElapsed: 0,
+			    startedAt: 0
+			  });
+			}
+			function MochiMeadow({ anchorId, onStart }) {
+			  const [round, setRound] = import_react.default.useState(createIdleRound);
+			  const [best, setBest] = import_react.default.useState(0);
+			  const nextDropId = import_react.default.useRef(0);
+			  import_react.default.useEffect(() => {
+			    if (round.phase !== "playing") return void 0;
+			    const timer = window.setInterval(() => {
+			      setRound((current) => {
+			        if (current.phase !== "playing") return current;
+			        const elapsed = Date.now() - current.startedAt;
+			        const secondsLeft = Math.max(0, Math.ceil((ROUND_MS - elapsed) / 1e3));
+			        const fallSpeed = 22 + current.score * 0.45;
+			        let score = current.score;
+			        let hearts = current.hearts;
+			        let drops = [];
+			        for (const drop of current.drops) {
+			          const top = drop.top + fallSpeed * TICK_MS / 1e3;
+			          if (top >= 82 && Math.abs(drop.left - current.basket) <= 13) {
+			            if (drop.kind === "rain") hearts = Math.max(0, hearts - 1);
+			            else score += drop.kind === "sparkle" ? 3 : 1;
+			          } else if (top <= 103) {
+			            drops.push({ ...drop, top });
+			          }
+			        }
+			        let spawnElapsed = current.spawnElapsed + TICK_MS;
+			        const spawnDelay = Math.max(460, 780 - score * 12);
+			        if (spawnElapsed >= spawnDelay) {
+			          spawnElapsed -= spawnDelay;
+			          const roll = Math.random();
+			          const kind = roll < 0.23 ? "rain" : roll > 0.91 ? "sparkle" : "mochi";
+			          drops.push({
+			            id: ++nextDropId.current,
+			            kind,
+			            left: 9 + Math.random() * 82,
+			            top: -7
+			          });
+			        }
+			        const phase = secondsLeft === 0 || hearts === 0 ? "finished" : "playing";
+			        return Object.freeze({ ...current, phase, score, hearts, secondsLeft, drops: Object.freeze(drops), spawnElapsed });
+			      });
+			    }, TICK_MS);
+			    return () => window.clearInterval(timer);
+			  }, [round.phase]);
+			  import_react.default.useEffect(() => {
+			    if (round.phase === "finished") setBest((previous) => Math.max(previous, round.score));
+			  }, [round.phase]);
+			  const move = (direction) => {
+			    setRound((current) => Object.freeze({
+			      ...current,
+			      basket: Math.max(11, Math.min(89, current.basket + direction * 11))
+			    }));
+			  };
+			  const onKeyDown = (event) => {
+			    if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
+			      event.preventDefault();
+			      move(-1);
+			    } else if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
+			      event.preventDefault();
+			      move(1);
+			    }
+			  };
+			  const start = () => {
+			    onStart?.();
+			    setRound(Object.freeze({
+			      phase: "playing",
+			      score: 0,
+			      hearts: 3,
+			      secondsLeft: 30,
+			      basket: 50,
+			      drops: Object.freeze([]),
+			      spawnElapsed: 0,
+			      startedAt: Date.now()
+			    }));
+			  };
+			  let message = "Catch mochi; let the raindrops fall past.";
+			  if (round.phase === "ready") message = "Move with \u2190 \u2192 or A / D. Three drops of rain end the round.";
+			  if (round.phase === "finished") message = round.hearts === 0 ? `A rainy finish, and ${round.score} ${round.score === 1 ? "treat" : "treats"} caught. Fancy one more round?` : `The meadow is yours: ${round.score} ${round.score === 1 ? "treat" : "treats"} caught. Fancy one more round?`;
+			  return /* @__PURE__ */ import_react.default.createElement(
+			    "section",
+			    {
+			      id: anchorId,
+			      className: "vfx-mochi-game",
+			      "aria-labelledby": `${anchorId}-title`,
+			      tabIndex: 0,
+			      onKeyDown
+			    },
+			    /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-mochi-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-mochi-eyebrow" }, "A tiny playable break"), /* @__PURE__ */ import_react.default.createElement("h3", { id: `${anchorId}-title` }, "Mochi Meadow")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-mochi-mascot", "aria-hidden": "true" }, "\u{1F361}")),
+			    /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-mochi-instructions" }, "Catch the falling mochi in your basket. Dodge the rain and see how many treats you can gather in 30 seconds."),
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-mochi-stats", "aria-label": "Game score" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Score ", /* @__PURE__ */ import_react.default.createElement("strong", { "aria-live": "polite", "aria-atomic": "true" }, round.score)), /* @__PURE__ */ import_react.default.createElement("span", null, "Time ", /* @__PURE__ */ import_react.default.createElement("strong", null, round.secondsLeft, "s")), /* @__PURE__ */ import_react.default.createElement("span", null, "Rain left ", /* @__PURE__ */ import_react.default.createElement("strong", null, "\u2665".repeat(round.hearts), "\u2661".repeat(3 - round.hearts))), /* @__PURE__ */ import_react.default.createElement("span", null, "Best ", /* @__PURE__ */ import_react.default.createElement("strong", null, best))),
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-mochi-board", role: "group", "aria-label": "Mochi Meadow play area" }, /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-mochi-cloud vfx-mochi-cloud-one", "aria-hidden": "true" }, "\u2601\uFE0F"), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-mochi-cloud vfx-mochi-cloud-two", "aria-hidden": "true" }, "\u2601\uFE0F"), round.drops.map((drop) => /* @__PURE__ */ import_react.default.createElement(
+			      "span",
+			      {
+			        key: drop.id,
+			        className: `vfx-mochi-drop is-${drop.kind}`,
+			        style: { left: `${drop.left}%`, top: `${drop.top}%` },
+			        "aria-hidden": "true"
+			      },
+			      drop.kind === "rain" ? "\u{1F4A7}" : drop.kind === "sparkle" ? "\u2728\u{1F361}" : "\u{1F361}"
+			    )), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-mochi-basket", style: { left: `${round.basket}%` }, "aria-hidden": "true" }, "\u{1F9FA}"), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-mochi-ground", "aria-hidden": "true" })),
+			    /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-mochi-message", role: "status", "aria-live": "polite" }, message),
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-mochi-controls", "aria-label": "Game controls" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", "aria-label": "Move basket left", onClick: () => move(-1) }, "\u2190"), round.phase === "playing" ? /* @__PURE__ */ import_react.default.createElement("span", null, "Catch gently") : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-mochi-start", onClick: start }, round.phase === "ready" ? "Start a 30-second round" : "Play again"), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", "aria-label": "Move basket right", onClick: () => move(1) }, "\u2192")),
+			    /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-mochi-footnote" }, "No sign-in or outside leaderboard. Your best stays on this card while it is open.")
+			  );
+			}
+			function PlayableGame({ gameId, anchorId, onStart }) {
+			  if (gameId !== "mochi-meadow") return null;
+			  return /* @__PURE__ */ import_react.default.createElement(MochiMeadow, { anchorId, onStart });
 			}
 
 			// ../../shared/vibe-share-contract.js
@@ -4303,23 +4570,32 @@ window.__ModuleLoader__.load({
 			    check: "M5 12l4 4L19 6",
 			    arrow: "M5 12h14m-5-5 5 5-5 5"
 			  };
-			  return /* @__PURE__ */ import_react.default.createElement("svg", { "aria-hidden": "true", viewBox: "0 0 24 24", className: "vfx-icon" }, /* @__PURE__ */ import_react.default.createElement("path", { d: paths[name] }));
+			  return /* @__PURE__ */ import_react2.default.createElement("svg", { "aria-hidden": "true", viewBox: "0 0 24 24", className: "vfx-icon" }, /* @__PURE__ */ import_react2.default.createElement("path", { d: paths[name] }));
 			}
-			function Markdown({ value, title, onLink }) {
-			  const ref = import_react.default.useRef(null);
-			  import_react.default.useEffect(() => {
+			function MarkdownText({ value, title }) {
+			  const ref = import_react2.default.useRef(null);
+			  import_react2.default.useEffect(() => {
 			    if (ref.current !== null) ref.current.replaceChildren(markdownFragment(value, title));
 			  }, [title, value]);
-			  return /* @__PURE__ */ import_react.default.createElement("div", { ref, className: "vfx-markdown", onClick: (event) => {
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { ref, className: "vfx-markdown-segment" });
+			}
+			function InteractiveContent({ content }) {
+			  const [open, setOpen] = import_react2.default.useState(false);
+			  return /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-interactive", "aria-label": content.title }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-interactive-heading" }, /* @__PURE__ */ import_react2.default.createElement("h3", null, content.title), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", onClick: () => setOpen(!open) }, open ? "Close interactive" : "Open interactive")), open ? /* @__PURE__ */ import_react2.default.createElement("iframe", { title: content.title, sandbox: INTERACTIVE_SANDBOX, referrerPolicy: "no-referrer", srcDoc: interactiveDocument(content.html), style: { height: content.height } }) : null);
+			}
+			function Markdown({ value, title, onLink, onGameStart, chunkId }) {
+			  const segments = splitInteractiveBlocks(value).flatMap((part) => part.type === "interactive" ? [part] : splitPlayableGameBlocks(part.value));
+			  const anchorId = playableGameAnchorId(chunkId);
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-markdown", onClick: (event) => {
 			    const link = event.target instanceof Element ? event.target.closest("a") : null;
 			    if (link !== null) onLink?.(link.href);
-			  } });
+			  } }, segments.map((segment, index) => segment.type === "interactive" ? /* @__PURE__ */ import_react2.default.createElement(InteractiveContent, { key: `interactive-${index}`, content: segment }) : segment.type === "game" ? /* @__PURE__ */ import_react2.default.createElement(PlayableGame, { key: `game-${index}`, gameId: segment.gameId, anchorId, onStart: onGameStart }) : /* @__PURE__ */ import_react2.default.createElement(MarkdownText, { key: `markdown-${index}`, value: segment.value, title })));
 			}
 			function PublicLinkShare({ url, title, label = "Share link" }) {
 			  const safeUrl2 = publicShareUrl(url);
-			  const [open, setOpen] = import_react.default.useState(false);
-			  const [notice, setNotice] = import_react.default.useState("");
-			  const inputRef = import_react.default.useRef(null);
+			  const [open, setOpen] = import_react2.default.useState(false);
+			  const [notice, setNotice] = import_react2.default.useState("");
+			  const inputRef = import_react2.default.useRef(null);
 			  const nativeShareAvailable = typeof navigator !== "undefined" && typeof navigator.share === "function";
 			  if (safeUrl2 === null) return null;
 			  const selectLink = () => {
@@ -4340,14 +4616,14 @@ window.__ModuleLoader__.load({
 			    setNotice(result === "cancelled" ? "Sharing cancelled. The link is still available below." : result === "unavailable" ? "The share sheet could not open. Select or copy the link below." : "The share sheet closed. Check the destination if you chose one.");
 			    if (result === "unavailable") selectLink();
 			  };
-			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-public-share" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-share", "aria-expanded": open, onClick: () => {
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-public-share" }, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-share", "aria-expanded": open, onClick: () => {
 			    setOpen((value) => !value);
 			    setNotice("");
-			  } }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }), " ", label), open ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-share-link-panel", "aria-label": "Share this public link" }, /* @__PURE__ */ import_react.default.createElement("label", null, /* @__PURE__ */ import_react.default.createElement("span", null, "Public link"), /* @__PURE__ */ import_react.default.createElement("input", { ref: inputRef, type: "url", readOnly: true, value: safeUrl2, onFocus: (event) => event.currentTarget.select(), onClick: (event) => event.currentTarget.select() })), /* @__PURE__ */ import_react.default.createElement("div", null, nativeShareAvailable ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: share }, "Share\u2026") : null, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: copy }, "Copy link")), notice === "" ? null : /* @__PURE__ */ import_react.default.createElement("p", { role: "status" }, notice)) : null);
+			  } }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "share" }), " ", label), open ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-share-link-panel", "aria-label": "Share this public link" }, /* @__PURE__ */ import_react2.default.createElement("label", null, /* @__PURE__ */ import_react2.default.createElement("span", null, "Public link"), /* @__PURE__ */ import_react2.default.createElement("input", { ref: inputRef, type: "url", readOnly: true, value: safeUrl2, onFocus: (event) => event.currentTarget.select(), onClick: (event) => event.currentTarget.select() })), /* @__PURE__ */ import_react2.default.createElement("div", null, nativeShareAvailable ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", onClick: share }, "Share\u2026") : null, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", onClick: copy }, "Copy link")), notice === "" ? null : /* @__PURE__ */ import_react2.default.createElement("p", { role: "status" }, notice)) : null);
 			}
 			function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
 			  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
-			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react2.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react2.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react2.default.createElement(
 			    "button",
 			    {
 			      type: "button",
@@ -4356,15 +4632,15 @@ window.__ModuleLoader__.load({
 			      "aria-label": updating ? "Stop Vibe magazine update" : "Update Vibe magazine"
 			    },
 			    updateState === "stopping" ? "Stopping\u2026" : updating ? "Stop update" : "Update"
-			  ), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find vfx-settings", onClick: () => window.dispatchEvent(new CustomEvent(APPEARANCE_OPEN_EVENT)) }, "Look & feel"), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Chat"));
+			  ), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-find vfx-settings", onClick: () => window.dispatchEvent(new CustomEvent(APPEARANCE_OPEN_EVENT)) }, "Look & feel"), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Chat"));
 			}
 			function Questionnaire({ chunk, answer, onAnswer, onLink }) {
 			  const options = questionnaireOptions(chunk.markdown);
-			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react.default.createElement(Markdown, { value: questionnaireIntroduction(chunk.markdown), title: chunk.title, onLink }), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react.default.createElement(Icon, { name: "check" }) : null), label))));
+			  return /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react2.default.createElement(Markdown, { value: questionnaireIntroduction(chunk.markdown), title: chunk.title, onLink }), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react2.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react2.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "check" }) : null), label))));
 			}
 			function InlineVisuals({ visuals, title, onOpen }) {
 			  if (!Array.isArray(visuals) || visuals.length === 0) return null;
-			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-inline-visuals", "aria-label": `More photographs for ${title}` }, visuals.map((visual) => /* @__PURE__ */ import_react.default.createElement("figure", { key: visual.imageUrl }, /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-inline-visuals", "aria-label": `More photographs for ${title}` }, visuals.map((visual) => /* @__PURE__ */ import_react2.default.createElement("figure", { key: visual.imageUrl }, /* @__PURE__ */ import_react2.default.createElement(
 			    "img",
 			    {
 			      src: visual.imageUrl,
@@ -4376,7 +4652,7 @@ window.__ModuleLoader__.load({
 			        event.currentTarget.closest("figure")?.setAttribute("hidden", "");
 			      }
 			    }
-			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
+			  ), /* @__PURE__ */ import_react2.default.createElement("figcaption", null, /* @__PURE__ */ import_react2.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
 			function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
 			  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
@@ -4384,7 +4660,10 @@ window.__ModuleLoader__.load({
 			  const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
 			  const proposedUrl = proposedMedia?.externalUrl ?? ARTWORK[proposedMedia?.artwork];
 			  const media = visualNeedsLocalCover(proposedMedia, proposedUrl, verifiedVisuals, failedVisuals) ? storyCoverForChunk(chunk) : proposedMedia;
-			  const contentLink = contentLinkForMarkdown(chunk.markdown);
+			  const externalContentLink = contentLinkForMarkdown(chunk.markdown);
+			  const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
+			  const hasInteractive = hasLocalGame || splitInteractiveBlocks(chunk.markdown).some((part) => part.type === "interactive");
+			  const contentLink = externalContentLink ?? (hasLocalGame ? Object.freeze({ href: `#${playableGameAnchorId(chunk.id)}`, label: "Play Mochi Meadow" }) : null);
 			  const episode = media?.episode;
 			  const visual = media === null ? null : media.externalUrl ?? ARTWORK[media.artwork];
 			  const isChatResult = chunk.source === "chat-directed";
@@ -4392,14 +4671,14 @@ window.__ModuleLoader__.load({
 			  const isHero = index === 0;
 			  const hasTable = markdownHasTable(chunk.markdown);
 			  const layout = panelLayoutForChunk(chunk, index);
-			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
-			  const [expanded, setExpanded] = import_react.default.useState(false);
-			  const isLongRead = chunk.kind !== "questionnaire" && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
+			  const [playerOpen, setPlayerOpen] = import_react2.default.useState(false);
+			  const [expanded, setExpanded] = import_react2.default.useState(false);
+			  const isLongRead = !hasInteractive && chunk.kind !== "questionnaire" && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
 			  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
-			  const shareUrl = contentLink?.href ?? player?.href ?? null;
-			  const shareLabel = contentLink === null && player !== null ? "Share media link" : "Share link";
+			  const shareUrl = externalContentLink?.href ?? player?.href ?? null;
+			  const shareLabel = externalContentLink === null && player !== null ? "Share media link" : "Share link";
 			  const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
-			  return /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement(
 			    "article",
 			    {
 			      className: `vfx-chunk${isHero ? " is-hero" : ""}`,
@@ -4407,13 +4686,14 @@ window.__ModuleLoader__.load({
 			      "data-source": chunk.source,
 			      "data-layout": layout,
 			      "data-has-table": hasTable,
+			      "data-interactive": hasInteractive,
 			      "data-expanded": isLongRead && expanded,
 			      "data-visual-kind": media?.kind,
 			      "data-visual-mode": media?.mode,
 			      "data-chunk-id": chunk.id,
 			      style: { "--chunk-accent": episode?.accent ?? "#ff759f" }
 			    },
-			    visual !== null ? /* @__PURE__ */ import_react.default.createElement("figure", { className: "vfx-chunk-visual" }, /* @__PURE__ */ import_react.default.createElement(
+			    visual !== null ? /* @__PURE__ */ import_react2.default.createElement("figure", { className: "vfx-chunk-visual" }, /* @__PURE__ */ import_react2.default.createElement(
 			      "img",
 			      {
 			        src: visual,
@@ -4430,78 +4710,78 @@ window.__ModuleLoader__.load({
 			          if (media.kind !== "illustration" && (event.currentTarget.naturalWidth < 480 || event.currentTarget.naturalHeight < 240)) onVisualFailure(visual);
 			        }
 			      }
-			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, visualStatus ? /* @__PURE__ */ import_react.default.createElement("p", { role: "status", className: "vfx-visual-status" }, visualStatus) : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { id: `vfx-reading-${chunk.id}`, className: `vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`, onFocusCapture: () => {
+			    ), /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react2.default.createElement("figcaption", null, /* @__PURE__ */ import_react2.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
+			    /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-copy" }, visualStatus ? /* @__PURE__ */ import_react2.default.createElement("p", { role: "status", className: "vfx-visual-status" }, visualStatus) : null, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react2.default.createElement("div", null, /* @__PURE__ */ import_react2.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react2.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react2.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("div", { id: `vfx-reading-${chunk.id}`, className: `vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`, onFocusCapture: () => {
 			      if (isLongRead) setExpanded(true);
-			    } }, /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, onLink: () => onEngage(chunk, "opened") })), isLongRead ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-read-more", "aria-expanded": expanded, "aria-controls": `vfx-reading-${chunk.id}`, onClick: (event) => {
+			    } }, /* @__PURE__ */ import_react2.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, chunkId: chunk.id, onLink: () => onEngage(chunk, "opened"), onGameStart: () => onEngage(chunk, "played") })), isLongRead ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-read-more", "aria-expanded": expanded, "aria-controls": `vfx-reading-${chunk.id}`, onClick: (event) => {
 			      const card = event.currentTarget.closest("article");
 			      setExpanded(!expanded);
 			      if (expanded) window.requestAnimationFrame(() => card?.scrollIntoView({ block: "start" }));
-			    } }, expanded ? "Back to magazine view" : "Read full article", /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })) : null), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
+			    } }, expanded ? "Back to magazine view" : "Read full article", /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" })) : null), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react2.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
-			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, /* @__PURE__ */ import_react.default.createElement(PublicLinkShare, { url: shareUrl, title: chunk.title, label: shareLabel }), isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
+			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react2.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react2.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: externalContentLink === null ? void 0 : "_blank", rel: externalContentLink === null ? void 0 : "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react2.default.createElement("span", null, externalContentLink === null ? "Jump to game" : "Read source"), /* @__PURE__ */ import_react2.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-reader-actions" }, /* @__PURE__ */ import_react2.default.createElement(PublicLinkShare, { url: shareUrl, title: chunk.title, label: shareLabel }), isWelcome ? /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react2.default.createElement(
 			      "button",
 			      {
 			        type: "button",
 			        className: "vfx-share",
 			        disabled: shareStatus === "opening",
-			        onClick: () => onShare(chunk, { media, inlineVisuals, contentLink, embeddedMedia: player })
+			        onClick: () => onShare(chunk, { media, inlineVisuals, contentLink: externalContentLink, embeddedMedia: player })
 			      },
-			      /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }),
+			      /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "share" }),
 			      { opening: "Opening preview\u2026", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"
-			    ), isChatResult || isWelcome ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
+			    ), isChatResult || isWelcome ? null : /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-skip", "aria-pressed": skipped, disabled: skipped, onClick: () => onSkip(chunk) }, skipped ? "Noted" : "Not for me"))))
 			  );
 			}
 			function ExperienceShell({ codexFeatures, connection }) {
-			  const [state, dispatch] = import_react.default.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
-			  const [chunks, setChunks] = import_react.default.useState(initialStream);
-			  const [editorialProfile, setEditorialProfile] = import_react.default.useState(() => loadEditorialProfile(browserStorage()));
-			  const [appearance, setAppearance] = import_react.default.useState(() => loadAppearanceProfile(browserStorage()));
-			  const [updateState, setUpdateState] = import_react.default.useState("idle");
-			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
-			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
-			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
-			  const [visualStatus, setVisualStatus] = import_react.default.useState(() => /* @__PURE__ */ new Map());
-			  const [failedVisuals, setFailedVisuals] = import_react.default.useState(() => /* @__PURE__ */ new Set());
-			  const visualLifecycle = import_react.default.useRef(null);
-			  const [verifiedVisuals, setVerifiedVisuals] = import_react.default.useState(() => /* @__PURE__ */ new Set());
-			  const onVisualFailure = import_react.default.useCallback((url) => {
+			  const [state, dispatch] = import_react2.default.useReducer(reduceExperience, null, () => loadExperienceState(browserStorage()));
+			  const [chunks, setChunks] = import_react2.default.useState(initialStream);
+			  const [editorialProfile, setEditorialProfile] = import_react2.default.useState(() => loadEditorialProfile(browserStorage()));
+			  const [appearance, setAppearance] = import_react2.default.useState(() => loadAppearanceProfile(browserStorage()));
+			  const [updateState, setUpdateState] = import_react2.default.useState("idle");
+			  const [pullDistance, setPullDistance] = import_react2.default.useState(0);
+			  const [skipped, setSkipped] = import_react2.default.useState(() => /* @__PURE__ */ new Set());
+			  const [shareState, setShareState] = import_react2.default.useState(() => ({ chunkId: null, status: "idle" }));
+			  const [visualStatus, setVisualStatus] = import_react2.default.useState(() => /* @__PURE__ */ new Map());
+			  const [failedVisuals, setFailedVisuals] = import_react2.default.useState(() => /* @__PURE__ */ new Set());
+			  const visualLifecycle = import_react2.default.useRef(null);
+			  const [verifiedVisuals, setVerifiedVisuals] = import_react2.default.useState(() => /* @__PURE__ */ new Set());
+			  const onVisualFailure = import_react2.default.useCallback((url) => {
 			    setFailedVisuals((current) => current.has(url) ? current : /* @__PURE__ */ new Set([...current, url]));
 			    visualLifecycle.current?.failure(url);
 			  }, []);
-			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => /* @__PURE__ */ new Map());
-			  const [libraryOpen, setLibraryOpen] = import_react.default.useState(false);
-			  const [libraryQuery, setLibraryQuery] = import_react.default.useState("");
-			  const [answers, setAnswers] = import_react.default.useState(() => {
+			  const [visualOverrides, setVisualOverrides] = import_react2.default.useState(() => /* @__PURE__ */ new Map());
+			  const [libraryOpen, setLibraryOpen] = import_react2.default.useState(false);
+			  const [libraryQuery, setLibraryQuery] = import_react2.default.useState("");
+			  const [answers, setAnswers] = import_react2.default.useState(() => {
 			    const store = getCachedStream(browserStorage());
 			    return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
 			  });
-			  const streamRef = import_react.default.useRef(null);
-			  const chunksRef = import_react.default.useRef(chunks);
-			  const stateRef = import_react.default.useRef(state);
-			  const answersRef = import_react.default.useRef(answers);
-			  const editorialProfileRef = import_react.default.useRef(editorialProfile);
-			  const scheduler = import_react.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
-			  const touchPull = import_react.default.useRef(createPullRefreshState());
-			  const trackpadPull = import_react.default.useRef(createTrackpadPullRefreshState());
-			  const trackpadSettleTimer = import_react.default.useRef(null);
-			  import_react.default.useEffect(() => {
+			  const streamRef = import_react2.default.useRef(null);
+			  const chunksRef = import_react2.default.useRef(chunks);
+			  const stateRef = import_react2.default.useRef(state);
+			  const answersRef = import_react2.default.useRef(answers);
+			  const editorialProfileRef = import_react2.default.useRef(editorialProfile);
+			  const scheduler = import_react2.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+			  const touchPull = import_react2.default.useRef(createPullRefreshState());
+			  const trackpadPull = import_react2.default.useRef(createTrackpadPullRefreshState());
+			  const trackpadSettleTimer = import_react2.default.useRef(null);
+			  import_react2.default.useEffect(() => {
 			    chunksRef.current = chunks;
 			  }, [chunks]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    stateRef.current = state;
 			  }, [state]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    answersRef.current = answers;
 			  }, [answers]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    editorialProfileRef.current = editorialProfile;
 			  }, [editorialProfile]);
-			  const record = import_react.default.useCallback((event, recipeId, durationMs, source) => {
+			  const record = import_react2.default.useCallback((event, recipeId, durationMs, source) => {
 			    appendStreamMetric(browserStorage(), { event, recipeId, durationMs, source });
 			  }, []);
-			  const startRun = import_react.default.useCallback(() => {
+			  const startRun = import_react2.default.useCallback(() => {
 			    visualLifecycle.current?.retry();
 			    const current = scheduler.current;
 			    if (stateRef.current.view !== "home" || current.active) return;
@@ -4551,7 +4831,7 @@ window.__ModuleLoader__.load({
 			    record("magazine-update-started", runId, 0, "fresh-stream");
 			    window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
 			  }, [codexFeatures, record]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    const onAppearance = (event) => setAppearance(createAppearanceProfile(event.detail));
 			    const onUpdate = () => {
 			      stateRef.current = { ...stateRef.current, view: "home" };
@@ -4571,13 +4851,13 @@ window.__ModuleLoader__.load({
 			      window.removeEventListener("storage", onStorageAppearance);
 			    };
 			  }, [startRun]);
-			  const stopRun = import_react.default.useCallback(() => {
+			  const stopRun = import_react2.default.useCallback(() => {
 			    const current = scheduler.current;
 			    if (!current.active || current.activeId === null) return;
 			    setUpdateState("stopping");
 			    window.dispatchEvent(new CustomEvent(RECIPE_STOP_EVENT, { detail: { id: current.activeId } }));
 			  }, []);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    const now = Date.now();
 			    appendCachedChunks(browserStorage(), chunks, now);
 			    const frame = window.requestAnimationFrame(() => {
@@ -4588,7 +4868,7 @@ window.__ModuleLoader__.load({
 			    });
 			    return () => window.cancelAnimationFrame(frame);
 			  }, []);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    if (connection?.rpc?.call === void 0) return void 0;
 			    const lifecycle = createVisualLifecycle({
 			      capability: async () => (await connection.rpc.call("/dsh-visuals", "capabilities", {}))?.ok === true,
@@ -4635,18 +4915,18 @@ window.__ModuleLoader__.load({
 			      if (visualLifecycle.current === lifecycle) visualLifecycle.current = null;
 			    };
 			  }, [connection, codexFeatures]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    visualLifecycle.current?.enqueue(chunks);
 			  }, [chunks]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    saveExperienceState(browserStorage(), state);
 			    document.body.dataset.vibeifyExperience = state.view;
 			    return () => delete document.body.dataset.vibeifyExperience;
 			  }, [state]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    if (state.view === "home") markVibeActivity(browserStorage());
 			  }, [state.view]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    const onChunks = (event) => {
 			      const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
 			      appendCachedChunks(browserStorage(), incoming);
@@ -4727,7 +5007,7 @@ window.__ModuleLoader__.load({
 			      window.removeEventListener("storage", onStorage);
 			    };
 			  }, [record]);
-			  const onScroll = import_react.default.useCallback(() => {
+			  const onScroll = import_react2.default.useCallback(() => {
 			    const current = scheduler.current;
 			    if (current.scrollFrame !== null) return;
 			    current.scrollFrame = window.requestAnimationFrame(() => {
@@ -4746,36 +5026,36 @@ window.__ModuleLoader__.load({
 			      if (last !== void 0) dispatch({ type: "mark-read", chunkId: last });
 			    });
 			  }, []);
-			  const onTouchStart = import_react.default.useCallback((event) => {
+			  const onTouchStart = import_react2.default.useCallback((event) => {
 			    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
 			    trackpadSettleTimer.current = null;
 			    trackpadPull.current = createTrackpadPullRefreshState();
 			    const y = event.touches?.[0]?.clientY;
 			    touchPull.current = reducePullRefresh(touchPull.current, { type: "start", y, atTop: (streamRef.current?.scrollTop ?? 1) <= 0 });
 			  }, []);
-			  const onTouchMove = import_react.default.useCallback((event) => {
+			  const onTouchMove = import_react2.default.useCallback((event) => {
 			    const y = event.touches?.[0]?.clientY;
 			    touchPull.current = reducePullRefresh(touchPull.current, { type: "move", y });
 			    setPullDistance(touchPull.current.distance);
 			  }, []);
-			  const finishPull = import_react.default.useCallback(() => {
+			  const finishPull = import_react2.default.useCallback(() => {
 			    const ended = reducePullRefresh(touchPull.current, { type: "end" });
 			    touchPull.current = createPullRefreshState();
 			    setPullDistance(0);
 			    if (ended.requested) startRun();
 			  }, [startRun]);
-			  const cancelPull = import_react.default.useCallback(() => {
+			  const cancelPull = import_react2.default.useCallback(() => {
 			    touchPull.current = reducePullRefresh(touchPull.current, { type: "cancel" });
 			    setPullDistance(0);
 			  }, []);
-			  const finishTrackpadPull = import_react.default.useCallback(() => {
+			  const finishTrackpadPull = import_react2.default.useCallback(() => {
 			    trackpadSettleTimer.current = null;
 			    const ended = reduceTrackpadPullRefresh(trackpadPull.current, { type: "end" });
 			    trackpadPull.current = createTrackpadPullRefreshState();
 			    setPullDistance(0);
 			    if (ended.requested) startRun();
 			  }, [startRun]);
-			  const onTrackpadWheel = import_react.default.useCallback((event) => {
+			  const onTrackpadWheel = import_react2.default.useCallback((event) => {
 			    const next = reduceTrackpadPullRefresh(trackpadPull.current, {
 			      type: "wheel",
 			      deltaY: event.deltaY,
@@ -4789,7 +5069,7 @@ window.__ModuleLoader__.load({
 			    if (trackpadSettleTimer.current !== null) window.clearTimeout(trackpadSettleTimer.current);
 			    trackpadSettleTimer.current = window.setTimeout(finishTrackpadPull, TRACKPAD_PULL_SETTLE_MS);
 			  }, [finishTrackpadPull]);
-			  import_react.default.useEffect(() => {
+			  import_react2.default.useEffect(() => {
 			    if (state.view !== "home") return void 0;
 			    const stream = streamRef.current;
 			    if (stream === null) return void 0;
@@ -4802,30 +5082,30 @@ window.__ModuleLoader__.load({
 			      trackpadPull.current = createTrackpadPullRefreshState();
 			    };
 			  }, [onTrackpadWheel, state.view]);
-			  const onAnswer = import_react.default.useCallback((chunkId, label) => {
+			  const onAnswer = import_react2.default.useCallback((chunkId, label) => {
 			    if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
 			    setAnswers((current) => ({ ...current, [chunkId]: label }));
 			    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
 			    if (chunk !== void 0) appendLearningEvent(browserStorage(), { event: "answered", chunkId, kind: chunk.kind, tribes: chunk.tribes, label });
 			    record("questionnaire-answered", "home", Math.max(0, performance.now() - NAVIGATION_STARTED_AT), "user");
 			  }, [record]);
-			  const onSave = import_react.default.useCallback((chunkId) => {
+			  const onSave = import_react2.default.useCallback((chunkId) => {
 			    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
 			    if (!stateRef.current.savedChunkIds.includes(chunkId) && chunk !== void 0) appendLearningEvent(browserStorage(), { event: "saved", chunkId, kind: chunk.kind, tribes: chunk.tribes });
 			    dispatch({ type: "toggle-save", chunkId });
 			  }, []);
-			  const onEngage = import_react.default.useCallback((chunk, event) => {
+			  const onEngage = import_react2.default.useCallback((chunk, event) => {
 			    appendLearningEvent(browserStorage(), { event, chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
 			    markVibeActivity(browserStorage());
 			  }, []);
-			  const onSkip = import_react.default.useCallback((chunk) => {
+			  const onSkip = import_react2.default.useCallback((chunk) => {
 			    appendLearningEvent(browserStorage(), { event: "skipped", chunkId: chunk.id, kind: chunk.kind, tribes: chunk.tribes });
 			    setSkipped((current) => /* @__PURE__ */ new Set([...current, chunk.id]));
 			  }, []);
-			  const onShare = import_react.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
+			  const onShare = import_react2.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
 			    const snapshot = shareSnapshotForChunk({
 			      chunk,
-			      markdown: markdownWithoutLeadVisual(chunk.markdown),
+			      markdown: removeLocalGamesForShare(markdownWithoutLeadVisual(chunk.markdown)),
 			      media,
 			      inlineVisuals,
 			      contentLink,
@@ -4845,16 +5125,16 @@ window.__ModuleLoader__.load({
 			  const newestChunks = newestFirst(chunks);
 			  const librarySummary = vibeLibrarySummary(newestChunks);
 			  const displayChunks = libraryOpen ? searchableVibeChunks(newestChunks, libraryQuery) : newestChunks;
-			  const goHome = import_react.default.useCallback(() => {
+			  const goHome = import_react2.default.useCallback(() => {
 			    setLibraryOpen(false);
 			    setLibraryQuery("");
 			    streamRef.current?.scrollTo({ top: 0, behavior: "smooth" });
 			  }, []);
-			  const openLibrary = import_react.default.useCallback(() => {
+			  const openLibrary = import_react2.default.useCallback(() => {
 			    setLibraryOpen(true);
 			    window.requestAnimationFrame(() => streamRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
 			  }, []);
-			  const enterChat = import_react.default.useCallback(() => {
+			  const enterChat = import_react2.default.useCallback(() => {
 			    dispatch({ type: "enter-chat" });
 			    window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
 			  }, []);
@@ -4864,7 +5144,7 @@ window.__ModuleLoader__.load({
 			    "timed-out": "Magazine update reached its time limit and stopped.",
 			    error: "Fresh articles could not be added. Your saved articles are still here."
 			  }[updateState];
-			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-shell", "data-view": state.view, "data-palette": appearance.palette, "data-text-size": appearance.textSize, "data-spacing": appearance.spacing }, state.view === "home" ? /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-shell", "data-view": state.view, "data-palette": appearance.palette, "data-text-size": appearance.textSize, "data-spacing": appearance.spacing }, state.view === "home" ? /* @__PURE__ */ import_react2.default.createElement(
 			    "main",
 			    {
 			      ref: streamRef,
@@ -4875,7 +5155,7 @@ window.__ModuleLoader__.load({
 			      onTouchEnd: finishPull,
 			      onTouchCancel: cancelPull
 			    },
-			    /* @__PURE__ */ import_react.default.createElement(
+			    /* @__PURE__ */ import_react2.default.createElement(
 			      Header,
 			      {
 			        editorialLabel: editorialProfile.label,
@@ -4888,7 +5168,7 @@ window.__ModuleLoader__.load({
 			        onChat: enterChat
 			      }
 			    ),
-			    /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")), libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your magazine \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, "People. Stories. Something worth your time."), /* @__PURE__ */ import_react.default.createElement("p", null, "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", disabled: ["starting", "submitted", "stopping"].includes(updateState), onClick: startRun }, "Update my magazine"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)), libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
+			    /* @__PURE__ */ import_react2.default.createElement(import_react2.default.Fragment, null, /* @__PURE__ */ import_react2.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react2.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")), libraryOpen ? /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react2.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react2.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react2.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react2.default.createElement("div", null, /* @__PURE__ */ import_react2.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react2.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react2.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react2.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react2.default.createElement("span", null, "Your magazine \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react2.default.createElement("h1", null, "People. Stories. Something worth your time."), /* @__PURE__ */ import_react2.default.createElement("p", null, "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return."), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", className: "vfx-intro-cta", disabled: ["starting", "submitted", "stopping"].includes(updateState), onClick: startRun }, "Update my magazine"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react2.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)), libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react2.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null, /* @__PURE__ */ import_react2.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react2.default.createElement(
 			      StreamChunk,
 			      {
 			        key: chunk.id,
@@ -4911,7 +5191,7 @@ window.__ModuleLoader__.load({
 			        onShare,
 			        onChat: enterChat
 			      }
-			    ))), /* @__PURE__ */ import_react.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : displayChunks.length === 0 ? "Your first edition is one update away." : "Your saved edition \xB7 newest stories first."), /* @__PURE__ */ import_react.default.createElement("span", null, "Creators credited \xB7 sharing stays reviewed")))
+			    ))), /* @__PURE__ */ import_react2.default.createElement("footer", { className: "vfx-footer" }, /* @__PURE__ */ import_react2.default.createElement("span", null, libraryOpen ? "Your local library is bounded and private to this browser." : displayChunks.length === 0 ? "Your first edition is one update away." : "Your saved edition \xB7 newest stories first."), /* @__PURE__ */ import_react2.default.createElement("span", null, "Creators credited \xB7 sharing stays reviewed")))
 			  ) : null);
 			}
 			var CSS = `
@@ -4988,6 +5268,13 @@ window.__ModuleLoader__.load({
 			.vfx-chunk-heading span { color:var(--chunk-accent); font-size:9px; font-weight:850; letter-spacing:.14em; text-transform:uppercase; }
 			.vfx-chunk h2 { max-width:100%; margin:8px 0 20px; overflow-wrap:normal; word-break:normal; hyphens:none; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
 			.vfx-chunk.is-hero h2 { font-size:clamp(40px,3vw,60px); }
+			.vfx-interactive { margin:24px 0; border:1px solid #b7a7b5; border-radius:14px; overflow:hidden; }
+			.vfx-interactive-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px; }
+			.vfx-interactive-heading h3 { margin:0; font-size:20px; }
+			.vfx-interactive-heading button { flex-shrink:0; padding:10px 14px; border:1px solid currentColor; border-radius:20px; color:inherit; background:transparent; cursor:pointer; }
+			.vfx-interactive iframe { width:100%; display:block; border:0; background:#fff; }
+			.vfx-shell .vfx-chunk[data-interactive="true"] { grid-column:1/-1; display:block; }
+			.vfx-chunk[data-interactive="true"] .vfx-chunk-visual,.vfx-chunk[data-interactive="true"] .vfx-chunk-visual img { height:300px; min-height:240px; }
 			.vfx-reading.is-excerpt { max-height:22rem; overflow:hidden; mask-image:linear-gradient(#000 78%,transparent); }
 			.vfx-read-more { display:inline-flex; align-items:center; gap:10px; margin:18px 0 4px; padding:10px 0; border:0; border-bottom:1px solid currentColor; background:none; color:var(--accent,#ff9aba); font:inherit; font-size:14px; font-weight:750; cursor:pointer; }
 			.vfx-chunk[data-expanded="true"] { grid-column:1/-1; display:block; scroll-margin-top:100px; }
@@ -5060,6 +5347,7 @@ window.__ModuleLoader__.load({
 			    style.id = STYLE_ID;
 			    style.textContent = `${CSS}
 			${PUBLIC_SHARE_CSS}
+			${PLAYABLE_GAME_CSS}
 			${APPEARANCE_CSS}`;
 			    document.getElementById(STYLE_ID)?.remove();
 			    document.head.appendChild(style);
@@ -5072,7 +5360,7 @@ window.__ModuleLoader__.load({
 			  installRecipeRunner(ctx);
 			  installThreadMagazineBridge(ctx);
 			  installBackgroundEditor(ctx, { codexFeatures });
-			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.connection })));
+			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react2.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.connection })));
 			}
 			return module.exports;
 		})();

@@ -1,3 +1,4 @@
+import { INTERACTIVE_AUTHORING_CONTRACT } from "./interactive-authoring.js";
 import { QUESTIONNAIRE_AUTHORING_CONTRACT } from "./questionnaire-contract.js";
 import { HUMAN_EDITORIAL_CONTRACT } from "./editorial-contract.js";
 
@@ -8,11 +9,13 @@ When the user explicitly asks to **make, create, write, or turn something into a
 
 ${HUMAN_EDITORIAL_CONTRACT} The user's actual commission and any stated editor direction govern topic, angle and voice. Check each proposed title and body for that fit before publishing; a Vibe article about the mechanics of making a Vibe does not satisfy a request about another subject. Keep private reader settings, notes and prompt wording with the lead; workers receive only a bounded public topic and sources needed for their lane.
 
-Find a relevant, reusable, credited public image for an article first. If no good image exists after checking sources and the latest available ChatGPT image generation capability is supported and authorised, create a story-specific illustration from a public subject-and-scene description only. Do not pass private reader direction, prompt text, history or attachments to image generation. Label it Generated illustration and never suggest it documents a real person or event. When generation is unavailable, use a distinctive typographic cover related to the actual story.
+Find a relevant, reusable, credited public image for an article first. If no good image exists after checking sources and the latest available ChatGPT image generation capability is supported and authorised, create a story-specific illustration from a public subject-and-scene description only. Do not pass private reader direction, prompt text, history or attachments to image generation. Label it Generated illustration and never suggest it documents a real person or event. When generation is unavailable, the magazine supplies a credited pictorial illustration.
 
 <vibe-chunk id="chat-unique-item-id" kind="recommendation" title="A reader-facing title">
 Complete Markdown for this item, with relevant verified links and creator/source credit.
 </vibe-chunk>
+
+${INTERACTIVE_AUTHORING_CONTRACT}
 
 Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Give every item a unique lowercase id beginning with "chat-". Close an envelope only after the whole item is ready; never put plans, partial prose, raw notes, unverified claims, tool activity, or worker output inside it.
 

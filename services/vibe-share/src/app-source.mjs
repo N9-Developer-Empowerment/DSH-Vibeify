@@ -1,3 +1,4 @@
+import { vibeInteractiveRuntimeSource } from "../../../shared/vibe-interactive.js";
 import { vibeMarkdownRuntimeSource } from "../../../shared/vibe-markdown.js";
 import { storyCoverRuntimeSource } from "../../../shared/vibe-cover.js";
 import { EDITORIAL_ILLUSTRATIONS } from "../../../shared/editorial-illustrations.js";
@@ -327,6 +328,24 @@ function renderTable(table) {
 
 function renderMarkdown(markdown, title = "") {
   const fragment = document.createDocumentFragment();
+  for (const part of splitInteractiveBlocks(markdown)) {
+    if (part.type !== "interactive") { fragment.append(renderPlainMarkdown(part.value, title)); continue; }
+    const section = document.createElement("section");
+    section.className = "vibe-interactive";
+    const frame = document.createElement("iframe");
+    frame.title = part.title;
+    frame.setAttribute("sandbox", INTERACTIVE_SANDBOX);
+    frame.referrerPolicy = "no-referrer";
+    frame.height = String(part.height);
+    frame.srcdoc = interactiveDocument(part.html, document.querySelector('meta[name="vibe-interactive-nonce"]')?.content ?? "");
+    section.append(frame);
+    fragment.append(section);
+  }
+  return fragment;
+}
+
+function renderPlainMarkdown(markdown, title = "") {
+  const fragment = document.createDocumentFragment();
   for (const block of parseVibeMarkdown(markdown, title)) {
     if (block.type === "table") {
       fragment.append(renderTable(block));
@@ -488,4 +507,4 @@ const bundledIllustrations = Object.fromEntries(EDITORIAL_ILLUSTRATIONS.map((dra
   kind: "illustration", illustrationId: drawing.illustrationId,
   sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
 }]));
-export const APP_JS = `${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
+export const APP_JS = `${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;

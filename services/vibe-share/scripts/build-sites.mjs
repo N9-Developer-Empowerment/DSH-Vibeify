@@ -19,6 +19,7 @@ render = render.replace(
   'from "../../../shared/vibe-markdown.js"',
   'from "./vibe-markdown.js"',
 );
+render = render.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
 let appSource = await readFile(resolve(project, "src/app-source.mjs"), "utf8");
 appSource = appSource.replace(
   'from "../../../shared/vibe-markdown.js"',
@@ -30,7 +31,10 @@ appSource = appSource.replace(
   'from "./vibe-cover.js"',
 );
 
+appSource = appSource.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
+
 await Promise.all([
+  copyFile(resolve(project, "../../shared/vibe-interactive.js"), resolve(server, "vibe-interactive.js")),
   writeFile(resolve(server, "index.js"), worker),
   writeFile(resolve(server, "render.mjs"), render),
   writeFile(resolve(server, "app-source.mjs"), appSource),

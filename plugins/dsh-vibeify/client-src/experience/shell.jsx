@@ -75,7 +75,16 @@ import {
   consumeCandidatePages,
   markVibeActivity,
 } from "./reserve-store.js";
+import { splitInteractiveBlocks, interactiveDocument, INTERACTIVE_SANDBOX } from "../../../../shared/vibe-interactive.js";
 import { clickToLoadMedia } from "./media-embed.js";
+import {
+  hasMochiMeadowBlock,
+  PLAYABLE_GAME_CSS,
+  playableGameAnchorId,
+  PlayableGame,
+  removeLocalGamesForShare,
+  splitPlayableGameBlocks,
+} from "./playable-game.jsx";
 import {
   beginSharePreview,
   copyPublicShareUrl,
@@ -141,15 +150,37 @@ function Icon({ name }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" className="vfx-icon"><path d={paths[name]} /></svg>;
 }
 
-function Markdown({ value, title, onLink }) {
+function MarkdownText({ value, title }) {
   const ref = React.useRef(null);
   React.useEffect(() => {
     if (ref.current !== null) ref.current.replaceChildren(markdownFragment(value, title));
   }, [title, value]);
-  return <div ref={ref} className="vfx-markdown" onClick={(event) => {
+  return <div ref={ref} className="vfx-markdown-segment" />;
+}
+
+function InteractiveContent({ content }) {
+  const [open, setOpen] = React.useState(false);
+  return <section className="vfx-interactive" aria-label={content.title}>
+    <div className="vfx-interactive-heading"><h3>{content.title}</h3>
+      <button type="button" onClick={() => setOpen(!open)}>{open ? "Close interactive" : "Open interactive"}</button>
+    </div>
+    {open ? <iframe title={content.title} sandbox={INTERACTIVE_SANDBOX} referrerPolicy="no-referrer" srcDoc={interactiveDocument(content.html)} style={{ height: content.height }} /> : null}
+  </section>;
+}
+
+function Markdown({ value, title, onLink, onGameStart, chunkId }) {
+  const segments = splitInteractiveBlocks(value).flatMap((part) => part.type === "interactive" ? [part] : splitPlayableGameBlocks(part.value));
+  const anchorId = playableGameAnchorId(chunkId);
+  return <div className="vfx-markdown" onClick={(event) => {
     const link = event.target instanceof Element ? event.target.closest("a") : null;
     if (link !== null) onLink?.(link.href);
-  }} />;
+  }}>
+    {segments.map((segment, index) => segment.type === "interactive"
+      ? <InteractiveContent key={`interactive-${index}`} content={segment} />
+      : segment.type === "game"
+      ? <PlayableGame key={`game-${index}`} gameId={segment.gameId} anchorId={anchorId} onStart={onGameStart} />
+      : <MarkdownText key={`markdown-${index}`} value={segment.value} title={title} />)}
+  </div>;
 }
 
 function PublicLinkShare({ url, title, label = "Share link" }) {
@@ -272,7 +303,12 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
   const proposedUrl = proposedMedia?.externalUrl ?? ARTWORK[proposedMedia?.artwork];
   const media = visualNeedsLocalCover(proposedMedia, proposedUrl, verifiedVisuals, failedVisuals)
     ? storyCoverForChunk(chunk) : proposedMedia;
-  const contentLink = contentLinkForMarkdown(chunk.markdown);
+  const externalContentLink = contentLinkForMarkdown(chunk.markdown);
+  const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
+  const hasInteractive = hasLocalGame || splitInteractiveBlocks(chunk.markdown).some((part) => part.type === "interactive");
+  const contentLink = externalContentLink ?? (hasLocalGame
+    ? Object.freeze({ href: `#${playableGameAnchorId(chunk.id)}`, label: "Play Mochi Meadow" })
+    : null);
   const episode = media?.episode;
   const visual = media === null ? null : (media.externalUrl ?? ARTWORK[media.artwork]);
   const isChatResult = chunk.source === "chat-directed";
@@ -282,10 +318,10 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
   const layout = panelLayoutForChunk(chunk, index);
   const [playerOpen, setPlayerOpen] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
-  const isLongRead = chunk.kind !== "questionnaire" && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
+  const isLongRead = !hasInteractive && chunk.kind !== "questionnaire" && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
   const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
-  const shareUrl = contentLink?.href ?? player?.href ?? null;
-  const shareLabel = contentLink === null && player !== null ? "Share media link" : "Share link";
+  const shareUrl = externalContentLink?.href ?? player?.href ?? null;
+  const shareLabel = externalContentLink === null && player !== null ? "Share media link" : "Share link";
   const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
   return (
     <article
@@ -294,6 +330,7 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
       data-source={chunk.source}
       data-layout={layout}
       data-has-table={hasTable}
+      data-interactive={hasInteractive}
       data-expanded={isLongRead && expanded}
       data-visual-kind={media?.kind}
       data-visual-mode={media?.mode}
@@ -331,7 +368,7 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
           ? <Questionnaire chunk={chunk} answer={answer} onAnswer={onAnswer} onLink={() => onEngage(chunk, "opened")} />
           : <>
             <div id={`vfx-reading-${chunk.id}`} className={`vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`} onFocusCapture={() => { if (isLongRead) setExpanded(true); }}>
-              <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} onLink={() => onEngage(chunk, "opened")} />
+              <Markdown value={markdownWithoutLeadVisual(chunk.markdown)} title={chunk.title} chunkId={chunk.id} onLink={() => onEngage(chunk, "opened")} onGameStart={() => onEngage(chunk, "played")} />
             </div>
             {isLongRead ? <button type="button" className="vfx-read-more" aria-expanded={expanded} aria-controls={`vfx-reading-${chunk.id}`} onClick={(event) => {
               const card = event.currentTarget.closest("article");
@@ -352,8 +389,8 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
         {chunk.kind === "questionnaire" ? null : (
           <div className="vfx-card-actions">
             {contentLink === null ? null : (
-              <a className="vfx-source-link" href={contentLink.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>
-                <span>Read source</span><strong>{contentLink.label}</strong><Icon name="arrow" />
+              <a className="vfx-source-link" href={contentLink.href} target={externalContentLink === null ? undefined : "_blank"} rel={externalContentLink === null ? undefined : "noreferrer"} onClick={() => onEngage(chunk, "opened")}>
+                <span>{externalContentLink === null ? "Jump to game" : "Read source"}</span><strong>{contentLink.label}</strong><Icon name="arrow" />
               </a>
             )}
             <div className="vfx-reader-actions">
@@ -363,7 +400,7 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
                 type="button"
                 className="vfx-share"
                 disabled={shareStatus === "opening"}
-                onClick={() => onShare(chunk, { media, inlineVisuals, contentLink, embeddedMedia: player })}
+                onClick={() => onShare(chunk, { media, inlineVisuals, contentLink: externalContentLink, embeddedMedia: player })}
               >
                 <Icon name="share" />
                 {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
@@ -742,7 +779,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const onShare = React.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
     const snapshot = shareSnapshotForChunk({
       chunk,
-      markdown: markdownWithoutLeadVisual(chunk.markdown),
+      markdown: removeLocalGamesForShare(markdownWithoutLeadVisual(chunk.markdown)),
       media,
       inlineVisuals,
       contentLink,
@@ -942,6 +979,13 @@ body:not([data-vibeify-experience="chat"]) #dsh-vibeify-picker .dsh-vibeify-trig
 .vfx-chunk-heading span { color:var(--chunk-accent); font-size:9px; font-weight:850; letter-spacing:.14em; text-transform:uppercase; }
 .vfx-chunk h2 { max-width:100%; margin:8px 0 20px; overflow-wrap:normal; word-break:normal; hyphens:none; font-family:"Iowan Old Style",Georgia,serif; font-size:clamp(30px,3.4vw,52px); font-weight:500; line-height:1; letter-spacing:-.05em; text-wrap:balance; }
 .vfx-chunk.is-hero h2 { font-size:clamp(40px,3vw,60px); }
+.vfx-interactive { margin:24px 0; border:1px solid #b7a7b5; border-radius:14px; overflow:hidden; }
+.vfx-interactive-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px; }
+.vfx-interactive-heading h3 { margin:0; font-size:20px; }
+.vfx-interactive-heading button { flex-shrink:0; padding:10px 14px; border:1px solid currentColor; border-radius:20px; color:inherit; background:transparent; cursor:pointer; }
+.vfx-interactive iframe { width:100%; display:block; border:0; background:#fff; }
+.vfx-shell .vfx-chunk[data-interactive="true"] { grid-column:1/-1; display:block; }
+.vfx-chunk[data-interactive="true"] .vfx-chunk-visual,.vfx-chunk[data-interactive="true"] .vfx-chunk-visual img { height:300px; min-height:240px; }
 .vfx-reading.is-excerpt { max-height:22rem; overflow:hidden; mask-image:linear-gradient(#000 78%,transparent); }
 .vfx-read-more { display:inline-flex; align-items:center; gap:10px; margin:18px 0 4px; padding:10px 0; border:0; border-bottom:1px solid currentColor; background:none; color:var(--accent,#ff9aba); font:inherit; font-size:14px; font-weight:750; cursor:pointer; }
 .vfx-chunk[data-expanded="true"] { grid-column:1/-1; display:block; scroll-margin-top:100px; }
@@ -1015,7 +1059,7 @@ function installStyles(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}\n${APPEARANCE_CSS}`;
+    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}\n${PLAYABLE_GAME_CSS}\n${APPEARANCE_CSS}`;
     document.getElementById(STYLE_ID)?.remove();
     document.head.appendChild(style);
     return () => style.remove();

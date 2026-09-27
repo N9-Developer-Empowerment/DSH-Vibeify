@@ -92,3 +92,11 @@ pictorial illustration remains. Typographic covers no longer satisfy image readi
 Provider-neutral mode does not silently invoke Codex. Sharing carries the chosen
 photograph or illustration to the private preview; publication remains an
 explicit reader action.
+
+## Embedded games and interactive articles
+
+Articles can contain self-contained games, calculators, local forms, interactive SVG/canvas graphs, and small apps. The author emits a `vibe-app` fenced block containing JSON with `title`, `html`, and optional `height` (240–900 pixels). The HTML includes its own CSS and JavaScript. Readers choose **Open interactive** inside the article; **Close interactive** unloads it. Reopening resets its local state. Interactive articles get a full-width panel and are never hidden inside a shortened excerpt.
+
+Use up to three panels, up to 12,000 characters of HTML per panel, and keep the complete article below 16,000 characters. Use scripts with `addEventListener`, not inline event attributes. Do not use CDN imports, external assets, storage, parent-window access or network requests. Forms perform local validation/calculation with `preventDefault`; external submissions are blocked. The iframe has an opaque origin, no access to the magazine or its account data, no popup/top-navigation permissions, and a restrictive content policy. This is a local interaction format, not a general external-site iframe or an authenticated hosted application.
+
+The existing `:::vibe-game mochi-meadow` block remains a built-in playable game. Future games use the reusable `vibe-app` format and require no plugin update. Built-in Mochi currently stays in the local magazine; its share preview says where it can be played. General `vibe-app` panels retain their interactions in sharing previews and published articles. Publishing remains a separate reader action.

@@ -6,7 +6,7 @@ import { APP_JS } from "./app-source.mjs";
 const JSON_HEADERS = Object.freeze({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
 const HTML_HEADERS = Object.freeze({
   "content-type": "text/html; charset=utf-8",
-  "content-security-policy": "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'self' https://challenges.cloudflare.com; frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
+  "content-security-policy": "default-src 'none'; img-src 'self' https: data:; style-src 'unsafe-inline'; script-src 'self' https://challenges.cloudflare.com; frame-src 'self' https://www.youtube-nocookie.com https://player.vimeo.com https://open.spotify.com https://w.soundcloud.com https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
@@ -17,8 +17,9 @@ function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: JSON_HEADERS });
 }
 
-function html(value, status = 200, cacheControl = "no-store") {
-  return new Response(value, { status, headers: { ...HTML_HEADERS, "cache-control": cacheControl } });
+function html(value, status = 200, cacheControl = "no-store", nonce = "") {
+  const policy = nonce ? HTML_HEADERS["content-security-policy"].replace("script-src ", "script-src 'nonce-" + nonce + "' ") : HTML_HEADERS["content-security-policy"];
+  return new Response(value, { status, headers: { ...HTML_HEADERS, "content-security-policy": policy, "cache-control": cacheControl } });
 }
 
 function head(response) {
@@ -208,7 +209,8 @@ async function getArticle(env, url, slug) {
     snapshot = cleanShareSnapshot(parsed, Math.max(Date.now(), Number(parsed?.publishedAt) || 0));
   } catch { snapshot = null; }
   if (snapshot === null) return html(renderNotFound(), 404);
-  return html(renderPublicArticle(snapshot, `${url.origin}/a/${slug}`), 200, "public, max-age=300, stale-while-revalidate=86400");
+  const nonce = randomToken(24);
+  return html(renderPublicArticle(snapshot, `${url.origin}/a/${slug}`, nonce), 200, "no-store", nonce);
 }
 
 async function deleteArticle(request, env, slug) {
@@ -245,11 +247,15 @@ export async function handleRequest(request, env = {}) {
     });
     return request.method === "HEAD" ? head(response) : response;
   }
-  if (request.method === "GET" && url.pathname === "/new") return html(renderNewPage({
-    turnstileSiteKey: env.TURNSTILE_SITE_KEY ?? "",
-    localDev: env.VIBE_SHARE_LOCAL_DEV === "true",
-    publishingReady: env.VIBE_SHARE_LOCAL_DEV === "true" || (typeof env.TURNSTILE_SECRET === "string" && env.TURNSTILE_SECRET !== "") || (typeof env.VIBE_SHARE_RATE_SECRET === "string" && env.VIBE_SHARE_RATE_SECRET.length >= 32),
-  }));
+  if (request.method === "GET" && url.pathname === "/new") {
+    const nonce = randomToken(24);
+    return html(renderNewPage({
+      nonce,
+      turnstileSiteKey: env.TURNSTILE_SITE_KEY ?? "",
+      localDev: env.VIBE_SHARE_LOCAL_DEV === "true",
+      publishingReady: env.VIBE_SHARE_LOCAL_DEV === "true" || (typeof env.TURNSTILE_SECRET === "string" && env.TURNSTILE_SECRET !== "") || (typeof env.VIBE_SHARE_RATE_SECRET === "string" && env.VIBE_SHARE_RATE_SECRET.length >= 32),
+    }), 200, "no-store", nonce);
+  }
   if (request.method === "GET" && url.pathname === "/app.js") return new Response(APP_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
   if (request.method === "POST" && url.pathname === "/api/articles") return createArticle(request, env, url);
   const cover = /^\/i\/([A-Za-z0-9_-]{8,24})\.jpg$/.exec(url.pathname);

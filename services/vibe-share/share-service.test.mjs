@@ -588,3 +588,48 @@ test("publishing a bundled drawing preserves its previewed JPEG, credit and soci
  assert.ok(html.includes(`<meta property="og:image" content="${stored.visual.imageUrl}">`));
  assert.match(html,/Pablo Stanley/);
 });
+
+const interactiveMarkdown = 'Before the app.\n\n```vibe-app\n' + JSON.stringify({title: 'Counter </iframe><script>parentEscape()</script>', height: 360, html: '<button id="count">0</button><script>document.getElementById("count").addEventListener("click",e=>e.target.textContent++);</script>'}) + '\n```\n\nAfter the app.';
+
+test('interactive content renders only inside an escaped opaque sandbox, with surrounding article copy', () => {
+  const page = markdownToHtml(interactiveMarkdown, '', 'testNonce123');
+  assert.match(page, /<p>Before the app\.<\/p>/);
+  assert.match(page, /<p>After the app\.<\/p>/);
+  assert.match(page, /sandbox="allow-scripts allow-forms"/);
+  assert.doesNotMatch(page, /allow-same-origin|allow-popups|<script>/);
+  assert.match(page, /&lt;script nonce=&quot;testNonce123&quot;&gt;/);
+  assert.match(page, /connect-src &amp;#39;none&amp;#39;/);
+  assert.match(page, /form-action &amp;#39;none&amp;#39;/);
+  assert.equal((page.match(/<iframe /g) || []).length, 1);
+});
+
+test('preview and public documents use fresh matching nonces while parent inline scripts stay blocked', async () => {
+  const first = await handleRequest(new Request(origin + '/new'), {});
+  const second = await handleRequest(new Request(origin + '/new'), {});
+  const policy = first.headers.get('content-security-policy');
+  const nonce = /script-src 'nonce-([^']+)'/.exec(policy)[1];
+  assert.ok(nonce.length >= 24);
+  assert.notEqual(policy, second.headers.get('content-security-policy'));
+  assert.doesNotMatch(policy.match(/script-src[^;]+/)[0], /unsafe-inline/);
+  assert.match(await first.text(), new RegExp('name="vibe-interactive-nonce" content="' + nonce + '"'));
+  const db = new MemoryDb();
+  db.rows.set('interactive123', {snapshot_json: JSON.stringify({...snapshot, markdown: interactiveMarkdown}), expires_at: Date.now() + 60000});
+  const published = await handleRequest(new Request(origin + '/a/interactive123'), {DB: db});
+  assert.equal(published.status, 200);
+  const publishedNonce = /script-src 'nonce-([^']+)'/.exec(published.headers.get('content-security-policy'))[1];
+  assert.match(await published.text(), new RegExp('&lt;script nonce=&quot;' + publishedNonce + '&quot;&gt;'));
+});
+
+test('browser preview uses the same interactive parser and sandboxed document as publication', () => {
+  const nodes = [];
+  function element(tag) { const node = {tag, children: [], attrs: {}, append(...children) {this.children.push(...children);}, setAttribute(k,v) {this.attrs[k]=v;}}; nodes.push(node); return node; }
+  const document = {getElementById: () => null, querySelector: () => ({content: 'previewNonce'}), querySelectorAll: () => [], createDocumentFragment: () => element('fragment'), createElement: element, createTextNode: text => ({text})};
+  const context = {document, window: {opener: null, addEventListener() {}}, URL, console};
+  runInNewContext(APP_JS + '\nglobalThis.output = renderMarkdown(' + JSON.stringify(interactiveMarkdown) + ');', context);
+  const frame = nodes.find(n => n.tag === 'iframe');
+  assert.equal(frame.attrs.sandbox, 'allow-scripts allow-forms');
+  assert.equal(frame.height, '360');
+  assert.match(frame.srcdoc, /<script nonce="previewNonce">/);
+  assert.match(frame.srcdoc, /connect-src &#39;none&#39;/);
+  assert.ok(nodes.some(n => n.tag === 'p'));
+});

@@ -25,7 +25,8 @@
     "routing-policy.js",
     "update-check.js",
     "skills/",
-    "editorial-contract.js"
+    "editorial-contract.js",
+    "interactive-authoring.js"
   ],
   "scripts": {
     "build:client": "node scripts/build-client.mjs",

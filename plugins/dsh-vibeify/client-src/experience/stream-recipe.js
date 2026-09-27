@@ -1,3 +1,4 @@
+import { INTERACTIVE_AUTHORING_CONTRACT } from "../../interactive-authoring.js";
 import { createEditorialProfile } from "./editorial-settings.js";
 import { QUESTIONNAIRE_AUTHORING_CONTRACT } from "../../questionnaire-contract.js";
 
@@ -34,6 +35,8 @@ export function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels
   return `# VIBE magazine update
 
 You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. The browser has also released two locally prepared pages for this update immediately: one visual short and one questionnaire. Do not duplicate or count those two pages. Add ${count} further complete, worthwhile generated semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
+
+${INTERACTIVE_AUTHORING_CONTRACT}
 
 ## Editorial contract
 

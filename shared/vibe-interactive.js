@@ -1,3 +1,5 @@
+import { MOCHI_MEADOW_HTML } from "./mochi-meadow.js";
+
 /** Self-contained article widgets. The consumer must retain the iframe sandbox. */
 export const INTERACTIVE_SANDBOX = "allow-scripts allow-forms";
 export const INTERACTIVE_CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'";
@@ -37,6 +39,12 @@ export function splitInteractiveBlocks(markdown) {
         }
         fence = null;
       }
+    } else if (count < 3 && content === ":::vibe-game mochi-meadow" && /^:::(?:\r?\n|$)/.test(markdown.slice(offset + line.length))) {
+      if (offset > textStart) parts.push({ type: "markdown", value: markdown.slice(textStart, offset) });
+      parts.push({ type: "interactive", title: "Mochi Meadow", html: MOCHI_MEADOW_HTML, height: 590, builtin: "mochi-meadow" });
+      count += 1;
+      const closing = markdown.slice(offset + line.length).match(/^:::(?:\r?\n|$)/)[0];
+      textStart = offset + line.length + closing.length;
     } else {
       const opening = content.match(/^ {0,3}(`{3,}|~{3,})([^\r\n]*)$/);
       // Backticks in the info string do not form a Markdown fence.
@@ -74,5 +82,5 @@ export function interactiveMarkup(part, nonce = "") {
 
 /** Same implementation in the standalone sharing preview, without a separate parser. */
 export function vibeInteractiveRuntimeSource() {
-  return `const INTERACTIVE_SANDBOX = ${JSON.stringify(INTERACTIVE_SANDBOX)};\nconst INTERACTIVE_CSP = ${JSON.stringify(INTERACTIVE_CSP)};\n` + [normalizedInteractive, splitInteractiveBlocks, escapeAttribute, interactiveDocument, interactiveMarkup].map(fn => fn.toString()).join("\n\n");
+  return `const MOCHI_MEADOW_HTML = ${JSON.stringify(MOCHI_MEADOW_HTML)};\nconst INTERACTIVE_SANDBOX = ${JSON.stringify(INTERACTIVE_SANDBOX)};\nconst INTERACTIVE_CSP = ${JSON.stringify(INTERACTIVE_CSP)};\n` + [normalizedInteractive, splitInteractiveBlocks, escapeAttribute, interactiveDocument, interactiveMarkup].map(fn => fn.toString()).join("\n\n");
 }

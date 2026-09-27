@@ -79,12 +79,9 @@ import { splitInteractiveBlocks, interactiveDocument, INTERACTIVE_SANDBOX } from
 import { clickToLoadMedia } from "./media-embed.js";
 import {
   hasMochiMeadowBlock,
-  PLAYABLE_GAME_CSS,
+  isMochiStartEvent,
   playableGameAnchorId,
-  PlayableGame,
-  removeLocalGamesForShare,
-  splitPlayableGameBlocks,
-} from "./playable-game.jsx";
+} from "./playable-game-contract.js";
 import {
   beginSharePreview,
   copyPublicShareUrl,
@@ -158,27 +155,34 @@ function MarkdownText({ value, title }) {
   return <div ref={ref} className="vfx-markdown-segment" />;
 }
 
-function InteractiveContent({ content }) {
-  const [open, setOpen] = React.useState(false);
-  return <section className="vfx-interactive" aria-label={content.title}>
+function InteractiveContent({ content, anchorId, onGameStart }) {
+  const frameRef = React.useRef(null);
+  React.useEffect(() => {
+    if (content.builtin !== "mochi-meadow" || !onGameStart) return;
+    const started = (event) => {
+      if (isMochiStartEvent(event, frameRef.current?.contentWindow)) onGameStart();
+    };
+    window.addEventListener("message", started);
+    return () => window.removeEventListener("message", started);
+  }, [content.builtin, onGameStart]);
+  const [open, setOpen] = React.useState(Boolean(content.builtin));
+  return <section id={anchorId} className="vfx-interactive" aria-label={content.title}>
     <div className="vfx-interactive-heading"><h3>{content.title}</h3>
       <button type="button" onClick={() => setOpen(!open)}>{open ? "Close interactive" : "Open interactive"}</button>
     </div>
-    {open ? <iframe title={content.title} sandbox={INTERACTIVE_SANDBOX} referrerPolicy="no-referrer" srcDoc={interactiveDocument(content.html)} style={{ height: content.height }} /> : null}
+    {open ? <iframe ref={frameRef} title={content.title} sandbox={INTERACTIVE_SANDBOX} referrerPolicy="no-referrer" srcDoc={interactiveDocument(content.html)} style={{ height: content.height }} /> : null}
   </section>;
 }
 
 function Markdown({ value, title, onLink, onGameStart, chunkId }) {
-  const segments = splitInteractiveBlocks(value).flatMap((part) => part.type === "interactive" ? [part] : splitPlayableGameBlocks(part.value));
+  const segments = splitInteractiveBlocks(value);
   const anchorId = playableGameAnchorId(chunkId);
   return <div className="vfx-markdown" onClick={(event) => {
     const link = event.target instanceof Element ? event.target.closest("a") : null;
     if (link !== null) onLink?.(link.href);
   }}>
     {segments.map((segment, index) => segment.type === "interactive"
-      ? <InteractiveContent key={`interactive-${index}`} content={segment} />
-      : segment.type === "game"
-      ? <PlayableGame key={`game-${index}`} gameId={segment.gameId} anchorId={anchorId} onStart={onGameStart} />
+      ? <InteractiveContent key={`interactive-${index}`} content={segment} onGameStart={onGameStart} anchorId={segment.builtin ? anchorId : undefined} />
       : <MarkdownText key={`markdown-${index}`} value={segment.value} title={title} />)}
   </div>;
 }
@@ -779,7 +783,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const onShare = React.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
     const snapshot = shareSnapshotForChunk({
       chunk,
-      markdown: removeLocalGamesForShare(markdownWithoutLeadVisual(chunk.markdown)),
+      markdown: markdownWithoutLeadVisual(chunk.markdown),
       media,
       inlineVisuals,
       contentLink,
@@ -1059,7 +1063,7 @@ function installStyles(ctx) {
   ctx.effect(() => {
     const style = document.createElement("style");
     style.id = STYLE_ID;
-    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}\n${PLAYABLE_GAME_CSS}\n${APPEARANCE_CSS}`;
+    style.textContent = `${CSS}\n${PUBLIC_SHARE_CSS}\n${APPEARANCE_CSS}`;
     document.getElementById(STYLE_ID)?.remove();
     document.head.appendChild(style);
     return () => style.remove();

@@ -32,7 +32,7 @@ if ! command -v dsh >/dev/null 2>&1; then
   exit 1
 fi
 
-qualified_dsh_version="0.1.5-rc.3"
+qualified_dsh_version="0.1.7-rc.2"
 if [[ "$(dsh --version)" != "$qualified_dsh_version" ]]; then
   echo "This Vibeify bundle requires the qualified DSH $qualified_dsh_version runtime. Run scripts/install-dsh.sh --replace first." >&2
   exit 2
@@ -73,6 +73,8 @@ for required_plugin_directory in "$plugin_directory" "$visual_plugin_directory" 
     exit 1
   fi
 done
+
+node "$script_directory/align-profile-versions.mjs" "$profile_directory/package.json"
 
 if [[ -f "$profile_directory/package.json" ]] && grep -q "\"$legacy_package\"" "$profile_directory/package.json"; then
   echo "Migrating the older local Vibeify bridge..."

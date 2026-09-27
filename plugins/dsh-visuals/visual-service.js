@@ -203,7 +203,7 @@ function validateSearch(input) {
       return url.protocol === "https:" && url.hostname === "commons.wikimedia.org" && !url.username && !url.password && url.pathname.startsWith("/wiki/File:") && title.length < 300 && !title.includes("|") ? [title] : [];
     } catch { return []; }
   });
-  return Object.freeze({ query, orientation, limit, excludeUrls, sourceTitles });
+  return Object.freeze({ query, orientation, limit, excludeUrls, sourceTitles, exactOnly: input.exactOnly === true });
 }
 
 async function defaultFetchJson(url, options = {}) {
@@ -301,6 +301,7 @@ export function createVisualService({ getConfig, resolveCredential, fetchJson = 
       const current = await state();
       // Recover the editor's chosen photograph using authoritative licence metadata.
       // Only a fixed Commons API endpoint is fetched, never an arbitrary supplied URL.
+      let exactFailed = false;
       if (current.config.wikimedia !== false && input.sourceTitles.length > 0) {
         const url = new URL("https://commons.wikimedia.org/w/api.php");
         for (const [key, value] of Object.entries({ action: "query", titles: input.sourceTitles.join("|"), prop: "imageinfo|info", iiprop: "url|extmetadata", iiurlwidth: "1800", inprop: "url", format: "json", formatversion: "2" })) url.searchParams.set(key, value);
@@ -308,8 +309,9 @@ export function createVisualService({ getConfig, resolveCredential, fetchJson = 
           const resolved = normalizeWikimedia(await fetchJson(url, { signal }), input.query)
             .filter((item) => !input.excludeUrls.has(item.imageUrl));
           if (resolved.length > 0) return Object.freeze({ candidates: Object.freeze(resolved), providers: ["wikimedia"], failedProviders: [] });
-        } catch { /* Continue to independent public image search. */ }
+        } catch { exactFailed = true; }
       }
+      if (input.exactOnly) return Object.freeze({ candidates: [], providers: ["wikimedia"], failedProviders: exactFailed || current.config.wikimedia === false ? ["wikimedia"] : [] });
       const sourceQuery = input.sourceTitles[0]?.replace(/^File:/i, "").replace(/\.[a-z0-9]{2,5}$/i, "").replace(/_/g, " ").replace(/\b(?:untitled|by|official|photo|photograph|portrait|image|\d{4})\b/gi, " ").replace(/\s+/g, " ").trim();
       const searchInput = sourceQuery?.length >= 3 ? { ...input, query: sourceQuery.slice(0, MAX_QUERY) } : input;
       const plans = providerPlans(searchInput, current.config, current.credentials, fetchJson, signal);

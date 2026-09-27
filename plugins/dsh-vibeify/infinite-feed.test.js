@@ -333,3 +333,24 @@ test("refreshed long articles retain a varied magazine grid", () => {
   const articles = Array.from({ length: 7 }, (_, index) => ({ kind: "article", source: index % 2 ? "fresh-stream" : "chat-directed", markdown: "A complete long story. ".repeat(200) }));
   assert.deepEqual(articles.map(panelLayoutForChunk), ["hero", "feature", "compact", "standard", "standard", "compact", "feature"]);
 });
+
+ test("standalone credited Commons video stills are resolved without accepting unrelated links", () => {
+  const source = "https://commons.wikimedia.org/wiki/File:Maggie_Aderin-Pocock,_The_Royal_Society.jpg";
+  const markdown = `[Video still · The Royal Society · CC BY 3.0](${source})\n\nA telescope is an instrument.`;
+  assert.deepEqual(commonsSourceUrlsForMarkdown(markdown), [source]);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(`[Read more](${source})`), []);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(`Read [Video still · The Royal Society](${source}) in this paragraph.`), []);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(`[Video still · Example](https://commons.wikimedia.org.evil.test/wiki/File:Photo.jpg)`), []);
+});
+
+ test("Commons credits with authorship outside the link resolve across caption layouts", () => {
+  const source = "https://commons.wikimedia.org/wiki/File:Steam-engine_for_working_a_fan_for_withdrawing_air_from_the_mines,_1854.jpg";
+  for (const credit of [
+    `*Image: Robert Scott Burn, 1854; public domain via [Wikimedia Commons](${source}).*`,
+    `**Image credit:** Robert Scott Burn, 1854; public domain via [Wikimedia Commons](${source}).`,
+    `Photo: Robert Scott Burn — [source](${source})`,
+    `Video still: The Royal Society · [Commons](${source}) · CC BY 3.0`,
+  ]) assert.deepEqual(commonsSourceUrlsForMarkdown(credit), [source]);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(`This prose mentions [Wikimedia Commons](${source}).`), []);
+  assert.deepEqual(commonsSourceUrlsForMarkdown(`Image: Example via [Commons](https://commons.wikimedia.org.evil.test/wiki/File:Other.jpg).`), []);
+});

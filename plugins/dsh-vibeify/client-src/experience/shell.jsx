@@ -15,8 +15,7 @@ import {
   questionnaireOptions,
   remoteVisualForMarkdown,
   remoteVisualsForMarkdown,
-  visualMediaForChunk,
-  storyCoverForChunk,
+  fallbackMediaForChunk,
 } from "./feed.js";
 import {
   CONTENT_STORE_KEY,
@@ -90,15 +89,16 @@ import {
   shareSnapshotForChunk,
 } from "./share-client.js";
 import {
-  mediaFromVisualCandidate,
   createGeneratedVisualCache,
   readVisualCache,
   searchVisualForChunk,
   writeVisualCache,
   visualImageLoads,
+  usableImageDimensions,
   generateVisualForChunk,
 } from "./visual-source-client.js";
-import { createVisualLifecycle, visualNeedsLocalCover } from "./visual-lifecycle.js";
+import { createVisualLifecycle } from "./visual-lifecycle.js";
+import { articleImageKey, articleImageMedia } from "./article-image.js";
 import {
   boundMagazinePresentation,
   composeOpeningStream,
@@ -300,13 +300,8 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStatus, failedVisuals, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
-  const fallbackMedia = visualMediaForChunk(CATALOG, chunk);
-  const enhancedMedia = mediaFromVisualCandidate(visualOverride, fallbackMedia?.episode?.artwork, fallbackMedia?.mode);
-  const proposedMedia = enhancedMedia === null ? fallbackMedia : Object.freeze({ ...enhancedMedia, episode: fallbackMedia?.episode });
-  const proposedUrl = proposedMedia?.externalUrl ?? ARTWORK[proposedMedia?.artwork];
-  const media = visualNeedsLocalCover(proposedMedia, proposedUrl, verifiedVisuals, failedVisuals)
-    ? storyCoverForChunk(chunk) : proposedMedia;
+function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+  const media = articleImageMedia(visualOverride, fallbackMediaForChunk(CATALOG, chunk));
   const externalContentLink = contentLinkForMarkdown(chunk.markdown);
   const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
   const hasInteractive = hasLocalGame || splitInteractiveBlocks(chunk.markdown).some((part) => part.type === "interactive");
@@ -352,7 +347,7 @@ function StreamChunk({ chunk, index, visualOverride, verifiedVisuals, visualStat
             fetchpriority={index === 0 ? "high" : "auto"}
             referrerPolicy="no-referrer"
             onError={() => { if (media.kind !== "illustration") onVisualFailure(visual); }}
-            onLoad={(event) => { if (media.kind !== "illustration" && (event.currentTarget.naturalWidth < 480 || event.currentTarget.naturalHeight < 240)) onVisualFailure(visual); }}
+            onLoad={(event) => { if (media.kind !== "illustration" && !usableImageDimensions(event.currentTarget)) onVisualFailure(visual); }}
           />
           <span className="vfx-visual-shade" />
           <figcaption><a href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.label}</a></figcaption>
@@ -428,11 +423,8 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
   const [visualStatus, setVisualStatus] = React.useState(() => new Map());
-  const [failedVisuals, setFailedVisuals] = React.useState(() => new Set());
   const visualLifecycle = React.useRef(null);
-  const [verifiedVisuals, setVerifiedVisuals] = React.useState(() => new Set());
   const onVisualFailure = React.useCallback((url) => {
-    setFailedVisuals((current) => current.has(url) ? current : new Set([...current, url]));
     visualLifecycle.current?.failure(url);
   }, []);
   const [visualOverrides, setVisualOverrides] = React.useState(() => new Map());
@@ -565,20 +557,12 @@ function ExperienceShell({ codexFeatures, connection }) {
       load: (url) => visualImageLoads(url),
       cached: readVisualCache(browserStorage()),
       generatedCache: createGeneratedVisualCache(),
-      onSelect: (id, visual) => {
-        setVisualOverrides((current) => new Map(current).set(id, visual));
-        setVerifiedVisuals((current) => new Set(current).add(visual.imageUrl));
-        setFailedVisuals((current) => { const next = new Set(current); next.delete(visual.imageUrl); return next; });
-        writeVisualCache(browserStorage(), id, visual);
-        setVisualStatus((current) => { const next = new Map(current); next.delete(id); return next; });
-      },
-      onVerified: (id, url) => {
-        setVerifiedVisuals((current) => new Set(current).add(url));
-        setFailedVisuals((current) => { const next = new Set(current); next.delete(url); return next; });
-        setVisualStatus((current) => { const next = new Map(current); next.delete(id); return next; });
+      onResult: (id, result) => {
+        setVisualOverrides((current) => new Map(current).set(id, result));
+        const chunk = chunksRef.current.find((item) => item.id === id);
+        if (chunk && result.visual && result.origin !== "linked") writeVisualCache(browserStorage(), articleImageKey(chunk), result.visual);
       },
       onStatus: (id, status) => setVisualStatus((current) => new Map(current).set(id, status)),
-      onFailure: (url) => setFailedVisuals((current) => new Set(current).add(url)),
     });
     visualLifecycle.current = lifecycle;
     lifecycle.enqueue(chunksRef.current);
@@ -883,9 +867,7 @@ function ExperienceShell({ codexFeatures, connection }) {
                   chunk={chunk}
                   index={index}
                   visualOverride={visualOverrides.get(chunk.id)}
-                  verifiedVisuals={verifiedVisuals}
                   visualStatus={visualStatus.get(chunk.id)}
-                  failedVisuals={failedVisuals}
                   onVisualFailure={onVisualFailure}
                   saved={state.savedChunkIds.includes(chunk.id)}
                   answer={answers[chunk.id]}
@@ -1076,5 +1058,5 @@ export function registerExperienceShell(ctx, { codexFeatures = true } = {}) {
   installRecipeRunner(ctx);
   installThreadMagazineBridge(ctx);
   installBackgroundEditor(ctx, { codexFeatures });
-  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => <ExperienceShell codexFeatures={codexFeatures} connection={ctx.connection} />));
+  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => <ExperienceShell codexFeatures={codexFeatures} connection={ctx.get("connection")} />));
 }

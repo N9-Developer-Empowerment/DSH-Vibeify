@@ -1,4 +1,4 @@
-import { commonsSourceUrlsForMarkdown } from "./feed.js";
+import { parseArticleImages } from "./article-image-source.js";
 export const VISUAL_RPC_CHANNEL = "/dsh-visuals";
 export const VISUAL_CACHE_KEY = "dsh-vibeify.visuals.v1";
 export const VISUAL_CACHE_VERSION = 2;
@@ -83,20 +83,20 @@ export function cleanVisualSearchResult(value) {
   }));
 }
 
-export function publicVisualBriefForChunk(chunk) {
+export function publicVisualBriefForChunk(chunk, parsed = parseArticleImages(chunk?.markdown)) {
   if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire") return null;
   if (!PUBLIC_SOURCES.has(chunk.source)) {
     // Resolve an explicitly linked public photograph without sending private prose or title.
-    const sourceUrls = commonsSourceUrlsForMarkdown(chunk.markdown);
+    const sourceUrls = parsed.sourceUrls;
     return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
   }
-  const imageAlt = typeof chunk.markdown === "string" ? /!\[([^\]]{3,180})\]\(https:\/\//.exec(chunk.markdown)?.[1] : null;
+  const imageAlt = parsed.firstImageAlt;
   const publicBody = typeof chunk.markdown === "string" ? chunk.markdown
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[[^\]]*\]\([^)]*\)/g, " ")
     .replace(/[#*_`>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 220) : "";
   const query = cleanText(imageAlt ?? `${chunk.title ?? ""}. ${publicBody}`, 180);
   if (query === null || query.length < 3) return null;
-  return Object.freeze({ query, orientation: "landscape", sourceUrls: commonsSourceUrlsForMarkdown(chunk.markdown) });
+  return Object.freeze({ query, orientation: "landscape", sourceUrls: parsed.sourceUrls });
 }
 
 export function createGeneratedVisualCache(indexedDB = globalThis.indexedDB) {
@@ -197,12 +197,15 @@ export async function searchVisualForChunk(connection, chunk, excludeUrls = []) 
     const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "search", {
       ...brief,
       limit: 12,
+      exactOnly: brief.sourceUrls.length > 0,
       excludeUrls: Array.isArray(excludeUrls) ? excludeUrls.slice(-80) : [],
     });
-    if (response?.ok !== true) return Object.freeze([]);
-    return cleanVisualSearchResult(response.value);
+    if (response?.ok !== true) throw new Error("Image search is unavailable");
+    const candidates = cleanVisualSearchResult(response.value);
+    if (candidates.length === 0 && response.value?.failedProviders?.length > 0) throw new Error("Image search is unavailable");
+    return candidates;
   } catch {
-    return Object.freeze([]);
+    throw new Error("Image search is unavailable");
   }
 }
 
@@ -223,6 +226,8 @@ export function mediaFromVisualCandidate(visual, fallbackArtwork, mode = "cinema
   });
 }
 
+export const usableImageDimensions = (image) => image.naturalWidth >= 480 && image.naturalHeight >= 240;
+
 // A candidate is not selected or cached until the actual browser decodes it.
 export function visualImageLoads(url, ImageClass = globalThis.Image, timeoutMs = 8000) {
   if (typeof ImageClass !== "function") return Promise.resolve(false);
@@ -231,7 +236,7 @@ export function visualImageLoads(url, ImageClass = globalThis.Image, timeoutMs =
     const finish = (ok) => { clearTimeout(timer); image.onload = null; image.onerror = null; resolve(ok); };
     const timer = setTimeout(() => finish(false), timeoutMs);
     image.referrerPolicy = "no-referrer";
-    image.onload = () => finish(image.naturalWidth >= 480 && image.naturalHeight >= 240);
+    image.onload = () => finish(usableImageDimensions(image));
     image.onerror = () => finish(false);
     image.src = url;
   });

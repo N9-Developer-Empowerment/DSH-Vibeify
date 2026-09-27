@@ -255,3 +255,14 @@ test("openly licensed illustrations remain eligible and Commons credit does not 
   assert.equal(openverse.length, 1);
   assert.match(openverse[0].credit, /^Image · Open illustrator · CC BY-SA 4\.0$/);
 });
+
+for (const failing of [false, true]) test(`exact Commons lookup ${failing ? "failure" : "miss"} never broadens the search`, async () => {
+  const urls = [];
+  const service = createVisualService({ getConfig: () => ({}), resolveCredential: async () => undefined,
+    fetchJson: async url => { urls.push(String(url)); if (failing) throw Error("network"); return {}; } });
+  const result = await service.search({query:"Steam engine", exactOnly:true, sourceUrls:["https://commons.wikimedia.org/wiki/File:Engine.jpg"]});
+  assert.equal(urls.length,1);
+  assert.ok(new URL(urls[0]).searchParams.has("titles"));
+  assert.deepEqual(result.candidates,[]);
+  assert.deepEqual(result.failedProviders,failing ? ["wikimedia"] : []);
+});

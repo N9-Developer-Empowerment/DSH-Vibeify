@@ -433,7 +433,7 @@ window.__ModuleLoader__.load({
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
 			const { api } = ctx.get("connection");
-			const visualSettings = ctx.settingsScope.bind({ namespace: VISUAL_SETTINGS_NAMESPACE });
+			const visualSettings = ctx.configForms.get(VISUAL_SETTINGS_NAMESPACE);
 			ctx.effect(() => {
 				const style = document.createElement("style");
 				style.id = UPDATE_STYLE_ID;
@@ -504,12 +504,8 @@ window.__ModuleLoader__.load({
 
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
-				const conversationSettings = ctx.settingsScope.bind({
-					namespace: CONVERSATION_SETTINGS_NAMESPACE,
-				});
-				const codexSettings = ctx.settingsScope.bind({
-					namespace: CODEX_SETTINGS_NAMESPACE,
-				});
+				const conversationSettings = ctx.configForms.get(CONVERSATION_SETTINGS_NAMESPACE);
+				const codexSettings = ctx.configForms.get(CODEX_SETTINGS_NAMESPACE);
 
 			ctx.effect(() => {
 				const style = document.createElement("style");
@@ -1052,7 +1048,7 @@ window.__ModuleLoader__.load({
 			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
 			      <label>Spacing<select id="dsh-vibeify-spacing"><option value="standard">Standard</option><option value="roomy">Roomy</option></select></label>
 			    </div>
-			    <button class="dsh-vibeify-apply-appearance dsh-vibeify-apply" type="button">Apply magazine appearance</button>
+			    <button class="dsh-vibeify-apply-appearance dsh-vibeify-apply" type="button">Save magazine appearance</button>
 			  </section>
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-colour-heading">
 			    <div id="dsh-vibeify-colour-heading" class="dsh-vibeify-heading">Chat colour theme</div>
@@ -1121,6 +1117,11 @@ window.__ModuleLoader__.load({
 					textSize: textSize.value,
 					spacing: spacing.value,
 				});
+				const saveAppearanceImmediately = () => {
+					appearanceProfile = saveAppearanceFromControls();
+					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
+					status.textContent = `Magazine appearance saved: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
+				};
 				const saveEditorialFromControls = () => {
 					const selectedTribes = [...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe);
 					return applyEditorialDirection({ tribes: selectedTribes, customDirection: customDirection.value, serendipity: Number(serendipity.value) / 100, backgroundEditor: background.checked, dailyBudgetUsd: Number(budget.value), contentNotes: contentNotes.checked, clickToLoadMedia: true });
@@ -1129,6 +1130,7 @@ window.__ModuleLoader__.load({
 					const magazineChoice = event.target instanceof Element ? event.target.closest("[data-magazine-palette]") : null;
 					if (magazineChoice && Object.hasOwn(MAGAZINE_PALETTES, magazineChoice.dataset.magazinePalette)) {
 						for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button === magazineChoice));
+						saveAppearanceImmediately();
 						return;
 					}
 					const choice = event.target instanceof Element ? event.target.closest("[data-vibe]") : null;
@@ -1145,8 +1147,7 @@ window.__ModuleLoader__.load({
 						return;
 					}
 					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply-appearance")) {
-						appearanceProfile = saveAppearanceFromControls();
-						status.textContent = `Magazine appearance applied: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
+						saveAppearanceImmediately();
 						return;
 					}
 					if (event.target instanceof Element && event.target.closest(".dsh-vibeify-apply-editorial")) {
@@ -1183,6 +1184,8 @@ window.__ModuleLoader__.load({
 				const onOpenAppearance = () => setOpen(true);
 
 				picker.addEventListener("click", onPickerClick);
+				textSize.addEventListener("change", saveAppearanceImmediately);
+				spacing.addEventListener("change", saveAppearanceImmediately);
 				serendipity.addEventListener("input", onSerendipity);
 				document.addEventListener("click", onDocumentClick);
 				document.addEventListener("keydown", onKeyDown);
@@ -1193,6 +1196,8 @@ window.__ModuleLoader__.load({
 
 				return () => {
 					picker.removeEventListener("click", onPickerClick);
+					textSize.removeEventListener("change", saveAppearanceImmediately);
+					spacing.removeEventListener("change", saveAppearanceImmediately);
 					serendipity.removeEventListener("input", onSerendipity);
 					document.removeEventListener("click", onDocumentClick);
 				document.removeEventListener("keydown", onKeyDown);
@@ -1205,7 +1210,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["connection", "remote", "remote.session", "sessions", "settingsScope", "slots"];
+		exports.inject = ["connection", "remote", "remote.session", "sessions", "configForms", "slots"];
 		return module.exports;
 	},
 });

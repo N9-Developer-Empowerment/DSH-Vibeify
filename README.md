@@ -71,6 +71,14 @@ The first screen is Vibe itself: a full-screen editorial feed opens with the cur
 
 > DSH is a fast-moving developer preview. Vibeify pins the versions it has tested and includes a health check, but you should still expect upstream changes.
 
+## Play inside the article
+
+Ask Chat to **“Make a Vibe with an embedded game, calculator, form or interactive graph.”** Self-contained interactive panels appear within the article. Open a panel to use it while reading; the built-in Mochi Meadow game is visible immediately and starts only when you press its start button.
+
+The article carries the interaction into its private sharing preview and published page when the matching share-service version is deployed. Mochi Meadow uses the same implementation in all three places. Scores and form answers stay in the open panel; they are not saved or included in the shared article. Closing a panel or reloading resets its state. Panels cannot access your magazine, account, external services or local files.
+
+See [interactive article authoring](docs/VIBES.md#embedded-games-and-interactive-articles) and [sharing](docs/SHARING.md). Updating local Vibeify does not deploy the separate public share service.
+
 ## Contact
 
 For Vibeify questions, installation help, or responsible reports that should not begin in a public issue, email [info@codingforjustice.org.uk](mailto:info@codingforjustice.org.uk). Do not send passwords, API keys, cookies, OAuth tokens, private prompts, session exports, or unreviewed logs.

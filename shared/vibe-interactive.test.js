@@ -80,3 +80,27 @@ test("child CSP denies remote scripts even if app code attaches the inherited no
   assert.match(doc, /form-action &#39;none&#39;/);
   assert.match(interactiveMarkup(app()), /sandbox="allow-scripts allow-forms"/);
 });
+
+test("legacy saved Mochi articles use the same portable implementation in browser and server", () => {
+  const source = 'Before\n:::vibe-game mochi-meadow\n:::\nAfter';
+  const parts = splitInteractiveBlocks(source);
+  assert.equal(parts[0].value, 'Before\n');
+  assert.equal(parts[2].value, 'After');
+  assert.equal(parts[1].builtin, 'mochi-meadow');
+  assert.ok(parts[1].html.length <= 12000);
+  assert.match(parts[1].html, /Start a 30-second round/);
+  const browser = new Function(vibeInteractiveRuntimeSource() + ';return splitInteractiveBlocks;')();
+  assert.deepEqual(browser(source), parts);
+  assert.equal(splitInteractiveBlocks(source.replaceAll('\n','\r\n'))[1].builtin, 'mochi-meadow');
+  assert.match(interactiveMarkup(parts[1], 'nonce123'), /&lt;script nonce=&quot;nonce123&quot;&gt;/);
+});
+
+test("game examples and incomplete or unknown directives stay text; all embeds share one limit", () => {
+  const game = ':::vibe-game mochi-meadow\n:::\n';
+  for (const source of ['```md\n'+game+'```', '~~~md\n'+game+'~~~', game.replace('mochi-meadow','unknown'), ':::vibe-game mochi-meadow\nnot closed']) {
+    assert.deepEqual(splitInteractiveBlocks(source), [{type:'markdown',value:source}]);
+  }
+  const mixed = splitInteractiveBlocks(game + block() + game + block());
+  assert.equal(mixed.filter(p=>p.type==='interactive').length,3);
+  assert.equal(mixed.at(-1).value,block());
+});

@@ -34,6 +34,7 @@ appSource = appSource.replace(
 appSource = appSource.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
 
 await Promise.all([
+  copyFile(resolve(project, "../../shared/mochi-meadow.js"), resolve(server, "mochi-meadow.js")),
   copyFile(resolve(project, "../../shared/vibe-interactive.js"), resolve(server, "vibe-interactive.js")),
   writeFile(resolve(server, "index.js"), worker),
   writeFile(resolve(server, "render.mjs"), render),

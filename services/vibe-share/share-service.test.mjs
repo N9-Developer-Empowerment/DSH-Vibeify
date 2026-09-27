@@ -633,3 +633,35 @@ test('browser preview uses the same interactive parser and sandboxed document as
   assert.match(frame.srcdoc, /connect-src &#39;none&#39;/);
   assert.ok(nodes.some(n => n.tag === 'p'));
 });
+
+test('Mochi survives snapshot storage and renders playable in the public route', async () => {
+  const markdown = 'Before the game.\n\n:::vibe-game mochi-meadow\n:::\n\nAfter the game.';
+  const db = new MemoryDb();
+  const response = await handleRequest(new Request(origin + '/api/articles', {
+    method:'POST', headers:{origin,'content-type':'application/json'},
+    body:JSON.stringify({snapshot:{...snapshot,markdown},turnstileToken:'local-test'})
+  }), {DB:db,VIBE_SHARE_LOCAL_DEV:'true'});
+  assert.equal(response.status,201);
+  const created = await response.json();
+  assert.equal(JSON.parse(db.rows.get(created.slug).snapshot_json).markdown,markdown);
+  const published = await handleRequest(new Request(created.url),{DB:db});
+  const page = await published.text();
+  assert.equal(published.status,200);
+  assert.match(page,/title="Mochi Meadow" sandbox="allow-scripts allow-forms"/);
+  assert.match(page,/Start a 30-second round/);
+  assert.match(page,/Before the game/);
+  assert.match(page,/After the game/);
+  assert.doesNotMatch(page,/playable in the local Vibe reader/);
+});
+
+test('Mochi is a working iframe in private browser previews as well as server output', () => {
+  const nodes=[];
+  function element(tag){const n={tag,children:[],attrs:{},append(...c){this.children.push(...c);},setAttribute(k,v){this.attrs[k]=v;}};nodes.push(n);return n;}
+  const document={getElementById:()=>null,querySelector:()=>({content:'previewNonce'}),querySelectorAll:()=>[],createDocumentFragment:()=>element('fragment'),createElement:element,createTextNode:text=>({text})};
+  runInNewContext(APP_JS+'\nrenderMarkdown(":::vibe-game mochi-meadow\\n:::");',{document,window:{opener:null,addEventListener(){}},URL,console});
+  const frame=nodes.find(n=>n.tag==='iframe');
+  assert.equal(frame.attrs.sandbox,'allow-scripts allow-forms');
+  assert.match(frame.srcdoc,/<script nonce="previewNonce">/);
+  assert.match(frame.srcdoc,/Start a 30-second round/);
+  assert.match(frame.srcdoc,/setInterval\(tick,80\)/);
+});

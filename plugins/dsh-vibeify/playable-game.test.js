@@ -3,8 +3,8 @@ import test from "node:test";
 
 import {
   hasMochiMeadowBlock,
+  isMochiStartEvent,
   playableGameAnchorId,
-  removeLocalGamesForShare,
   splitPlayableGameBlocks,
 } from "./client-src/experience/playable-game-contract.js";
 
@@ -27,13 +27,15 @@ test("game-like text in fenced examples and malformed blocks stay ordinary Markd
   assert.deepEqual(splitPlayableGameBlocks(malformed), [{ type: "markdown", value: malformed }]);
 });
 
-test("public share text replaces the local game block and preserves the article", () => {
-  const shared = removeLocalGamesForShare("Catch a small win.\n\n:::vibe-game mochi-meadow\n:::\n\nBack to the page.");
-  assert.equal(shared, "Catch a small win.\n\n*Mochi Meadow is playable in the local Vibe reader.*\n\nBack to the page.");
-  assert.equal(shared.includes(":::vibe-game"), false);
-});
-
 test("the game anchor is stable and strips unsafe id characters", () => {
   assert.equal(playableGameAnchorId("chat-mochi meadow/1"), "vfx-game-chat-mochimeadow1");
   assert.equal(playableGameAnchorId("☁"), "vfx-game-article");
+});
+
+test("Mochi start signals accept only the mounted game frame", () => {
+  const frame = {};
+  assert.equal(isMochiStartEvent({source:frame,data:{type:"vibe-mochi-start"}}, frame), true);
+  assert.equal(isMochiStartEvent({source:{},data:{type:"vibe-mochi-start"}}, frame), false);
+  assert.equal(isMochiStartEvent({source:frame,data:{type:"other"}}, frame), false);
+  assert.equal(isMochiStartEvent({source:null,data:{type:"vibe-mochi-start"}}, null), false);
 });

@@ -50,11 +50,7 @@ export function playableGameAnchorId(chunkId) {
   return `vfx-game-${safeId}`;
 }
 
-/** Public article previews get a clear note; executable behavior stays in the local reader. */
-export function removeLocalGamesForShare(markdown) {
-  return splitPlayableGameBlocks(markdown)
-    .map((part) => part.type === "game" ? "*Mochi Meadow is playable in the local Vibe reader.*" : part.value)
-    .join("\n\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+/** Opaque-origin frames may signal only a start from their own window. */
+export function isMochiStartEvent(event, frameWindow) {
+  return Boolean(frameWindow) && event.source === frameWindow && event.data?.type === "vibe-mochi-start";
 }

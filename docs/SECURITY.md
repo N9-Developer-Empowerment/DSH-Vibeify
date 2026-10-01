@@ -44,7 +44,7 @@ Vibeify enables installed app tools and lets read-only work proceed normally. Wr
 
 Vibeify cannot read exact remaining Codex quota. It optimizes structurally: Codex retains planning, approval, judgment, verification, integration, and the final response, while eligible bounded execution goes to DeepSeek. A worker result is labelled unverified until Codex inspects artifacts or evidence against the original acceptance contract.
 
-The Frontier Codex capability preset is the default. Efficient and Balanced deliberately trade some lead capability for lower resource use; the user must opt into them and evaluate them on representative tasks. They are not part of a blanket “no quality loss” claim.
+Luna Max remains the initial Codex selection. The reader can choose another signed-in model and its supported thinking effort in Settings → Codex. Different selections can trade quality, latency and resource use; evaluate them on representative tasks. No model choice carries a blanket 'no quality loss' claim. Model/effort writes are atomic, revision-checked and validated against the signed-in catalogue; the current turn keeps its captured selection.
 
 ## Secrets and logs
 

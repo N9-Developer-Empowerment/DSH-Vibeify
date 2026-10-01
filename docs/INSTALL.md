@@ -69,10 +69,10 @@ Requirements:
 The tested compatibility bundle is:
 
 - `@deepseek-ai/dsh` `0.1.7-rc.2` (the official `latest` dist-tag on 27 September 2026);
-- `@openai/codex` `0.157.1` inside the governed bridge;
+- `@openai/codex` `0.160.0` inside the governed bridge;
 - DSH Vibeify `0.16.1`.
 
-The optional native `@deepseek-ai/dsh-subagent-codex` worker is a separate DSH route. If it is already enabled in the profile, the installer keeps it at the DSH-matched `0.1.7-rc.2` package; that upstream package still declares its own `@openai/codex` dependency at `0.153.4`. The Vibeify lead bridge uses its separately pinned `0.157.1` dependency.
+The optional native `@deepseek-ai/dsh-subagent-codex` worker is a separate DSH route. If it is already enabled in the profile, the installer keeps it at the DSH-matched `0.1.7-rc.2` package; that upstream package still declares its own `@openai/codex` dependency at `0.153.4`. The Vibeify lead bridge uses its separately pinned `0.160.0` dependency.
 
 To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
@@ -121,7 +121,7 @@ codex login status
 
 Complete the browser login with the ChatGPT account whose Codex access you want to use. Do not use `--with-api-key`: the bridge deliberately accepts ChatGPT authentication only and removes `OPENAI_API_KEY` and `OPENAI_API_KEY_PATH` from its child process.
 
-In DSH, open **Settings → Codex** to choose Luna Max (recommended), Maximum, Balanced, Efficient, or Custom. This page exists only in ChatGPT/combined mode. GPT-6 Luna with Max reasoning is the default lead; Terra, Sol and Astra are available for justified specialist delegation.
+In DSH, open **Settings → Codex**, choose **Main Codex model** and **Thinking effort**, then **Save selection**. Models come from your signed-in account; only visible models with image support and supported thinking efforts are offered. Use **Reload available models** after an account or availability change. The page distinguishes the saved choice for the next turn from running Codex turns. Saving applies to the next turn in existing and new chats without interrupting active work. Luna Max remains the initial default. This page exists only in ChatGPT/combined mode. Legacy Efficient, Balanced, Frontier and Maximum settings still resolve for compatibility; duplicate preset cards are no longer shown.
 
 ## Add optional image-source keys
 

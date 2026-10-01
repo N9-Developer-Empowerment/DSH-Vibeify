@@ -139,7 +139,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **Optional governed mode.** `dsh-vibeify` uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process. In this mode Codex remains the lead.
 - **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
 - **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
-- **A Codex capability setting.** Open **Settings → Codex** to choose Luna Max (recommended), Balanced, or Efficient. GPT-6 Luna with Max reasoning is the default lead; DeepSeek Flash handles eligible bounded work, with stronger Codex models reserved for justified specialist delegation.
+- **Choose your Codex lead.** Open **Settings → Codex** to select the main model and its thinking effort separately. The list comes from your signed-in ChatGPT account and offers only supported efforts. Save both together; the next turn, including in an existing chat, uses your selection. The page shows the saved choice and any currently running Codex selection. Luna Max remains the initial default; DeepSeek Flash still handles eligible bounded work.
 - **A safe update centre.** Open **Settings → Updates** to check the installed DSH, Vibeify, and bundled Codex agent separately. A newer Codex release is not labelled installable until Vibeify has qualified it. The updater route is platform-aware: macOS opens the verified friendly updater, while Windows and Linux open their clearly labelled preview/help route until real-machine qualification is complete.
 - **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and explicit magazine updates or public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose. Vibeify opens the current Think disclosure while work is live, then closes that same disclosure once when the final answer settles; the reader can reopen it without the interface fighting back.
 - **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
@@ -204,7 +204,7 @@ DSH-Vibeify/
 The bridge currently pins:
 
 - `@deepseek-ai/dsh` `0.1.7-rc.2`
-- `@openai/codex` `0.157.1` inside the governed bridge
+- `@openai/codex` `0.160.0` inside the governed bridge
 - DSH Vibeify `0.16.3`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).

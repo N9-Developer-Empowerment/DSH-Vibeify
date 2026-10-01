@@ -22,8 +22,9 @@ test("frontier capability defaults to Luna Max and keeps GPT-6 models exact", ()
     reasoningEffort: "max",
     summary: "GPT-6 Luna at Max for planning, judgment, integration, and verification.",
   });
-  assert.deepEqual(CODEX_MODEL_CHOICES.slice(0, 4).map(({ id }) => id), [
+  assert.deepEqual(CODEX_MODEL_CHOICES.slice(0, 5).map(({ id }) => id), [
     "gpt-6-luna",
+    "gpt-6.1-sol",
     "gpt-6-sol",
     "gpt-6-astra",
     "gpt-5.6-terra",
@@ -73,10 +74,10 @@ test("unsupported capability settings fail before a Codex process starts", () =>
   assert.throws(
     () => resolveCodexRuntimeSettings({
       capabilityLevel: "custom",
-      model: "gpt-4",
+      model: "invalid model",
       reasoningEffort: "medium",
     }),
-    /unsupported DSH Codex model gpt-4/,
+    /unsupported DSH Codex model invalid model/,
   );
 });
 

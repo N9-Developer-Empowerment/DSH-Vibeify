@@ -121,7 +121,7 @@ test("questionnaires use the shared Markdown renderer before their one-tap choic
 
 test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /approval stream watchdog/);
-  assert.match(client, /Capability level/);
+  assert.match(client, /Model and thinking effort/);
   assert.match(client, /Updates/);
   assert.match(client, /Check again/);
   assert.match(client, /report\.updater\.label/);

@@ -187,7 +187,7 @@ Vibeify supports three provider arrangements:
 
 In combined mode, cheaper execution is not treated as trusted merely because it completed. Codex checks the actual file, diff, test, source, or other required artifact. Passing work is reused; failed or unverifiable work is repaired or rerun. Protected connected-app actions, privacy decisions, final acceptance, and the final answer stay with Codex.
 
-The **Settings → Codex** capability level changes the Codex model and reasoning preset, not this responsibility split. GPT-6 Luna Max is the default lead. DeepSeek Flash handles eligible bounded execution, with stronger Codex specialists used only when needed.
+**Settings → Codex** selects the main Codex model and its supported thinking effort independently. This changes the lead's model, not the responsibility split. Both values are validated against the signed-in model catalogue and saved in one revision-checked update. Each turn captures its selection once; changing settings affects the next turn, including an existing chat, and never interrupts an active turn. Luna Max remains the initial default. DeepSeek Flash handles eligible bounded execution; Codex specialists remain available when needed.
 
 ## How a page crosses into Vibe
 

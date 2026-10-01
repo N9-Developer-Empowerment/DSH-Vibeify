@@ -51,6 +51,7 @@ window.__ModuleLoader__.load({
 			  createAppearanceProfile: () => createAppearanceProfile,
 			  loadAppearanceProfile: () => loadAppearanceProfile,
 			  loadEditorialProfile: () => loadEditorialProfile,
+			  registerCodexModelSettings: () => registerCodexModelSettings,
 			  registerExperienceShell: () => registerExperienceShell,
 			  resetEditorialLearning: () => resetEditorialLearning,
 			  saveAppearanceProfile: () => saveAppearanceProfile,
@@ -5326,6 +5327,146 @@ window.__ModuleLoader__.load({
 			  installBackgroundEditor(ctx, { codexFeatures });
 			  ctx.slots.inject("shell.overlay", () => ctx.slots.register({ name: "shell.overlay", id: SLOT_ID, order: -100 }, () => /* @__PURE__ */ import_react.default.createElement(ExperienceShell, { codexFeatures, connection: ctx.get("connection") })));
 			}
+
+			// client-src/experience/codex-model-settings.jsx
+			var import_react2 = __toESM(require("react"), 1);
+
+			// codex-model-channel.js
+			var CODEX_MODELS_CHANNEL = "/vibeify-codex-models";
+
+			// client-src/experience/codex-model-settings.jsx
+			function effortForModel(model, previous) {
+			  if (model.efforts.some(({ id }) => id === previous)) return previous;
+			  return model.efforts.find(({ id }) => id === model.defaultEffort)?.id ?? model.efforts[0]?.id ?? "";
+			}
+			function selectionLabel(selection, models) {
+			  const entry = models.find(({ model }) => model === selection.model);
+			  const effort = entry?.efforts.find(({ id }) => id === selection.reasoningEffort)?.label ?? selection.reasoningEffort;
+			  return `${entry?.label ?? selection.model} \xB7 ${effort}`;
+			}
+			function CodexModelSettings({ connection }) {
+			  const [report, setReport] = import_react2.default.useState(null);
+			  const [draft, setDraft] = import_react2.default.useState(null);
+			  const [revision, setRevision] = import_react2.default.useState(null);
+			  const [busy, setBusy] = import_react2.default.useState(true);
+			  const [error, setError] = import_react2.default.useState("");
+			  const [notice, setNotice] = import_react2.default.useState("");
+			  const mounted = import_react2.default.useRef(false);
+			  const operation = import_react2.default.useRef(0);
+			  const pending = import_react2.default.useRef(false);
+			  const statusPending = import_react2.default.useRef(false);
+			  async function load() {
+			    const current = ++operation.current;
+			    pending.current = true;
+			    setBusy(true);
+			    setError("");
+			    setNotice("");
+			    try {
+			      const result = await connection.rpc.call(CODEX_MODELS_CHANNEL, "read", {});
+			      if (!mounted.current || current !== operation.current) return;
+			      if (!result.ok) throw new Error(result.error?.message);
+			      setReport(result.value);
+			      setDraft(result.value.selection);
+			      setRevision(result.value.revision);
+			    } catch (problem) {
+			      if (mounted.current && current === operation.current) setError(problem.message || "Models could not be loaded. Try again.");
+			    } finally {
+			      if (mounted.current && current === operation.current) {
+			        pending.current = false;
+			        setBusy(false);
+			      }
+			    }
+			  }
+			  import_react2.default.useEffect(() => {
+			    mounted.current = true;
+			    load();
+			    const timer = setInterval(async () => {
+			      if (pending.current || statusPending.current) return;
+			      const current = operation.current;
+			      statusPending.current = true;
+			      try {
+			        const result = await connection.rpc.call(CODEX_MODELS_CHANNEL, "status", {});
+			        if (mounted.current && current === operation.current && result.ok) setReport((previous) => previous ? { ...previous, ...result.value } : previous);
+			      } catch {
+			      } finally {
+			        statusPending.current = false;
+			      }
+			    }, 5e3);
+			    return () => {
+			      mounted.current = false;
+			      operation.current += 1;
+			      clearInterval(timer);
+			    };
+			  }, [connection]);
+			  const models = report?.models ?? [];
+			  const chosen = models.find(({ model }) => model === draft?.model);
+			  const supported = chosen?.efforts.some(({ id }) => id === draft?.reasoningEffort);
+			  const changed = report && (draft?.model !== report.selection.model || draft?.reasoningEffort !== report.selection.reasoningEffort);
+			  async function save() {
+			    const current = ++operation.current;
+			    pending.current = true;
+			    setBusy(true);
+			    setError("");
+			    setNotice("");
+			    try {
+			      const result = await connection.rpc.call(CODEX_MODELS_CHANNEL, "save", {
+			        model: draft.model,
+			        reasoningEffort: draft.reasoningEffort,
+			        revision
+			      });
+			      if (!mounted.current || current !== operation.current) return;
+			      if (!result.ok) throw new Error(result.error?.message);
+			      setReport(result.value);
+			      setDraft(result.value.selection);
+			      setRevision(result.value.revision);
+			      setNotice("Saved. Your next Codex turn will use this selection.");
+			    } catch (problem) {
+			      if (mounted.current && current === operation.current) setError(problem.message || "The selection could not be saved. Reload and try again.");
+			    } finally {
+			      if (mounted.current && current === operation.current) {
+			        pending.current = false;
+			        setBusy(false);
+			      }
+			    }
+			  }
+			  return /* @__PURE__ */ import_react2.default.createElement("section", { className: "dsh-vibeify-model-settings", "aria-busy": busy }, /* @__PURE__ */ import_react2.default.createElement("p", { className: "codex-model-kicker" }, "CODEX LEAD"), /* @__PURE__ */ import_react2.default.createElement("h2", null, "Model and thinking effort"), /* @__PURE__ */ import_react2.default.createElement("p", null, "Choose the Codex model that plans, verifies and answers. DeepSeek remains available for delegated work."), report && /* @__PURE__ */ import_react2.default.createElement("div", { className: "codex-model-status", "aria-live": "polite" }, /* @__PURE__ */ import_react2.default.createElement("p", null, /* @__PURE__ */ import_react2.default.createElement("strong", null, "Saved for the next turn:"), " ", selectionLabel(report.selection, models)), /* @__PURE__ */ import_react2.default.createElement("p", null, /* @__PURE__ */ import_react2.default.createElement("strong", null, "Running now:"), " ", report.active.length ? report.active.map((entry) => selectionLabel(entry, models)).join(", ") : "No Codex turn is running.")), /* @__PURE__ */ import_react2.default.createElement("div", { className: "codex-model-fields" }, /* @__PURE__ */ import_react2.default.createElement("label", null, "Main Codex model", /* @__PURE__ */ import_react2.default.createElement("select", { value: chosen ? draft.model : "", disabled: busy || !models.length, onChange: (event) => {
+			    const entry = models.find(({ model }) => model === event.target.value);
+			    setDraft({ model: entry.model, reasoningEffort: effortForModel(entry, draft?.reasoningEffort) });
+			    setNotice("");
+			  } }, !chosen && /* @__PURE__ */ import_react2.default.createElement("option", { value: "" }, busy ? "Loading available models\u2026" : "Choose an available model"), models.map((entry) => /* @__PURE__ */ import_react2.default.createElement("option", { key: entry.model, value: entry.model }, entry.label)))), /* @__PURE__ */ import_react2.default.createElement("label", null, "Thinking effort", /* @__PURE__ */ import_react2.default.createElement("select", { value: supported ? draft.reasoningEffort : "", disabled: busy || !chosen, onChange: (event) => {
+			    setDraft({ ...draft, reasoningEffort: event.target.value });
+			    setNotice("");
+			  } }, !supported && /* @__PURE__ */ import_react2.default.createElement("option", { value: "" }, "Choose a supported effort"), (chosen?.efforts ?? []).map(({ id, label }) => /* @__PURE__ */ import_react2.default.createElement("option", { key: id, value: id }, label))))), report && !chosen && /* @__PURE__ */ import_react2.default.createElement("p", null, "The saved model is not in the available list. Choose a replacement to continue."), /* @__PURE__ */ import_react2.default.createElement("div", { className: "codex-model-actions" }, /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", disabled: busy || !supported || !changed, onClick: save }, busy ? "Please wait\u2026" : "Save selection"), /* @__PURE__ */ import_react2.default.createElement("button", { type: "button", disabled: busy, onClick: load }, "Reload available models")), error && /* @__PURE__ */ import_react2.default.createElement("p", { role: "alert", className: "codex-model-error" }, error), notice && /* @__PURE__ */ import_react2.default.createElement("p", { role: "status" }, notice), /* @__PURE__ */ import_react2.default.createElement("p", null, "Only models available to your ChatGPT sign-in with image support are listed. Higher thinking effort can take longer and use more of your allowance. Saving never interrupts a running turn."));
+			}
+			function registerCodexModelSettings(ctx, connection) {
+			  ctx.effect(() => {
+			    const style = document.createElement("style");
+			    style.textContent = `
+			.dsh-vibeify-model-settings{color:var(--dsw-alias-label-primary);max-width:760px;padding:4px 0 24px}
+			.dsh-vibeify-model-settings h2{font-size:22px;margin:4px 0 12px}
+			.dsh-vibeify-model-settings p{font-size:13px;line-height:1.55;color:var(--dsw-alias-label-secondary)}
+			.codex-model-kicker{font-weight:700;letter-spacing:.08em;font-size:11px!important}
+			.codex-model-status{padding:12px 16px;margin:20px 0;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px}
+			.codex-model-status p{margin:4px 0;overflow-wrap:anywhere}
+			.codex-model-fields{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px}
+			.codex-model-fields label{display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:600}
+			.codex-model-fields select,.codex-model-actions button{font:inherit;color:inherit;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:10px;padding:12px;min-width:0}
+			.codex-model-actions{display:flex;gap:12px;flex-wrap:wrap;margin:20px 0}
+			.codex-model-actions button{cursor:pointer}.codex-model-actions button:disabled{opacity:.55;cursor:default}
+			.codex-model-fields select:focus-visible,.codex-model-actions button:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px}
+			.codex-model-error{color:var(--dsw-alias-label-error,#b42318)!important}
+			@media(max-width:600px){.codex-model-fields{grid-template-columns:1fr}}
+			`;
+			    document.head.appendChild(style);
+			    return () => style.remove();
+			  }, "dsh-vibeify: Codex model settings styles");
+			  ctx.slots.inject("settings.section", () => ctx.slots.register({
+			    name: "settings.section",
+			    id: "codex-capability",
+			    order: 15,
+			    label: "Codex"
+			  }, () => /* @__PURE__ */ import_react2.default.createElement(CodexModelSettings, { connection })));
+			}
 			return module.exports;
 		})();
 		const CODEX_FEATURES_ENABLED = false;
@@ -5339,8 +5480,6 @@ window.__ModuleLoader__.load({
 		const CONVERSATION_SETTINGS_NAMESPACE = "ui-conversation";
 		const BUSY_ENTER_FIELD = "busyEnter";
 		const BUSY_ENTER_BEHAVIORS = new Set(["queue", "steer"]);
-		const CODEX_SETTINGS_NAMESPACE = "llm-codex-chatgpt";
-		const CODEX_CAPABILITY_STYLE_ID = "dsh-vibeify-codex-capability-style";
 		const UPDATE_STYLE_ID = "dsh-vibeify-update-style";
 		const UPDATE_RPC_CHANNEL = "/vibeify-updates";
 		const VISUAL_SETTINGS_NAMESPACE = "dsh-visuals";
@@ -5350,33 +5489,6 @@ window.__ModuleLoader__.load({
 			pexels: Object.freeze({ ref: "PEXELS_API_KEY", label: "Pexels", href: "https://www.pexels.com/api/" }),
 			pixabay: Object.freeze({ ref: "PIXABAY_API_KEY", label: "Pixabay", href: "https://pixabay.com/api/docs/" }),
 		});
-		const CODEX_CAPABILITY_OPTIONS = Object.freeze([
-			{
-				id: "efficient",
-				label: "Efficient",
-				model: "GPT-6 Luna · Low",
-				description: "A lighter Codex governor for routine, highly checkable work.",
-			},
-			{
-				id: "balanced",
-				label: "Balanced",
-				model: "GPT-6 Luna · High",
-				description: "Luna with high reasoning for planning and verification.",
-			},
-			{
-				id: "frontier",
-				label: "Luna Max",
-				model: "GPT-6 Luna · Max",
-				description: "Recommended lead; DeepSeek handles routine delegated work.",
-				recommended: true,
-			},
-			{
-				id: "maximum",
-				label: "Maximum",
-				model: "GPT-6 Luna · Max",
-				description: "Maximum supported reasoning on the Luna lead.",
-			},
-		]);
 		const LIVE_CONTROLS_ID = "dsh-codex-live-controls";
 		const LIVE_CONTROLS_STYLE_ID = "dsh-codex-live-controls-style";
 		const VIBE_STORAGE_KEY = "dsh-vibeify.theme";
@@ -5494,67 +5606,6 @@ window.__ModuleLoader__.load({
 			} catch {
 				return null;
 			}
-		}
-
-		function inferredCapability(value) {
-			if (CODEX_CAPABILITY_OPTIONS.some(({ id }) => id === value?.capabilityLevel)) {
-				return value.capabilityLevel;
-			}
-			if (value?.capabilityLevel === "custom") return "custom";
-			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "max") return "frontier";
-			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "high") return "balanced";
-			if (value?.model === "gpt-6-luna" && value?.reasoningEffort === "low") return "efficient";
-			return "custom";
-		}
-
-		function capabilitySection(settings) {
-			return function CodexCapabilitySection() {
-				const snapshot = React.useSyncExternalStore(
-					(listener) => settings.subscribe(listener),
-					() => settings.getSnapshot(),
-				);
-				const selected = inferredCapability(snapshot.value);
-				const [pending, setPending] = React.useState(null);
-				const [error, setError] = React.useState("");
-				const choose = async (capabilityLevel) => {
-					setPending(capabilityLevel);
-					setError("");
-					try {
-						await settings.set("capabilityLevel", capabilityLevel);
-					} catch {
-						setError("The capability setting could not be saved. Your previous setting is unchanged.");
-					} finally {
-						setPending(null);
-					}
-				};
-				return React.createElement("section", { className: "dsh-vibeify-capability" },
-					React.createElement("div", { className: "dsh-vibeify-capability-intro" },
-						React.createElement("p", { className: "dsh-vibeify-capability-kicker" }, "CODEX LEAD"),
-						React.createElement("h2", null, "Capability level"),
-						React.createElement("p", null, "Codex always plans, manages, verifies, integrates, and answers. This setting changes the Codex model and reasoning used for that lead role; DeepSeek still performs eligible execution work."),
-					),
-					React.createElement("div", { className: "dsh-vibeify-capability-grid" },
-						...CODEX_CAPABILITY_OPTIONS.map((option) => React.createElement("button", {
-							key: option.id,
-							type: "button",
-							className: "dsh-vibeify-capability-card",
-							"aria-pressed": String(selected === option.id),
-							disabled: pending !== null,
-							onClick: () => choose(option.id),
-						},
-						React.createElement("span", { className: "dsh-vibeify-capability-title" },
-							option.label,
-							option.recommended ? React.createElement("span", { className: "dsh-vibeify-capability-badge" }, "Recommended") : null,
-						),
-						React.createElement("span", { className: "dsh-vibeify-capability-model" }, option.model),
-						React.createElement("span", { className: "dsh-vibeify-capability-description" }, option.description),
-						)),
-					),
-					selected === "custom" ? React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Custom model/reasoning values are active. Choose a preset here to manage them as one capability level.") : null,
-					error.length > 0 ? React.createElement("p", { role: "alert", className: "dsh-vibeify-capability-error" }, error) : null,
-					React.createElement("p", { className: "dsh-vibeify-capability-note" }, "Luna Max is the default lead. DeepSeek handles eligible delegated work; Terra, Sol and Astra are delegated specialists when needed. Changes apply to subsequent Codex turns."),
-				);
-			};
 		}
 
 		function visualSourcesSection(settings, api) {
@@ -5755,7 +5806,8 @@ window.__ModuleLoader__.load({
 
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
-			const { api } = ctx.get("connection");
+			const connection = ctx.get("connection");
+			const { api } = connection;
 			const visualSettings = ctx.configForms.get(VISUAL_SETTINGS_NAMESPACE);
 			ctx.effect(() => {
 				const style = document.createElement("style");
@@ -5828,42 +5880,8 @@ window.__ModuleLoader__.load({
 			if (CODEX_FEATURES_ENABLED) {
 				const sessions = ctx.get("sessions");
 				const conversationSettings = ctx.configForms.get(CONVERSATION_SETTINGS_NAMESPACE);
-				const codexSettings = ctx.configForms.get(CODEX_SETTINGS_NAMESPACE);
 
-			ctx.effect(() => {
-				const style = document.createElement("style");
-				style.id = CODEX_CAPABILITY_STYLE_ID;
-				style.textContent = `
-.dsh-vibeify-capability { color: var(--dsw-alias-label-primary); padding: 4px 0 24px; }
-.dsh-vibeify-capability-intro { max-width: 620px; margin-bottom: 18px; }
-.dsh-vibeify-capability-kicker { margin: 0 0 4px; color: var(--dsw-alias-state-business-primary); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
-.dsh-vibeify-capability h2 { margin: 0 0 7px; font-size: 22px; line-height: 1.25; }
-.dsh-vibeify-capability p { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 13px; line-height: 1.55; }
-.dsh-vibeify-capability-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
-.dsh-vibeify-capability-card { box-sizing: border-box; min-height: 142px; cursor: pointer; color: var(--dsw-alias-label-primary); text-align: left; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l1); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 7px; font: inherit; }
-.dsh-vibeify-capability-card:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.dsh-vibeify-capability-card[aria-pressed="true"] { border-color: var(--dsw-alias-state-business-primary); box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary); }
-.dsh-vibeify-capability-card:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 2px; }
-.dsh-vibeify-capability-card:disabled { cursor: wait; opacity: .65; }
-.dsh-vibeify-capability-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 15px; font-weight: 650; }
-.dsh-vibeify-capability-badge { color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 700; }
-.dsh-vibeify-capability-model { color: var(--dsw-alias-label-primary); font-size: 13px; font-weight: 550; }
-.dsh-vibeify-capability-description { color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1.45; }
-.dsh-vibeify-capability-note { margin-top: 14px !important; }
-.dsh-vibeify-capability-error { margin-top: 12px !important; color: var(--dsw-alias-label-error, #b42318) !important; }
-@media (max-width: 720px) { .dsh-vibeify-capability-grid { grid-template-columns: 1fr; } }
-`;
-				document.getElementById(CODEX_CAPABILITY_STYLE_ID)?.remove();
-				document.head.appendChild(style);
-				return () => style.remove();
-			}, "dsh-vibeify: Codex capability settings styles");
-
-			ctx.slots.inject("settings.section", () => ctx.slots.register({
-				name: "settings.section",
-				id: "codex-capability",
-				order: 15,
-				label: "Codex",
-			}, capabilitySection(codexSettings)));
+			__DshVibeifyExperience.registerCodexModelSettings(ctx, connection);
 
 			ctx.effect(() => {
 				let disposed = false;

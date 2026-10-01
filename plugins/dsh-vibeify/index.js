@@ -32,6 +32,8 @@ import {
   resolveCodexRuntimeSettings,
 } from "./routing-policy.js";
 import { Config, installCodexRuntimeSettings } from "./codex-settings.js";
+import { discoverCodexModels } from "./codex-model-discovery.js";
+import { createCodexModelControl, registerCodexModelControl } from "./codex-model-control.js";
 import { buildDelegationPacket, delegationResultForCodex } from "./delegation-contract.js";
 import { reconcileCompletedAnswer, streamTurnResult } from "./progressive-output.js";
 import { buildChatVibeInstructions } from "./chat-vibe-contract.js";
@@ -451,9 +453,13 @@ class CodexWire {
     this.itemPhases.clear();
     this.progressedItems.clear();
     this.answerTextByItem.clear();
+    const runtime = this.getRuntimeSettings();
+    // Capture once per turn. Settings may change while generation is running.
+    const selected = validateCodexRuntimeSettingsAgainstCatalog(runtime, this.codexModels);
+    if (!selected.inputModalities?.includes("image")) throw new LlmError("Codex lead requires image support", "UNKNOWN_MODEL");
+    this.activeRuntime = runtime;
     this.turnCompleted = Promise.withResolvers();
     this.turnSignal = signal;
-    const runtime = this.getRuntimeSettings();
     const access = this.getAccessPolicy();
 
     const onAbort = () => this.interrupt();
@@ -471,6 +477,8 @@ class CodexWire {
         }, signal), signal),
         "turn/start response",
       );
+      this.codexModel = runtime.model;
+      this.reasoningEffort = runtime.reasoningEffort;
       const turn = asObject(response.turn, "turn/start turn");
       this.commitTurnId(asString(turn.id, "turn id"));
       const completed = asObject(
@@ -493,6 +501,7 @@ class CodexWire {
       signal.removeEventListener("abort", onAbort);
       this.turnSignal = undefined;
       this.turnCompleted = undefined;
+      this.activeRuntime = undefined;
     }
   }
 
@@ -1065,6 +1074,18 @@ class CodexChatGptAdapter extends LlmAdapter {
     this.getRuntimeSettings = getRuntimeSettings;
     this.connections = new Map();
     this.codexModels = [];
+    this.wires = new Set();
+  }
+
+  activeSelections() {
+    const unique = new Map();
+    for (const wire of this.wires) {
+      if (wire.closed) { this.wires.delete(wire); continue; }
+      if (!wire.activeRuntime) continue;
+      const { model, reasoningEffort } = wire.activeRuntime;
+      unique.set(`${model}:${reasoningEffort}`, { model, reasoningEffort });
+    }
+    return [...unique.values()];
   }
 
   providerInfo() {
@@ -1140,6 +1161,10 @@ class CodexChatGptAdapter extends LlmAdapter {
       model,
       reasoningEffort: reasoningEffort ?? entry.defaultReasoningEffort,
     });
+  }
+
+  runtimeSettingsSource(model, reasoningEffort) {
+    return () => this.runtimeSettingsForModel(model, reasoningEffort);
   }
 
   async delegateToDsh(agent, { task, label, provider, model, reasoningEffort, maxTokens, images = [], signal }) {
@@ -1224,7 +1249,8 @@ class CodexChatGptAdapter extends LlmAdapter {
 
   async createConnection(options, signal) {
     const requestedModel = options.model === MODEL ? undefined : options.model;
-    const runtime = this.runtimeSettingsForModel(requestedModel, options.reasoningEffort);
+    const getRuntimeSettings = this.runtimeSettingsSource(requestedModel, options.reasoningEffort);
+    getRuntimeSettings(); // Reject invalid explicit overrides before starting a process.
     const session = options.sessionId === undefined ? undefined : this.ctx.sessions.get(options.sessionId);
     const agent = options.sessionId === undefined ? undefined : this.ctx.agents.get(options.sessionId);
     const getAccessPolicy = () => codexAccessPolicy({
@@ -1304,7 +1330,8 @@ class CodexChatGptAdapter extends LlmAdapter {
       },
       async (request) => this.delegateToDsh(agent, request),
       async (models, leadSettings) => this.modelCatalog(models, leadSettings),
-      () => runtime,
+      // Read the current settings on each turn, including an existing chat.
+      () => wire.activeRuntime ?? getRuntimeSettings(),
       (models) => {
         this.codexModels = models;
       },
@@ -1314,6 +1341,7 @@ class CodexChatGptAdapter extends LlmAdapter {
     );
     try {
       await wire.open(signal);
+      this.wires.add(wire);
       this.ctx.logger.info(
         `codex-chatgpt: protected ChatGPT session ready (${wire.planType}, ${wire.codexModel}, ${wire.reasoningEffort}, ${wire.access.label})`,
       );
@@ -1392,6 +1420,7 @@ class CodexChatGptAdapter extends LlmAdapter {
       if (connection.temporary || error?.code === "TRANSPORT" || error?.code === "PROTOCOL") {
         this.connections.delete(connection.key);
         await wire.close().catch(() => {});
+        this.wires.delete(wire);
       }
       if (error instanceof LlmError) throw error;
       throw new LlmError("codex-chatgpt: Codex request failed", "PROVIDER_ERROR", { cause: error });
@@ -1400,6 +1429,7 @@ class CodexChatGptAdapter extends LlmAdapter {
       if (connection.temporary) {
         this.connections.delete(connection.key);
         await wire.close().catch(() => {});
+        this.wires.delete(wire);
       }
     }
   }
@@ -1408,6 +1438,7 @@ class CodexChatGptAdapter extends LlmAdapter {
     const pending = [...this.connections.values()];
     this.connections.clear();
     await Promise.allSettled(pending.map(async (item) => (await item).close()));
+    this.wires.clear();
   }
 }
 
@@ -1426,7 +1457,19 @@ function apply(ctx, config) {
   });
   ctx.llm.registerAdapter([PROVIDER], adapter);
   ctx.inject(["connection"], (connectionCtx) => registerUpdateRpc(connectionCtx, updateChecker));
+  ctx.inject(["connection", "settings"], (settingsCtx) => registerCodexModelControl(settingsCtx, createCodexModelControl({
+    settings: settingsCtx.settings,
+    getRuntimeSettings,
+    discover: async (signal) => {
+      const models = await discoverCodexModels({ bin: CODEX_PACKAGE_BIN, version: BRIDGE_VERSION, signal });
+      adapter.codexModels = models;
+      // The catalogue also belongs to already-open chats, without restarting them.
+      for (const wire of adapter.wires) if (!wire.closed) wire.codexModels = models;
+      return models;
+    },
+    activeSelections: () => adapter.activeSelections(),
+  })));
   ctx.effect(() => async () => adapter.closeAll(), "codex-chatgpt app-server cleanup");
 }
 
-export { Config, apply, inject, name };
+export { Config, apply, inject, name, CodexWire, CodexChatGptAdapter };

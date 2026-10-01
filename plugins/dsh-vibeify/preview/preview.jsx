@@ -6,6 +6,24 @@ import { VIBE_STREAM_CHUNKS_EVENT } from "../client-src/experience/vibe-result.j
 
 const cleanups = [];
 const root = createRoot(document.getElementById("preview-root"));
+const fixture = new URLSearchParams(window.location.search).get("fixture");
+const modelFixture = fixture?.startsWith("codex-models");
+const previewModels = [
+  { model: "gpt-6-luna", label: "GPT-6 Luna", efforts: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id })), defaultEffort: "medium" },
+  { model: "gpt-6.1-sol", label: "GPT-6.1 Sol", efforts: ["low", "medium", "high", "xhigh", "max", "ultra"].map((id) => ({ id, label: id })), defaultEffort: "medium" },
+];
+let modelSelection = { model: fixture === "codex-models-unavailable" ? "retired-model" : "gpt-6-luna", reasoningEffort: "max" };
+let modelRevision = 1;
+const modelConnection = { rpc: { async call(_channel, action, payload) {
+  const active = [{ model: "gpt-6-luna", reasoningEffort: "max" }];
+  if (action === "save") {
+    if (fixture === "codex-models-failure") return { ok: false, error: { message: "The model choice could not be saved. Reload available models and try again." } };
+    if (payload.revision !== modelRevision) return { ok: false, error: { message: "Model settings changed elsewhere. Reload before saving." } };
+    modelSelection = { model: payload.model, reasoningEffort: payload.reasoningEffort };
+    modelRevision += 1;
+  }
+  return { ok: true, value: { selection: modelSelection, revision: modelRevision, active, ...(action === "status" ? {} : { models: previewModels }) } };
+} } };
 const emptySessions = {
   list: {
     getSnapshot() {
@@ -76,7 +94,7 @@ const ctx = {
   connection: unavailableConnection,
   get(name) {
     if (name === "sessions") return emptySessions;
-    if (name === "connection") return unavailableConnection;
+    if (name === "connection") return modelFixture ? modelConnection : unavailableConnection;
     throw new Error(`Unknown preview service: ${name}`);
   },
   effect(setup) {
@@ -94,7 +112,12 @@ const ctx = {
   },
 };
 
-registerExperienceShell(ctx);
+if (!modelFixture) registerExperienceShell(ctx);
+else {
+  modelConnection.api = unavailableConnection.api;
+  document.querySelector(".preview-studio").hidden = true;
+  document.getElementById("preview-root").style.cssText = "box-sizing:border-box;max-width:840px;margin:0 auto;padding:32px;";
+}
 // Mount the settings effect from the compiled DSH client so the preview uses
 // the same controls and event handlers as the installed plugin.
 const settingsScript = document.createElement("script");
@@ -106,15 +129,19 @@ window.__ModuleLoader__ = {
       throw new Error(`Unknown preview module: ${name}`);
     });
     plugin.apply({
-      connection: unavailableConnection,
+      connection: modelFixture ? modelConnection : unavailableConnection,
       get: ctx.get,
       settingsScope: { bind: () => ({}) },
+      configForms: { get: () => ({}) },
       effect(setup, label) {
-        if (label !== "dsh-vibeify: local colour and editorial settings") return;
+        if (label !== (modelFixture ? "dsh-vibeify: Codex model settings styles" : "dsh-vibeify: local colour and editorial settings")) return;
         const cleanup = setup();
         if (typeof cleanup === "function") cleanups.push(cleanup);
       },
-      slots: { inject() {} },
+      slots: modelFixture ? {
+        inject(_name, setup) { setup(); },
+        register(descriptor, Component) { if (descriptor.id === "codex-capability") root.render(<Component />); },
+      } : { inject() {} },
     });
   },
 };

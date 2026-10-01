@@ -1,4 +1,5 @@
 export { registerExperienceShell } from "./shell.jsx";
+export { registerCodexModelSettings } from "./codex-model-settings.jsx";
 export {
   EDITORIAL_PRESETS,
   EDITORIAL_TRIBES,

@@ -16,6 +16,9 @@
     "client.js",
     "codex-capability.js",
     "codex-settings.js",
+    "codex-model-channel.js",
+    "codex-model-control.js",
+    "codex-model-discovery.js",
     "cordis.patch.yml",
     "delegation-contract.js",
     "index.js",
@@ -31,7 +34,7 @@
   "scripts": {
     "build:client": "node scripts/build-client.mjs",
     "build:preview": "node scripts/build-preview.mjs",
-    "check": "node scripts/build-client.mjs --check && node --check index.js && node --check client.js && node --check chat-vibe-contract.js && node --check questionnaire-contract.js && node --check codex-capability.js && node --check codex-settings.js && node --check delegation-contract.js && node --check routing-policy.js && node --check update-check.js",
+    "check": "node scripts/build-client.mjs --check && node --check index.js && node --check client.js && node --check chat-vibe-contract.js && node --check questionnaire-contract.js && node --check codex-capability.js && node --check codex-settings.js && node --check codex-model-control.js && node --check codex-model-discovery.js && node --check delegation-contract.js && node --check routing-policy.js && node --check update-check.js",
     "test": "node --test *.test.js"
   },
   "keywords": [
@@ -68,7 +71,7 @@
     }
   },
   "dependencies": {
-    "@openai/codex": "0.157.1"
+    "@openai/codex": "0.160.0"
   },
   "devDependencies": {
     "esbuild": "0.25.9",
@@ -78,8 +81,8 @@
   "peerDependencies": {
     "@deepseek-ai/dsh-agent": "0.1.7-rc.2",
     "@deepseek-ai/dsh-llm": "0.1.7-rc.2",
-    "@deepseek-ai/dsh-settings": "0.1.7-rc.2",
     "@deepseek-ai/dsh-sdk-protocol": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-settings": "0.1.7-rc.2",
     "@deepseek-ai/dsh-subagent": "0.1.7-rc.2",
     "@deepseek-ai/dsh-user-approval": "0.1.7-rc.2",
     "@deepseek-ai/schemastery": "3.18.4"

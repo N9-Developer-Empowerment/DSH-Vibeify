@@ -1,5 +1,6 @@
 export const CODEX_MODEL_CHOICES = Object.freeze([
   { id: "gpt-6-luna", label: "GPT-6 Luna" },
+  { id: "gpt-6.1-sol", label: "GPT-6.1 Sol" },
   { id: "gpt-6-sol", label: "GPT-6 Sol" },
   { id: "gpt-6-astra", label: "GPT-6 Astra" },
   { id: "gpt-5.6-terra", label: "GPT-5.6 Terra (specialist)" },
@@ -174,12 +175,26 @@ export function reasoningLabel(reasoningEffort) {
 }
 
 function validateExact(model, reasoningEffort) {
-  if (!CODEX_MODEL_CHOICES.some(({ id }) => id === model)) {
+  // Availability belongs to the signed-in catalogue, not this display-label list.
+  if (typeof model !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,99}$/u.test(model)) {
     throw new Error(`unsupported DSH Codex model ${model}`);
   }
   if (!CODEX_REASONING_CHOICES.some(({ id }) => id === reasoningEffort)) {
     throw new Error(`unsupported DSH Codex reasoning effort ${reasoningEffort}`);
   }
+}
+
+export function selectableCodexModels(models) {
+  return models.filter((entry) => entry.hidden !== true
+    && entry.inputModalities?.includes("image")
+    && supportedReasoningEfforts(entry).length > 0).map((entry) => ({
+    model: codexModelId(entry),
+    label: entry.displayName || modelLabel(codexModelId(entry)),
+    efforts: supportedReasoningEfforts(entry).map((effort) => ({
+      id: effort, label: reasoningLabel(effort),
+    })),
+    defaultEffort: entry.defaultReasoningEffort,
+  }));
 }
 
 function inferredCapability(model, reasoningEffort) {

@@ -3128,6 +3128,35 @@ window.__ModuleLoader__.load({
 			  }, "dsh-vibeify: bounded hidden editorial reserve");
 			}
 
+			// ../../shared/interactive-layout.js
+			function fitInteractiveContent() {
+			  const body = document.body;
+			  const root = body.querySelector('main, [role="main"]') ?? body.firstElementChild;
+			  if (!root) return;
+			  const style = getComputedStyle(root);
+			  const limit = style.maxWidth.endsWith("px") ? Number.parseFloat(style.maxWidth) : 0;
+			  const padding = Number.parseFloat(getComputedStyle(body).paddingLeft) + Number.parseFloat(getComputedStyle(body).paddingRight);
+			  const designWidth = limit > 0 ? limit + padding : 0;
+			  let lastHeight = 0;
+			  const fit = (force = false) => {
+			    const width = document.documentElement.clientWidth;
+			    const scale = designWidth > 0 ? Math.max(1, Math.min(6, width / designWidth)) : 1;
+			    body.style.width = scale > 1 ? `${width / scale}px` : "100%";
+			    body.style.zoom = String(scale);
+			    const height = Math.ceil(Math.max(body.scrollHeight, body.getBoundingClientRect().height / scale) * scale);
+			    if (force || height !== lastHeight) {
+			      lastHeight = height;
+			      parent.postMessage({ type: "vibe:interactive-size", height }, "*");
+			    }
+			  };
+			  new ResizeObserver(() => fit()).observe(body);
+			  window.addEventListener("resize", () => fit());
+			  window.addEventListener("message", (event) => {
+			    if (event.source === parent && event.data?.type === "vibe:interactive-measure") fit(true);
+			  });
+			  fit();
+			}
+
 			// ../../shared/mochi-meadow.js
 			var MOCHI_MEADOW_HTML = `<style>
 			.vfx-mochi-game { margin:26px 0 30px; padding:clamp(16px,3vw,24px); overflow:hidden; border:1px solid color-mix(in srgb,var(--chunk-accent) 40%,#e9dce5); border-radius:22px; color:#30243a; background:radial-gradient(ellipse at 15% 0,#fff8d9 0,transparent 44%),linear-gradient(145deg,#fff8ed,#f4eaff 58%,#e8f8ec); box-shadow:0 18px 42px #160b1618; }
@@ -3247,12 +3276,13 @@ window.__ModuleLoader__.load({
 			function escapeAttribute(value) {
 			  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&#39;");
 			}
-			function interactiveDocument(html, nonce = "") {
+			function interactiveDocument(html, nonce = "", fit = false) {
 			  if (typeof html !== "string" || html.length > 12e3) throw new TypeError("Invalid interactive document");
 			  const trustedNonce = typeof nonce === "string" && /^[A-Za-z0-9+/_=-]+$/.test(nonce) ? nonce : "";
 			  const policy = INTERACTIVE_CSP;
 			  const content = trustedNonce ? html.replace(/<script(?=[\s/>])/gi, `<script nonce="${trustedNonce}"`) : html;
-			  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeAttribute(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{color-scheme:light}body{margin:0;font-family:system-ui,sans-serif}*,*::before,*::after{box-sizing:border-box}</style></head><body>${content}</body></html>`;
+			  const sizing = fit ? `<script${trustedNonce ? ` nonce="${trustedNonce}"` : ""}>(${fitInteractiveContent.toString()})();<\/script>` : "";
+			  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeAttribute(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{color-scheme:light}body{margin:0;font-family:system-ui,sans-serif}*,*::before,*::after{box-sizing:border-box}</style></head><body>${content}${sizing}</body></html>`;
 			}
 
 			// client-src/experience/media-embed.js

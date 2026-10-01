@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { runInNewContext } from "node:vm";
 
 import { SHARE_SNAPSHOT_VERSION } from "../../shared/vibe-share-contract.js";
-import { APP_JS } from "./src/app-source.mjs";
+import { APP_JS, APP_SCRIPT_PATH, browserAssetPath } from "./src/app-source.mjs";
 import { markdownToHtml, renderPublicArticle } from "./src/render.mjs";
 import { handleRequest } from "./src/worker.mjs";
 import { createStoryCoverSvg, storyCoverRuntimeSource } from "../../shared/vibe-cover.js";
@@ -169,9 +169,9 @@ test("private previews and public pages render pipe tables as responsive tables"
   assert.match(APP_JS, /className = "table-scroll"/);
   assert.match(APP_JS, /document\.createElement\("table"\)/);
   const page = renderPublicArticle({ ...snapshot, markdown }, `${origin}/a/table123`);
-  assert.match(page, /\.table-scroll\{[^}]*overflow-x:auto/);
-  assert.match(page, /\.body table\{[^}]*min-width:680px/);
-  assert.match(page, /\.body th,\.body td\{[^}]*word-break:normal/);
+  assert.match(page, /\.table-scroll\s*\{[^}]*overflow-x:auto/);
+  assert.match(page, /\.body table\s*\{[^}]*min-width:680px/);
+  assert.match(page, /\.body th,\.body td\s*\{[^}]*word-break:normal/);
 });
 
 test("Vibe formatting survives private preview and public rendering without title or TeX leakage", () => {
@@ -228,21 +228,21 @@ test("publishing exposes selectable, copy, and native-share controls only after 
   assert.doesNotMatch(APP_JS, /window\.setInterval|setTimeout\(/);
 });
 
-test("private previews and public articles preserve fixed-provider media as click-to-load embeds", async () => {
+test("private previews and public articles show fixed-provider players without a second load action", async () => {
   const page = renderPublicArticle(mediaSnapshot, `${origin}/a/media123`);
   assert.match(page, /class="media-card"/);
   assert.match(page, /data-media-kind="music" data-media-provider="soundcloud"/);
   assert.match(page, /data-media-provider="soundcloud"/);
-  assert.match(page, /data-media-href="https:\/\/soundcloud\.com\/the-orca-band\/i-know-you-better"/);
+  assert.match(page, /<iframe src="https:\/\/w\.soundcloud\.com\/player/);
   assert.match(page, /Open on SoundCloud/);
-  assert.match(page, /<script type="module" src="\/app\.js"><\/script>/);
+  assert.match(page, /<script type="module" src="\/app\.js\?v=[a-f0-9-]+"><\/script>/);
   assert.doesNotMatch(page, /autoplay|auto_play=true/);
-  assert.match(page, /data-media-provider="soundcloud"[^}]*\.media-frame iframe\{height:166px/);
+  assert.match(page, /data-media-provider="soundcloud"[^}]*\.media-frame iframe\s*\{\s*height:166px/);
 
   assert.match(APP_JS, /function mediaEmbedSource/);
   assert.match(APP_JS, /youtube-nocookie\.com\/embed/);
   assert.match(APP_JS, /auto_play=false/);
-  assert.match(APP_JS, /querySelectorAll\("\[data-media-provider\]"\)/);
+  assert.doesNotMatch(APP_JS, /installMediaPlayers|click to load/);
   assert.match(APP_JS, /card\.dataset\.mediaProvider = media\.provider/);
 
   const preview = await handleRequest(new Request(`${origin}/new`), {});
@@ -664,4 +664,47 @@ test('Mochi is a working iframe in private browser previews as well as server ou
   assert.match(frame.srcdoc,/<script nonce="previewNonce">/);
   assert.match(frame.srcdoc,/Start a 30-second round/);
   assert.match(frame.srcdoc,/setInterval\(tick,80\)/);
+});
+
+
+test('fresh preview and public HTML load their exact client build, bypassing an older cached app.js', async () => {
+  const preview=await handleRequest(new Request(origin+'/new'),{});
+  const previewHtml=await preview.text();
+  const publicHtml=renderPublicArticle(snapshot,origin+'/a/test','nonce123');
+  for (const html of [previewHtml,publicHtml]) {
+    const path=html.match(/<script type="module" src="([^"]+)"/)[1];
+    assert.equal(path,APP_SCRIPT_PATH);
+    assert.notEqual(path,'/app.js');
+    const script=await handleRequest(new Request(origin+path),{});
+    assert.equal(script.status,200);
+    assert.equal(await script.text(),APP_JS);
+    assert.equal(script.headers.get('cache-control'),'no-store');
+  }
+  assert.notEqual(browserAssetPath(APP_JS+'\n// changed'),APP_SCRIPT_PATH);
+  const old=await handleRequest(new Request(origin+'/app.js?v=old-build'),{});
+  assert.equal(old.status,409);
+  assert.equal(old.headers.get('cache-control'),'no-store');
+});
+
+
+test('YouTube is present immediately in browser preview and public output with identical source policy', () => {
+  const media = {provider: 'youtube', kind: 'video', label: 'Play video', href: 'https://www.youtube.com/watch?v=fz_UWPQYfKw'};
+  const nodes = [];
+  function element(tag) {
+    const node = {tag, dataset: {}, children: [], append(...children) {this.children.push(...children);}, setAttribute() {}};
+    nodes.push(node); return node;
+  }
+  const document = {getElementById: () => null, querySelectorAll: () => [], createElement: element};
+  runInNewContext(APP_JS + '\nrenderMedia(' + JSON.stringify(media) + ');', {document, window: {opener: null, addEventListener() {}}, URL});
+  const frame = nodes.find(n => n.tag === 'iframe');
+  assert.equal(frame.src, 'https://www.youtube-nocookie.com/embed/fz_UWPQYfKw');
+  assert.equal(frame.loading, 'lazy');
+  assert.equal(frame.sandbox, 'allow-scripts allow-same-origin allow-presentation');
+  assert.equal(nodes.some(n => n.tag === 'button'), false);
+  const page = renderPublicArticle({...snapshot, media}, origin + '/a/youtube123');
+  assert.ok(page.includes('<iframe src="' + frame.src + '"'));
+  assert.doesNotMatch(page, /autoplay=1|auto_play=true/);
+  nodes.length = 0;
+  runInNewContext(APP_JS + '\nrenderMedia({provider:"youtube",kind:"video",label:"Bad",href:"https://evil.example/watch?v=fz_UWPQYfKw"});', {document, window: {opener: null, addEventListener() {}}, URL});
+  assert.equal(nodes.length, 0);
 });

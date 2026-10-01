@@ -1,9 +1,11 @@
+import { mediaEmbedSource } from "./media.mjs";
 import { vibeInteractiveRuntimeSource } from "../../../shared/vibe-interactive.js";
 import { vibeMarkdownRuntimeSource } from "../../../shared/vibe-markdown.js";
 import { storyCoverRuntimeSource } from "../../../shared/vibe-cover.js";
 import { EDITORIAL_ILLUSTRATIONS } from "../../../shared/editorial-illustrations.js";
 
-const APP_BODY = String.raw`const VERSION = 1;
+const APP_BODY = String.raw`installInteractiveSizing();
+const VERSION = 1;
 const READY = "vibe-share:ready";
 const SNAPSHOT = "vibe-share:snapshot";
 const ALLOWED_OPENERS = new Set(["http://127.0.0.1:3080", "http://localhost:3080"]);
@@ -191,28 +193,6 @@ function renderVisual(visual, className = "lead") {
   return figure;
 }
 
-function mediaEmbedSource(provider, href) {
-  try {
-    const url = new URL(href);
-    if (url.protocol !== "https:" || url.username !== "" || url.password !== "") return null;
-    const host = url.hostname.replace(/^www\./, "").toLowerCase();
-    if (provider === "youtube" && (host === "youtube.com" || host === "youtu.be")) {
-      const id = host === "youtu.be" ? url.pathname.split("/").filter(Boolean)[0] : url.searchParams.get("v");
-      return /^[a-zA-Z0-9_-]{6,16}$/.test(id ?? "") ? "https://www.youtube-nocookie.com/embed/" + id : null;
-    }
-    if (provider === "vimeo" && host === "vimeo.com") {
-      const id = url.pathname.split("/").filter(Boolean)[0];
-      return /^\d{4,14}$/.test(id ?? "") ? "https://player.vimeo.com/video/" + id : null;
-    }
-    if (provider === "spotify" && host === "open.spotify.com" && /^\/(track|album|episode|show|playlist)\/[a-zA-Z0-9]+\/?$/.test(url.pathname)) {
-      return "https://open.spotify.com/embed" + url.pathname.replace(/\/$/, "");
-    }
-    if (provider === "soundcloud" && host === "soundcloud.com" && url.pathname.split("/").filter(Boolean).length >= 2) {
-      return "https://w.soundcloud.com/player/?url=" + encodeURIComponent(url.href) + "&auto_play=false";
-    }
-  } catch {}
-  return null;
-}
 
 function renderMedia(media) {
   if (media === null || typeof media !== "object") return null;
@@ -224,15 +204,9 @@ function renderMedia(media) {
   card.dataset.mediaProvider = media.provider;
   const kind = document.createElement("span");
   kind.className = "kind";
-  kind.textContent = media.kind + " · click to load";
+  kind.textContent = media.kind;
   const actions = document.createElement("div");
   actions.className = "media-actions";
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "media-load";
-  button.dataset.mediaProvider = media.provider;
-  button.dataset.mediaHref = media.href;
-  button.textContent = media.label;
   const link = document.createElement("a");
   link.href = media.href;
   link.target = "_blank";
@@ -241,32 +215,19 @@ function renderMedia(media) {
   const frame = document.createElement("div");
   frame.className = "media-frame";
   frame.setAttribute("aria-live", "polite");
-  actions.append(button, link);
+  const iframe = document.createElement("iframe");
+  iframe.src = mediaEmbedSource(media.provider, media.href);
+  iframe.title = media.label;
+  iframe.loading = "lazy";
+  iframe.allow = "encrypted-media; fullscreen; picture-in-picture";
+  iframe.referrerPolicy = "strict-origin-when-cross-origin";
+  iframe.sandbox = "allow-scripts allow-same-origin allow-presentation";
+  frame.append(iframe);
+  actions.append(link);
   card.append(kind, actions, frame);
   return card;
 }
 
-function installMediaPlayers(root = document) {
-  root.querySelectorAll("[data-media-provider]").forEach((button) => {
-    if (button.dataset.mediaReady === "true") return;
-    button.dataset.mediaReady = "true";
-    button.addEventListener("click", () => {
-      const source = mediaEmbedSource(button.dataset.mediaProvider, button.dataset.mediaHref);
-      const frame = button.closest(".media-card")?.querySelector(".media-frame");
-      if (source === null || frame === null) return;
-      const iframe = document.createElement("iframe");
-      iframe.src = source;
-      iframe.title = button.textContent;
-      iframe.loading = "lazy";
-      iframe.allow = "encrypted-media; fullscreen; picture-in-picture";
-      iframe.referrerPolicy = "strict-origin-when-cross-origin";
-      iframe.sandbox = "allow-scripts allow-same-origin allow-presentation";
-      frame.replaceChildren(iframe);
-      button.disabled = true;
-      button.textContent = "Loaded";
-    }, { once: true });
-  });
-}
 
 function appendInline(parent, value) {
   for (const token of parseVibeInline(value)) {
@@ -337,7 +298,7 @@ function renderMarkdown(markdown, title = "") {
     frame.setAttribute("sandbox", INTERACTIVE_SANDBOX);
     frame.referrerPolicy = "no-referrer";
     frame.height = String(part.height);
-    frame.srcdoc = interactiveDocument(part.html, document.querySelector('meta[name="vibe-interactive-nonce"]')?.content ?? "");
+    frame.srcdoc = interactiveDocument(part.html, document.querySelector('meta[name="vibe-interactive-nonce"]')?.content ?? "", true);
     section.append(frame);
     fragment.append(section);
   }
@@ -429,10 +390,8 @@ function renderSnapshot(value) {
   article.append(copy);
   preview.className = "";
   preview.append(article);
-  installMediaPlayers(article);
 }
 
-installMediaPlayers(document);
 
 async function receiveShareSnapshot(event) {
   if (preview === null || publish === null || status === null) return;
@@ -507,4 +466,16 @@ const bundledIllustrations = Object.fromEntries(EDITORIAL_ILLUSTRATIONS.map((dra
   kind: "illustration", illustrationId: drawing.illustrationId,
   sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
 }]));
-export const APP_JS = `${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
+export const APP_JS = `${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
+
+
+/** The HTML must never reuse a cached client from a different build. */
+export function browserAssetPath(source) {
+  let hash = 2166136261;
+  for (const character of source) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `/app.js?v=${source.length.toString(16)}-${(hash >>> 0).toString(16)}`;
+}
+export const APP_SCRIPT_PATH = browserAssetPath(APP_JS);

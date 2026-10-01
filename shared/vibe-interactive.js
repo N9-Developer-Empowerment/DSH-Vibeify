@@ -1,3 +1,4 @@
+import { fitInteractiveContent, installInteractiveSizing } from "./interactive-layout.js";
 import { MOCHI_MEADOW_HTML } from "./mochi-meadow.js";
 
 /** Self-contained article widgets. The consumer must retain the iframe sandbox. */
@@ -64,23 +65,24 @@ function escapeAttribute(value) {
 }
 
 /** The first CSP is trusted; later app metadata cannot relax it. */
-export function interactiveDocument(html, nonce = "") {
+export function interactiveDocument(html, nonce = "", fit = false) {
   if (typeof html !== "string" || html.length > 12000) throw new TypeError("Invalid interactive document");
   const trustedNonce = typeof nonce === "string" && /^[A-Za-z0-9+/_=-]+$/.test(nonce) ? nonce : "";
   // Intersect the parent nonce policy with this inline-only policy. Adding nonce
   // sources here would also authorize external scripts carrying that nonce.
   const policy = INTERACTIVE_CSP;
   const content = trustedNonce ? html.replace(/<script(?=[\s/>])/gi, `<script nonce="${trustedNonce}"`) : html;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeAttribute(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{color-scheme:light}body{margin:0;font-family:system-ui,sans-serif}*,*::before,*::after{box-sizing:border-box}</style></head><body>${content}</body></html>`;
+  const sizing = fit ? `<script${trustedNonce ? ` nonce="${trustedNonce}"` : ""}>(${fitInteractiveContent.toString()})();</script>` : "";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="${escapeAttribute(policy)}"><meta name="viewport" content="width=device-width, initial-scale=1"><style>html{color-scheme:light}body{margin:0;font-family:system-ui,sans-serif}*,*::before,*::after{box-sizing:border-box}</style></head><body>${content}${sizing}</body></html>`;
 }
 
 export function interactiveMarkup(part, nonce = "") {
   const app = normalizedInteractive(part);
   if (!app) return "";
-  return `<iframe class="vibe-interactive" title="${escapeAttribute(app.title)}" sandbox="${INTERACTIVE_SANDBOX}" referrerpolicy="no-referrer" height="${app.height}" style="width:100%;border:0;display:block" srcdoc="${escapeAttribute(interactiveDocument(app.html, nonce))}"></iframe>`;
+  return `<iframe class="vibe-interactive" title="${escapeAttribute(app.title)}" sandbox="${INTERACTIVE_SANDBOX}" referrerpolicy="no-referrer" height="${app.height}" style="width:100%;border:0;display:block" srcdoc="${escapeAttribute(interactiveDocument(app.html, nonce, true))}"></iframe>`;
 }
 
 /** Same implementation in the standalone sharing preview, without a separate parser. */
 export function vibeInteractiveRuntimeSource() {
-  return `const MOCHI_MEADOW_HTML = ${JSON.stringify(MOCHI_MEADOW_HTML)};\nconst INTERACTIVE_SANDBOX = ${JSON.stringify(INTERACTIVE_SANDBOX)};\nconst INTERACTIVE_CSP = ${JSON.stringify(INTERACTIVE_CSP)};\n` + [normalizedInteractive, splitInteractiveBlocks, escapeAttribute, interactiveDocument, interactiveMarkup].map(fn => fn.toString()).join("\n\n");
+  return `const MOCHI_MEADOW_HTML = ${JSON.stringify(MOCHI_MEADOW_HTML)};\nconst INTERACTIVE_SANDBOX = ${JSON.stringify(INTERACTIVE_SANDBOX)};\nconst INTERACTIVE_CSP = ${JSON.stringify(INTERACTIVE_CSP)};\n` + [fitInteractiveContent, installInteractiveSizing, normalizedInteractive, splitInteractiveBlocks, escapeAttribute, interactiveDocument, interactiveMarkup].map(fn => fn.toString()).join("\n\n");
 }

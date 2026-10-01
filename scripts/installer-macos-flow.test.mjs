@@ -38,6 +38,17 @@ test("macOS installer completes against the current checkout with all mutations 
   const operations = path.join(directory, "operations.log");
   await mkdir(bin, { recursive: true });
   await mkdir(fakeHome, { recursive: true });
+  const npmRoot = path.join(directory, "npm-global");
+  const runtimeRoot = path.join(npmRoot, "@deepseek-ai", "dsh");
+  await mkdir(runtimeRoot, { recursive: true });
+  await writeFile(path.join(runtimeRoot, "package.json"), '{"name":"@deepseek-ai/dsh","version":"0.1.7-rc.2"}');
+  for (const bundle of ["dsh-base", "dsh-web-app"]) {
+    const folder = path.join(runtimeRoot, "node_modules", "@deepseek-ai", bundle);
+    await mkdir(folder, { recursive: true });
+    await writeFile(path.join(folder, "package.json"), JSON.stringify({ dependencies: Object.fromEntries(
+      ["dsh-agent", "dsh-agent-preset-registry", "dsh-tools", "dsh-subagent", "dsh-tool-subagent"].map((name) => [`@deepseek-ai/${name}`, "0.1.7-rc.2"]),
+    ) }));
+  }
 
   try {
     await executable(path.join(bin, "npm"), `#!/usr/bin/env node
@@ -46,6 +57,7 @@ import { spawnSync } from "node:child_process";
 const args=process.argv.slice(2);appendFileSync(process.env.OPERATIONS,\`npm \${args.join(" ")}\\n\`);
 if(args[0]==="view"){console.log("0.1.7-rc.2");process.exit(0)}
 if(args[0]==="install")process.exit(0);
+if(args[0]==="root"){console.log(process.env.FAKE_NPM_ROOT);process.exit(0)}
 if(args[0]==="pack"){const r=spawnSync(process.env.REAL_NPM,args,{stdio:"inherit",env:process.env});process.exit(r.status??1)}
 if(args[0]==="--version"){console.log("11.6.2");process.exit(0)}
 process.exit(0);
@@ -55,11 +67,18 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } fr
 import path from "node:path";
 const args=process.argv.slice(2);appendFileSync(process.env.OPERATIONS,\`dsh \${args.join(" ")}\\n\`);
 if(args.includes("--version")){console.log("0.1.7-rc.2");process.exit(0)}
+if(args[0]==="plugin"&&args.includes("install")){
+ const dir=path.join(process.env.DSH_HOME,"profiles",args[args.indexOf("--profile")+1]||"web");
+ for(const name of ["dsh-agent","dsh-agent-preset-registry","dsh-tools","dsh-subagent","dsh-tool-subagent","dsh-scope"]){
+  const folder=path.join(dir,"node_modules","@deepseek-ai",name);mkdirSync(folder,{recursive:true});
+  writeFileSync(path.join(folder,"package.json"),JSON.stringify({name:"@deepseek-ai/"+name,version:"0.1.7-rc.2"}));
+ }process.exit(0);
+}
 if(args[0]==="plugin"&&args.includes("add")){
  const profile=args[args.indexOf("--profile")+1]||"web";const source=args[args.indexOf("--workspace-root")+1]||"";
  const name=source.includes("dsh-social-desk")?"dsh-social-desk":source.includes("dsh-visuals")?"dsh-visuals":source.includes("dsh-vibeify-experience")?"dsh-vibeify-experience":"dsh-vibeify";
  const dir=path.join(process.env.DSH_HOME,"profiles",profile);mkdirSync(dir,{recursive:true});
- const manifest=path.join(dir,"package.json");const current=existsSync(manifest)?JSON.parse(readFileSync(manifest,"utf8")):{dependencies:{},dsh:{profile:{bundles:[]}}};
+ const manifest=path.join(dir,"package.json");const current=existsSync(manifest)?JSON.parse(readFileSync(manifest,"utf8")):{dependencies:{},dsh:{profile:{bundles:["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]}}};
  current.dependencies[name]=source;if(!current.dsh.profile.bundles.includes(name))current.dsh.profile.bundles.push(name);
  writeFileSync(manifest,JSON.stringify(current,null,2));process.exit(0);
 }
@@ -89,6 +108,7 @@ exec "$REAL_CURL" "$@"
         PATH: `${bin}:${process.env.PATH}`,
         REAL_CURL: spawnSync("which", ["curl"], { encoding: "utf8" }).stdout.trim(),
         REAL_NPM: spawnSync("which", ["npm"], { encoding: "utf8" }).stdout.trim(),
+        FAKE_NPM_ROOT: npmRoot,
         TERM: "xterm",
       },
       input: "4\n\n",

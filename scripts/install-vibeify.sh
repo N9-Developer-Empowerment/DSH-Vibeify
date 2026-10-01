@@ -74,7 +74,8 @@ for required_plugin_directory in "$plugin_directory" "$visual_plugin_directory" 
   fi
 done
 
-node "$script_directory/align-profile-versions.mjs" "$profile_directory/package.json"
+runtime_anchor="$(npm root --global)/@deepseek-ai/dsh/package.json"
+node "$script_directory/align-profile-versions.mjs" "$profile_directory/package.json" "$runtime_anchor"
 
 if [[ -f "$profile_directory/package.json" ]] && grep -q "\"$legacy_package\"" "$profile_directory/package.json"; then
   echo "Migrating the older local Vibeify bridge..."
@@ -124,6 +125,9 @@ if [[ -f "$profile_directory/package.json" ]] && node -e '
 ' "$profile_directory/package.json"; then
   dsh plugin --profile "$profile" add --workspace-root "@deepseek-ai/dsh-subagent-codex@$qualified_dsh_version"
 fi
+node "$script_directory/align-profile-versions.mjs" "$profile_directory/package.json" "$runtime_anchor"
+dsh plugin --profile "$profile" install
+node "$script_directory/check-profile-runtime.mjs" "$profile_directory/package.json"
 dsh --profile "$profile" --dump-config >"$config_dump"
 
 if [[ "$provider_mode" == "chatgpt" ]] && ! grep -q "provider: codex-chatgpt" "$config_dump"; then

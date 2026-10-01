@@ -251,3 +251,7 @@ Contributions are welcome. DSH Vibeify is an independent community project and i
 - [OpenAI Codex plugin documentation](https://learn.chatgpt.com/docs/build-plugins)
 
 Image selection and Commons recovery are documented in [Article images](docs/ARTICLE-IMAGES.md), including the single resolver, cache invalidation and retry rules.
+
+If new sessions fail with a duplicate `subagent` tool after upgrading DSH, see
+[the runtime scope repair notes](docs/INSTALL.md#new-session-errors-after-a-runtime-upgrade).
+The installer and doctor now check that session and tool services share one runtime scope.

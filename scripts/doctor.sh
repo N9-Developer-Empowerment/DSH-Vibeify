@@ -53,6 +53,7 @@ check "isolated macOS installer flow" node --test "$script_directory/installer-m
 check "package closure syntax" node --check "$script_directory/validate-package-archive.mjs"
 check "package closure tests" node --test "$script_directory/validate-package-archive.test.mjs"
 check "activation script syntax" bash -n "$script_directory/activate-vibeify.sh"
+check "profile runtime identity tests" node --test "$script_directory/check-profile-runtime.test.mjs"
 check "DSH installer syntax" bash -n "$script_directory/install-dsh.sh"
 check "Vibeify installer syntax" bash -n "$script_directory/install-vibeify.sh"
 check "friendly macOS installer syntax" bash -n "$script_directory/Install DSH Vibeify.command"
@@ -77,6 +78,7 @@ if [[ "$source_only" != true ]]; then
   check "DSH command" command -v dsh
 
   if command -v dsh >/dev/null 2>&1; then
+    check "one shared DSH session scope" node "$script_directory/check-profile-runtime.mjs" "$profile_directory/package.json"
     config_dump="$(mktemp -t dsh-vibeify-doctor.XXXXXX)"
     if dsh --profile "$profile" --dump-config >"$config_dump" 2>/dev/null; then
       if node -e 'const p=require(process.argv[1]);if(!p.dependencies?.["dsh-vibeify-experience"]||!p.dsh?.profile?.bundles?.includes("dsh-vibeify-experience"))process.exit(1)' "$profile_directory/package.json"; then

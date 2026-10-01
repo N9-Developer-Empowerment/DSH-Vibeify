@@ -1,7 +1,9 @@
 import { copyFile, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { createRequire } from "node:module";
 
 const packagePath = process.argv[2];
+const runtimeAnchor = process.argv[3];
 if (!packagePath) throw new Error("usage: node align-profile-versions.mjs <profile-package.json>");
 
 let source;
@@ -22,6 +24,52 @@ const retired = new Set([
   "@deepseek-ai/dsh-workflow-worker-thread",
 ]);
 let changes = 0;
+// A profile that only owns selected peer packages mixes its scope registry with
+// CLI fallback bundles. Equal versions still have different Symbols/WeakMaps.
+// Install the declared core bundles into the same dependency graph as plugins.
+const bundles = profile.dsh?.profile?.bundles;
+if (Array.isArray(bundles) && bundles.includes("@deepseek-ai/dsh-web-app")) {
+  profile.dependencies ??= {};
+  profile.pnpm ??= {};
+  profile.pnpm.overrides ??= {};
+  for (const name of ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]) {
+    const version = profile.dependencies[name];
+    if (version === undefined || version === "0.1.5-rc.3") {
+      profile.dependencies[name] = "0.1.7-rc.2";
+      changes += 1;
+    }
+  }
+  for (const [name, version] of [["@deepseek-ai/cordis", "4.0.4"], ["@deepseek-ai/schemastery", "3.18.4"]]) {
+    if (profile.pnpm.overrides[name] === undefined) {
+      profile.pnpm.overrides[name] = version;
+      changes += 1;
+    }
+  }
+  if (runtimeAnchor) {
+    const runtime = JSON.parse(await readFile(runtimeAnchor, "utf8"));
+    if (runtime.name !== "@deepseek-ai/dsh" || runtime.version !== "0.1.7-rc.2") {
+      throw new Error("Profile alignment requires the qualified DSH 0.1.7-rc.2 installation.");
+    }
+    const require = createRequire(runtimeAnchor);
+    // Use the upstream manifests as the single list of loader-visible runtime
+    // entries. With pnpm, transitive dependencies alone are not root entries:
+    // an absent entry falls back to the CLI copy even when bundles are local.
+    for (const bundle of ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]) {
+      const manifest = JSON.parse(await readFile(require.resolve(`${bundle}/package.json`), "utf8"));
+      for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.peerDependencies })) {
+        if (!name.startsWith("@deepseek-ai/dsh-") || version !== "0.1.7-rc.2") continue;
+        const existing = profile.dependencies[name];
+        if (existing !== undefined && existing !== "0.1.5-rc.3" && existing !== version) {
+          throw new Error(`Cannot align an independently configured runtime dependency: ${name}`);
+        }
+        if (existing !== version) {
+          profile.dependencies[name] = version;
+          changes += 1;
+        }
+      }
+    }
+  }
+}
 for (const entries of [profile.dependencies, profile.devDependencies, profile.pnpm?.overrides]) {
   if (!entries || typeof entries !== "object" || Array.isArray(entries)) continue;
   for (const [name, version] of Object.entries(entries)) {

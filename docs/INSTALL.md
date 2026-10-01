@@ -210,3 +210,17 @@ codex plugin add dsh-vibeify@dsh-vibeify
 ```
 
 Start a new Codex task after installation so the skill is discovered cleanly.
+
+### New-session errors after a runtime upgrade
+
+A `tool "subagent" is already registered` error can indicate two physical copies of
+`dsh-scope`, even when both advertise the same version. Its private scope markers
+are module-local. A tool service from one copy cannot recognise an agent scope
+created by the other, so a session tool can incorrectly enter the global registry.
+
+The installer aligns the profile's loader-visible runtime entries from the
+qualified upstream base/web bundle manifests, installs them into one dependency
+graph, then checks scope identity across agents, presets, tools and delegation.
+It preserves the selected bundles and model settings. `scripts/doctor.sh` checks
+this identity too. A composed-config or HTTP startup check alone does not prove
+that sessions work: verify multiple new sessions after an idle activation.

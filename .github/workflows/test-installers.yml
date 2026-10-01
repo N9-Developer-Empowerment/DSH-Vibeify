@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 24
       - run: node scripts/installer-self-check.mjs
-      - run: node --test scripts/installer-contract.test.mjs scripts/align-profile-versions.test.mjs
+      - run: node --test scripts/installer-contract.test.mjs scripts/align-profile-versions.test.mjs scripts/check-profile-runtime.test.mjs
       - name: Exercise isolated macOS installer flow
         if: runner.os == 'macOS'
         run: node --test scripts/installer-macos-flow.test.mjs

@@ -191,7 +191,8 @@ try {
     $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
     $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
     $ProfilePackage = Join-Path $ProfileDirectory "package.json"
-    & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage
+    $RuntimeAnchor = Join-Path ((& npm root --global).Trim()) "@deepseek-ai\dsh\package.json"
+    & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Aligning legacy DSH profile versions"
     $PluginName = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify" } else { "dsh-vibeify-experience" }
     $OppositePlugin = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify-experience" } else { "dsh-vibeify" }
@@ -215,6 +216,12 @@ try {
     Install-ImmutableDshPlugin $ProjectDirectory $PluginName $PluginDirectory $DshHome $PackDirectory $ProfileName
     Install-ImmutableDshPlugin $ProjectDirectory $VisualPluginName $VisualPluginDirectory $DshHome $PackDirectory $ProfileName
     Install-ImmutableDshPlugin $ProjectDirectory $SocialPluginName $SocialPluginDirectory $DshHome $PackDirectory $ProfileName
+    & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage $RuntimeAnchor
+    Assert-Native "Aligning the profile runtime"
+    & dsh plugin --profile $ProfileName install
+    Assert-Native "Installing the aligned runtime"
+    & node (Join-Path $ProjectDirectory "scripts\check-profile-runtime.mjs") $ProfilePackage
+    Assert-Native "Checking runtime scope identity"
     $ConfigDump = (& dsh --profile $ProfileName --dump-config | Out-String)
     Assert-Native "Checking the composed DSH profile"
 

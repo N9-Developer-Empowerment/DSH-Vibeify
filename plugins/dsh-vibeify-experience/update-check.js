@@ -1,3 +1,4 @@
+import { registerLocalRpc } from "./local-rpc.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -228,7 +229,7 @@ function validCheckPayload(payload) {
 }
 
 export function registerUpdateRpc(ctx, checker) {
-  ctx.effect(() => ctx.connection.rpc.handle(
+  registerLocalRpc(ctx,
     UPDATE_CHANNEL,
     async (endpoint, payload, signal) => {
       if (endpoint !== "check") return rpcError("not-found", "Unknown Vibeify update action.");
@@ -239,8 +240,7 @@ export function registerUpdateRpc(ctx, checker) {
         return rpcError("update-check-failed", "Installed versions could not be read. Nothing was changed.");
       }
     },
-    { authority: "loopback" },
-  ), "dsh-vibeify: loopback update checks");
+  );
 }
 
 export const UPDATE_SOURCES = SOURCES;

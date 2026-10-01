@@ -46,6 +46,10 @@ const bundles = Object.freeze([
 ]);
 const sharedServerModules = Object.freeze([
   Object.freeze({
+    outputPath: join(pluginRoot, "..", "dsh-vibeify-experience", "local-rpc.js"),
+    source: await readFile(join(pluginRoot, "local-rpc.js"), "utf8"),
+  }),
+  Object.freeze({
     outputPath: join(pluginRoot, "..", "dsh-vibeify-experience", "update-check.js"),
     source: await readFile(join(pluginRoot, "update-check.js"), "utf8"),
   }),

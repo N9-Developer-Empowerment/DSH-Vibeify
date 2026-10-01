@@ -139,3 +139,5 @@ The earlier installation was a plain dependency plus a handwritten profile patch
 Connected apps surfaced by the Codex app-server are available to the lead. Desktop-only capabilities such as an interactive Chrome or Computer Use session may also require the appropriate Codex desktop host connection; permission configuration alone cannot manufacture that host session.
 
 The browser client and its Vibes do not depend on Codex-specific model logic. Native DSH/DeepSeek can already reuse that UI through the provider-neutral package. Other governed lead-agent adapters still require separate authentication, capability checks, and equivalent acceptance tests.
+
+Codex model controls and update checks share `local-rpc.js`: authenticated, loopback-only HTTP envelopes with a 32 KiB request limit. It registers with the declared `webServer` service because DSH 0.1.7-rc.2 generic `connection.rpc.handle` reaches an undeclared server property; the image service uses the same host workaround.

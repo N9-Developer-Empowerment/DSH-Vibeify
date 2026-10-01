@@ -21,7 +21,7 @@ function apply(ctx) {
       codex: null,
     },
   });
-  ctx.inject(["connection"], (connectionCtx) => registerUpdateRpc(connectionCtx, updateChecker));
+  ctx.inject(["connection", "webServer"], (connectionCtx) => registerUpdateRpc(connectionCtx, updateChecker));
 }
 
 export { apply, inject, name };

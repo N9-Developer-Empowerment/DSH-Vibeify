@@ -4,6 +4,7 @@ import {
 } from "./codex-capability.js";
 import { CODEX_SETTINGS_NAMESPACE } from "./codex-settings.js";
 
+import { registerLocalRpc } from "./local-rpc.js";
 import { CODEX_MODELS_CHANNEL } from "./codex-model-channel.js";
 const failure = (code, message) => ({ ok: false, error: { code, message, details: {} } });
 const record = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
@@ -48,6 +49,5 @@ export function createCodexModelControl({ settings, getRuntimeSettings, discover
 }
 
 export function registerCodexModelControl(ctx, control) {
-  ctx.effect(() => ctx.connection.rpc.handle(CODEX_MODELS_CHANNEL, control, { authority: "loopback" }),
-    "dsh-vibeify: Codex model settings");
+  registerLocalRpc(ctx, CODEX_MODELS_CHANNEL, control);
 }

@@ -1,3 +1,4 @@
+import { rpcHarness, callRpc } from "./rpc-test-harness.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -127,32 +128,15 @@ test("checks are cached until a user explicitly asks to check again", async () =
 });
 
 test("update RPC is loopback-only and accepts only its check endpoint", async () => {
-  let registration;
-  const ctx = {
-    connection: {
-      rpc: {
-        handle(channel, handler, options) {
-          registration = { channel, handler, options };
-          return async () => {};
-        },
-      },
-    },
-    effect(factory) {
-      factory();
-    },
-  };
-  registerUpdateRpc(ctx, {
+  const harness = rpcHarness();
+  registerUpdateRpc(harness.ctx, {
     check: async ({ force } = {}) => ({ force: force === true }),
   });
 
-  assert.equal(registration.channel, "/vibeify-updates");
-  assert.deepEqual(registration.options, { authority: "loopback" });
-  assert.deepEqual(
-    await registration.handler("check", { force: true }),
-    { ok: true, value: { force: true } },
-  );
-  assert.equal((await registration.handler("unknown", {})).ok, false);
-  assert.equal((await registration.handler("check", { force: "yes" })).ok, false);
+  assert.equal(harness.route.path, "/vibeify-updates");
+  assert.deepEqual((await callRpc(harness.route, "check", { force: true })).result, { ok: true, value: { force: true } });
+  assert.equal((await callRpc(harness.route, "unknown", {})).result.ok, false);
+  assert.equal((await callRpc(harness.route, "check", { force: "yes" })).result.ok, false);
 });
 
 test("provider-neutral Vibeify omits the Codex row without weakening other checks", async () => {

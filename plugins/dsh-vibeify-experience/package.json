@@ -13,7 +13,8 @@
     "client.js",
     "cordis.patch.yml",
     "index.js",
-    "update-check.js"
+    "update-check.js",
+    "local-rpc.js"
   ],
   "keywords": [
     "deepseek-harness",

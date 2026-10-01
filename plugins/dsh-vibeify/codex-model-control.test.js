@@ -1,3 +1,4 @@
+import { rpcHarness, callRpc } from "./rpc-test-harness.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createCodexModelControl, registerCodexModelControl } from "./codex-model-control.js";
@@ -115,9 +116,9 @@ test("malformed requests fail before discovery and provider diagnostics stay pri
   assert.doesNotMatch(JSON.stringify(await control("read", {})), /SECRET/);
 });
 
-test("model settings RPC remains loopback-only", () => {
-  let registration;
-  registerCodexModelControl({ effect: (setup) => setup(), connection: { rpc: { handle: (...args) => { registration = args; } } } }, () => {});
-  assert.equal(registration[0], "/vibeify-codex-models");
-  assert.deepEqual(registration[2], { authority: "loopback" });
+test("model settings RPC is registered on the authenticated local host route", async () => {
+  const harness = rpcHarness();
+  registerCodexModelControl(harness.ctx, fixture().control);
+  assert.equal(harness.route.path, "/vibeify-codex-models");
+  assert.equal((await callRpc(harness.route, "status", {})).result.ok, true);
 });

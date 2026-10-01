@@ -1456,8 +1456,8 @@ function apply(ctx, config) {
     },
   });
   ctx.llm.registerAdapter([PROVIDER], adapter);
-  ctx.inject(["connection"], (connectionCtx) => registerUpdateRpc(connectionCtx, updateChecker));
-  ctx.inject(["connection", "settings"], (settingsCtx) => registerCodexModelControl(settingsCtx, createCodexModelControl({
+  ctx.inject(["connection", "webServer"], (connectionCtx) => registerUpdateRpc(connectionCtx, updateChecker));
+  ctx.inject(["connection", "settings", "webServer"], (settingsCtx) => registerCodexModelControl(settingsCtx, createCodexModelControl({
     settings: settingsCtx.settings,
     getRuntimeSettings,
     discover: async (signal) => {

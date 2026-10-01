@@ -34,6 +34,10 @@ appSource = appSource.replace(
 appSource = appSource.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
 
 await Promise.all([
+  copyFile(resolve(project, "src/media.mjs"), resolve(server, "media.mjs")),
+  copyFile(resolve(project, "src/styles.mjs"), resolve(server, "styles.mjs")),
+  copyFile(resolve(project, "../../shared/interactive-layout.js"), resolve(server, "interactive-layout.js")),
+  copyFile(resolve(project, "../../shared/image-policy.js"), resolve(server, "image-policy.js")),
   copyFile(resolve(project, "../../shared/mochi-meadow.js"), resolve(server, "mochi-meadow.js")),
   copyFile(resolve(project, "../../shared/vibe-interactive.js"), resolve(server, "vibe-interactive.js")),
   writeFile(resolve(server, "index.js"), worker),

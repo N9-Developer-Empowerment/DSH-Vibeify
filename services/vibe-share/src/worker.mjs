@@ -1,7 +1,7 @@
 import { cleanShareSnapshot, hasShareVisual } from "../../../shared/vibe-share-contract.js";
 import { illustrationById } from "../../../shared/editorial-illustrations.js";
 import { renderNewPage, renderNotFound, renderPublicArticle } from "./render.mjs";
-import { APP_JS } from "./app-source.mjs";
+import { APP_JS, APP_SCRIPT_PATH } from "./app-source.mjs";
 
 const JSON_HEADERS = Object.freeze({ "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
 const HTML_HEADERS = Object.freeze({
@@ -256,7 +256,14 @@ export async function handleRequest(request, env = {}) {
       publishingReady: env.VIBE_SHARE_LOCAL_DEV === "true" || (typeof env.TURNSTILE_SECRET === "string" && env.TURNSTILE_SECRET !== "") || (typeof env.VIBE_SHARE_RATE_SECRET === "string" && env.VIBE_SHARE_RATE_SECRET.length >= 32),
     }), 200, "no-store", nonce);
   }
-  if (request.method === "GET" && url.pathname === "/app.js") return new Response(APP_JS, { headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "public, max-age=3600", "x-content-type-options": "nosniff" } });
+  if (request.method === "GET" && url.pathname === "/app.js") {
+    // Old documents must reload rather than silently running another release's code.
+    const matches = !url.search || url.pathname + url.search === APP_SCRIPT_PATH;
+    return new Response(matches ? APP_JS : "Reload this page to load the current client.", {
+      status: matches ? 200 : 409,
+      headers: { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" },
+    });
+  }
   if (request.method === "POST" && url.pathname === "/api/articles") return createArticle(request, env, url);
   const cover = /^\/i\/([A-Za-z0-9_-]{8,24})\.jpg$/.exec(url.pathname);
   if ((request.method === "GET" || request.method === "HEAD") && cover !== null) {

@@ -47,11 +47,11 @@ test("changed editor direction hides and purges stale or untagged reserve pages"
   assert.doesNotMatch(local.getItem("dsh-vibeify.reserve.v1"), /People behind/);
 });
 
-test("the hidden reserve rejects article-shaped questionnaires", () => {
+test("the hidden reserve rejects preference questionnaires but keeps ordinary question-led articles", () => {
   const local = storage();
   const appended = appendReservePages(local, [
     { id: "broken-question", kind: "questionnaire", title: "Broken", markdown: "![A studio](https://example.com/studio.jpg)\n\nPick the third answer.\n\n- Which one?\n- Another?" },
-    { id: "useful-question", kind: "questionnaire", title: "Useful", markdown: "Choose the next direction.\n\n- More tiny filmmaking projects\n- More constrained writing ideas" },
+    { id: "useful-question", kind: "article", title: "A useful question about tiny filmmaking", markdown: "What changes when a first draft stays deliberately small? [Read a practical guide](https://example.com/tiny-films)." },
   ], "approved", NOW);
   assert.deepEqual(appended.map(({ id }) => id), ["useful-question"]);
   assert.deepEqual(getEditorialReserve(local, NOW).approved.map(({ id }) => id), ["useful-question"]);

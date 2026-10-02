@@ -1,4 +1,3 @@
-import { validQuestionnaireMarkdown } from "./questionnaire.js";
 import { editorialProfileKey } from "./editorial-settings.js";
 
 export const RESERVE_STORE_KEY = "dsh-vibeify.reserve.v1";
@@ -11,7 +10,7 @@ export const MAX_RESERVE_CANDIDATES = 200;
 export const MAX_RESERVE_APPROVED = 80;
 export const BACKGROUND_RUN_RESERVATION_USD = 0.25;
 
-const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
+const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 const PROFILE_KEY = /^[a-f0-9]{16}$/;
 
@@ -48,7 +47,6 @@ function cleanPage(candidate, now, state) {
   const generatedAt = Number(candidate.generatedAt ?? now);
   const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
   if (id === null || !ID.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
-  if (candidate.kind === "questionnaire" && !validQuestionnaireMarkdown(markdown)) return null;
   return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), profileKey: PROFILE_KEY.test(candidate.profileKey) ? candidate.profileKey : null, generatedAt, state });
 }
 

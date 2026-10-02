@@ -30,20 +30,19 @@ test("runner rejects a shallow prompt before touching the DSH composer", () => {
   assert.throws(() => createRecipeEnvelope({ id: "x", title: "x", studioPrompt: "write something" }), /not detailed enough/);
 });
 
-test("manual magazine update envelope is immutable and shaped by earlier questionnaire content", () => {
+test("manual magazine update envelope follows the editor's Vibe direction without questionnaires", () => {
   const prompt = buildContinuousStreamPrompt({
     runId: "refill-one",
     batchSize: 8,
-    answerLabels: ["  More original creators ", "A deeper read", "A deeper read"],
     recentTitles: ["Opening page"],
     chatTopics: ["How football analytics changed scouting"],
     editorialProfile: { tribes: ["builders-nerds", "sports-communities", "entrepreneurs"] },
   });
-  const envelope = createStreamEnvelope({ id: "refill-one", prompt, batchSize: 8, answerLabels: ["More original creators", "A deeper read"] });
+  const envelope = createStreamEnvelope({ id: "refill-one", prompt, batchSize: 8 });
   assert.equal(envelope.title, "VIBE magazine update");
   assert.equal(envelope.mode, "manual-stream-update");
   assert.equal(envelope.batchSize, 8);
-  assert.deepEqual(envelope.answers, ["More original creators", "A deeper read"]);
+  assert.deepEqual(envelope.answers, []);
   assert.match(envelope.prompt, /append-only/i);
   assert.match(envelope.prompt, /top of that same edition/i);
   assert.match(envelope.prompt, /Builders & nerds/i);
@@ -52,12 +51,11 @@ test("manual magazine update envelope is immutable and shaped by earlier questio
   assert.match(envelope.prompt, /not a demographic profile or permission to expose the reader's prompt/);
   assert.match(envelope.prompt, /<vibe-chunk/);
   assert.match(envelope.prompt, /music or audio route/i);
-  assert.match(envelope.prompt, /questionnaire/i);
-  assert.match(envelope.prompt, /two locally prepared pages/i);
+  assert.doesNotMatch(envelope.prompt, /questionnaire/i);
+  assert.match(envelope.prompt, /one locally prepared visual short/i);
   assert.match(envelope.prompt, /at least three useful bounded lanes concurrently/i);
   assert.match(envelope.prompt, /Never publish a worker report/i);
   assert.match(envelope.prompt, /60–140 words/i);
-  assert.match(envelope.prompt, /More original creators/);
   assert.match(envelope.prompt, /Codex remains lead/i);
   assert.match(envelope.prompt, /exactly one user-requested update/i);
   assert.match(envelope.prompt, /do not start or schedule another update/i);

@@ -39,7 +39,7 @@ VIBE is where the finished answer becomes readable. One request runs one turn an
     title: "A good page need not wait for the entire issue",
     markdown: `VIBE is built around streaming content, not turn-taking theatre. A checked, complete panel can appear while a deeper article is still being researched. Quick pleasures arrive quickly; slower pieces earn their delay.
 
-Nothing half-written is published. The unit of streaming is a finished visual chunk—a whole paragraph, card, questionnaire or article section—not a sentence twitching across the screen one token at a time.
+Nothing half-written is published. The unit of streaming is a finished visual chunk—a whole paragraph, card or article section—not a sentence twitching across the screen one token at a time.
 
 **Try it:** ask, “Make a Vibe about a subject I care about. Give me a quick visual article first, followed by deeper sourced pieces.”
 
@@ -70,19 +70,6 @@ The editor uses those choices as a brief, not as a personality test. It may stil
 **Try it:** in VIBE settings, choose two lenses and write “be witty, show me the people behind the work, and avoid manufactured outrage.”
 
 [Explore the editorial controls](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`,
-  }),
-  Object.freeze({
-    id: "questionnaires-learn-locally",
-    kind: "image",
-    topicId: "say-it-better",
-    title: "The questionnaires are tiny editorial meetings",
-    markdown: `A questionnaire lets you nudge the next edition with one tap: more depth, more creators, a calmer pace, a better surprise. There is no form to complete and no answer required.
-
-Your explicit answers, saves, opens, plays and skips can shape later choices. That learning stays in this browser. It is not an uploaded behavioural dossier, and **Reset what the editor has learned** removes it.
-
-**Try it:** answer one question, request an Update, and see whether the mix moves in the direction you chose.
-
-[Read the local-learning boundary](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`,
   }),
   Object.freeze({
     id: "pictures-do-work",
@@ -309,13 +296,14 @@ function deterministicSource(source) {
 export function boundMagazinePresentation(chunks, dynamicLimit = 160) {
   if (!Array.isArray(chunks)) throw new TypeError("magazine presentation must be an array");
   if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("magazine presentation limit is invalid");
+  const visibleChunks = chunks.filter((chunk) => chunk?.kind !== "questionnaire");
   const retainedDynamicIds = new Set(boundReaderChunks(
-    chunks.filter((chunk) => !deterministicSource(chunk?.source)),
+    visibleChunks.filter((chunk) => !deterministicSource(chunk?.source)),
     dynamicLimit,
     Math.min(MAX_CHAT_VIBE_RESERVE, dynamicLimit),
   )
     .map(({ id }) => id));
-  return Object.freeze(chunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
+  return Object.freeze(visibleChunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
 }
 
 /** Restore the reader's newest pages first; orientation is optional local help. */
@@ -326,7 +314,7 @@ export function composeOpeningStream({ cached, bundle, welcome, includeOrientati
   const chunks = [];
   const seen = new Set();
   const append = (chunk) => {
-    if (chunk === null || typeof chunk !== "object" || typeof chunk.id !== "string" || seen.has(chunk.id)) return;
+    if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || typeof chunk.id !== "string" || seen.has(chunk.id)) return;
     seen.add(chunk.id);
     chunks.push(Object.freeze({ ...chunk, publishedAt: chunk.publishedAt ?? now }));
   };

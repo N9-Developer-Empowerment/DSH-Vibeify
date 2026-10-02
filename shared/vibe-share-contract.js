@@ -1,3 +1,4 @@
+import { cleanArticleAppearance } from "./article-appearance.js";
 import { REUSABLE_IMAGE_FAMILIES } from "./image-policy.js";
 export const SHARE_ORIGIN = "https://share.codingforjustice.org.uk";
 export const SHARE_SNAPSHOT_VERSION = 1;
@@ -166,6 +167,7 @@ export function cleanShareSnapshot(candidate, now = Date.now()) {
     kind,
     markdown,
     publishedAt,
+    appearance: cleanArticleAppearance(candidate.appearance),
     visual,
     inlineVisuals: Object.freeze(inlineVisuals),
     contentLink: cleanContentLink(candidate.contentLink),

@@ -5,14 +5,13 @@ import { buildContinuousStreamPrompt } from "./client-src/experience/stream-reci
 
 test("the generated edition requires complete copy or a useful verified link in every panel", () => {
   const prompt = buildContinuousStreamPrompt({ runId: "refill-links" });
-  assert.match(prompt, /every non-questionnaire chunk/i);
+  assert.match(prompt, /every chunk must contain complete useful text/i);
   assert.match(prompt, /complete useful text/i);
   assert.match(prompt, /recommendation, image, music, and video chunks must always include at least one relevant verified link/i);
   assert.match(prompt, /content destination/i);
   assert.match(prompt, /separate from any image URL or visual-credit link/i);
-  assert.match(prompt, /questionnaire.*concise invitation.*2–6 separate Markdown bullet options/i);
-  assert.match(prompt, /self-contained editorial choice of at most 72 characters/i);
-  assert.match(prompt, /choosing one does not start work/i);
+  assert.match(prompt, /Allowed kinds are article, editorial, recommendation, image, music, and video/i);
+  assert.doesNotMatch(prompt, /questionnaire/i);
 });
 
 test("each explicit update renews the rolling visual catalogue without reusing recent images", () => {

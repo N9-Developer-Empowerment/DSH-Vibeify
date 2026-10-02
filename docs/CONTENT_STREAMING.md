@@ -34,7 +34,7 @@ send a public-content Chat request
 
 pull down at the top / press Update
   -> ready hidden pages are released immediately
-  -> one cached visual short and one questionnaire cover an empty reserve
+  -> one cached visual short covers an empty reserve
   -> only if fewer than four ready pages exist, one dedicated magazine session receives one bounded update
   -> complete verified chunks join the top as they become ready
   -> the update turn completes and stops
@@ -50,11 +50,11 @@ The layers are implementation details; the reader sees one uninterrupted magazin
 | Layer | Purpose | Model work |
 | --- | --- | --- |
 | Bundled well | Cold-start guarantee: 24 deterministic editorial chunks with credited photography, labelled AI-assisted graphics and responsive panel spans | None |
-| Saved magazine | Return-visit continuity: up to 160 bounded items, rolling visual URLs with provenance, and 32 short questionnaire choices for 30 days | None |
+| Saved magazine | Return-visit continuity: up to 160 bounded items and rolling visual URLs with provenance for 30 days | None |
 | Chat results | Complete verified public-content cards while a reader turn runs, plus durable final-answer continuity across every local DSH thread | None beyond the Chat turn the user already requested |
 | Shared public radar | Public headlines, links, geography and broad tribe hints rebuilt by GitHub Actions every 30 minutes | Public data fetch only; no reader data and no model |
 | Local editorial reserve | Seven-day signals, three-day candidates, seven-day ready pages, recent-use time and conservative daily spend ledger | Bounded hidden editor only when all gates pass |
-| Instant update reserve | One visual short and one questionnaire released synchronously on every explicit update | None |
+| Instant update reserve | One visual short released synchronously on every explicit update | None |
 | Generated magazine update | Further editorial pages from independently verified quick, culture/media and deep lanes when the ready reserve is short | One bounded foreground turn only when required after Pull to update or Update |
 
 Bundled and saved content are read synchronously during initial state creation. They contain no await, provider request, or dependency on a DSH session becoming ready. This provides useful first content without starting invisible work.
@@ -92,7 +92,7 @@ An editorial update is user-driven and bounded:
 - a 20-minute timeout cancels a stuck update; and
 - completion never schedules another update.
 
-The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Reuse avoids creating a growing stack of `VIBE continuous edition` sessions. Before any provider request, the browser releases up to six ready pages and appends two complete locally prepared pages: a visual short and a questionnaire. If at least four ready pages were released, the update completes without a foreground provider call. Otherwise the lead uses multiple bounded worker lanes, verifies each publishable item independently and retains one parent stop condition.
+The runner reuses one session titled `VIBE magazine updates` and does not navigate the UI to it. Before any provider request, the browser releases up to six ready pages and appends one locally prepared visual short. If at least four ready pages were released, the update completes without a foreground provider call.
 
 ## Background radar and reserve
 
@@ -114,25 +114,23 @@ Complete Markdown for one semantic item.
 </vibe-chunk>
 ```
 
-Allowed kinds are `article`, `editorial`, `recommendation`, `image`, `music`, `video`, and `questionnaire`. The update collector accepts only complete closed envelopes whose id belongs to the active run; the ordinary-Chat collector accepts only `chat-` envelopes from an eligible reader session. Plans, partial paragraphs, raw search notes, tool activity, private or draft material, unverified worker prose, and incomplete envelopes stay out of Vibe. Internal subagent sessions are excluded from the all-thread Chat collector, and the dedicated update session can never fall back to a raw Chat card.
+Update and reserve generation allow `article`, `editorial`, `recommendation`, `image`, `music`, and `video`. The legacy questionnaire parser remains for compatibility, while exact `kind: "questionnaire"` preference cards are filtered before persistence and rendering.
 
-Every generated non-questionnaire envelope carries a useful HTTPS content destination inside its Markdown. Visual media has a separate provenance contract: the lead image is followed by its creator/source page, both are lifted into the figure and caption, and the duplicate visual credit is removed from the displayed article body. `feed.js` independently chooses the first safe reader-facing link for the card's **Read source** action, stripping common tracking parameters and rejecting image files, approved image hosts and known photo-credit pages. The original content link stays where the editor placed it in the prose.
+Every generated envelope carries a useful HTTPS content destination inside its Markdown. Visual media has a separate provenance contract: the lead image is followed by its creator/source page, both are lifted into the figure and caption, and the duplicate visual credit is removed from the displayed article body. `feed.js` independently chooses the first safe reader-facing link for the card's **Read source** action, stripping common tracking parameters and rejecting image files, approved image hosts and known photo-credit pages. The original content link stays where the editor placed it in the prose.
 
 For each foreground or background batch, the editorial contract requires a working pool of at least 18 potential images from three or more credible source families. The lead ranks exact subject/entity match, informative value, credit clarity, composition, freshness and recent-use diversity before publishing only the selected image. The browser sends the 80 most recently accepted remote image URLs into the next contract to reduce repetition; candidates and rejected URLs are not presented as content.
 
 Each update namespaces ids so a later update appends rather than replaces. Storage order remains append-only; presentation reverses arrival order so the newest item appears first. If later checking changes the picture, publish a clearly contextualised follow-up instead of silently rewriting the old item.
 
-## Questionnaire method
+## Legacy questionnaire compatibility
 
-Every explicit update begins with one questionnaire from the local reserve; generated batches may add another when it is editorially useful. Each card has two to six one-tap choices. The browser stores only the visible chosen label and the chunk id. A choice can influence the next explicitly requested update, but it never starts one and never modifies work already in flight.
-
-Choices are soft editorial signals, not personal facts, commands, diagnoses, or a profile. When the lead delegates, it converts a useful choice into a bounded topic task instead of copying private reader input into a worker packet merely to save quota.
+Automatic preference-questionnaire articles are no longer generated. Exact `kind: "questionnaire"` legacy cards are filtered before persistence and rendering; ordinary question-led articles and user-requested interactive forms remain valid. The parser and bounded answer ledger remain only for compatibility. Direction comes from VIBE settings and explicit Chat requests.
 
 ## Worker method
 
 One explicit update can use several independent lanes when this improves verified delivery:
 
-1. the local reserve releases a visual short and questionnaire without waiting for a model;
+1. the local reserve releases a visual short without waiting for a model;
 2. the lead receives one update contract and acceptance boundary and releases one short generated item before waiting for workers;
 3. at least three useful independent lanes may run concurrently: quick/practical, culture/media, and deeper sourced work;
 4. the lead verifies each artifact or source before releasing a closed reader-facing chunk;
@@ -163,7 +161,7 @@ Recorded events are:
 - `magazine-update-started`;
 - `chunk-appended`;
 - `magazine-update-complete`;
-- `questionnaire-answered`; and
+- legacy `questionnaire-answered` records remain readable, but new preference answers are no longer emitted; and
 - `editorial-direction-changed`.
 
 Initial service-level gates are:
@@ -198,7 +196,7 @@ Initial service-level gates are:
 - `client-src/experience/refresh-control.js` — pure top-of-page pull state machine.
 - `client-src/experience/recipe-runner.js` — one reusable dedicated session, overlap guard, exact Stop, and timeout.
 - `client-src/experience/stream-recipe.js` — one-batch update, worker, editorial, and publication contract.
-- `client-src/experience/feed.js` — bundled well, newest-first presentation, imagery, and questionnaire parsing; no scheduler.
+- `client-src/experience/feed.js` — bundled well, newest-first presentation, imagery, and compatibility-only questionnaire parser exports; no scheduler.
 - `client-src/experience/content-store.js` — append-only bounded presentation and visible-choice cache.
 - `client-src/experience/vibe-result.js` — closed-envelope parser, safe Markdown renderer, and Vibe return tab.
 - `client-src/experience/editorial-settings.js` — local editorial direction; changing it does not start work.

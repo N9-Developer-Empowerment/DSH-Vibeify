@@ -70,7 +70,7 @@ export async function sharePublicUrl(value, title, navigatorObject = globalThis.
   }
 }
 
-export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
+export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia, appearance }, now = Date.now()) {
   const publicPhoto = media?.episode?.photo;
   const remoteImageUrl = typeof media?.externalUrl === "string" && (media.externalUrl.startsWith("https://") || (media.kind === "ai-generated" && media.externalUrl.startsWith("data:image/png;base64,")))
     ? media.externalUrl
@@ -98,6 +98,7 @@ export function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, c
     publishedAt: Number(chunk?.publishedAt) || now,
     visual,
     inlineVisuals,
+    appearance,
     contentLink,
     media: embeddedMedia === null || embeddedMedia === undefined ? null : {
       kind: embeddedMedia.kind,

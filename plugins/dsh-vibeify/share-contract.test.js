@@ -41,7 +41,7 @@ test("an article share contains presentation fields but no local session identit
   }, NOW);
 
   assert.deepEqual(Object.keys(snapshot), [
-    "version", "title", "kind", "markdown", "publishedAt", "visual", "inlineVisuals", "contentLink", "media",
+    "version", "title", "kind", "markdown", "publishedAt", "appearance", "visual", "inlineVisuals", "contentLink", "media",
   ]);
   assert.equal(snapshot.title, "What Jason Arday studied");
   assert.equal(snapshot.visual.imageUrl, "https://images.example.org/jason.webp");
@@ -217,4 +217,14 @@ test("bundled drawing identity preserves only canonical artwork and attribution"
   assert.equal(cleanShareSnapshot({...base,visual:{kind:'illustration',illustrationId:'untrusted'}},NOW).visual,null);
   const hosted=cleanShareSnapshot({...base,visual:{...result.visual,imageUrl:`${SHARE_ORIGIN}/i/abcdefgh1234.jpg`}},NOW);
   assert.equal(hosted.visual.imageUrl,`${SHARE_ORIGIN}/i/abcdefgh1234.jpg`);
+});
+
+test("appearance transfers only fixed choices, never arbitrary styles or private settings", () => {
+  const candidate = {version: 1, title: "A finished article", kind: "article", markdown: "Complete copy", publishedAt: NOW,
+    appearance: {look: "bbc-news", palette: "news", textSize: "large", spacing: "roomy", prompt: "private note", css: "url(evil)", tribes: ["secret"]}};
+  const cleaned = cleanShareSnapshot(candidate, NOW);
+  assert.deepEqual(cleaned.appearance, {look: "bbc-news", palette: "news", textSize: "large", spacing: "roomy"});
+  assert.doesNotMatch(JSON.stringify(cleaned), /private note|url\(evil\)|secret/);
+  assert.deepEqual(cleanShareSnapshot({...candidate, appearance: {look: "<script>", palette: "url(evil)"}}, NOW).appearance,
+    {look: "vibe", palette: "midnight", textSize: "standard", spacing: "standard"});
 });

@@ -46,6 +46,21 @@ test("stream cache restores previous content and discards stale or corrupt data"
   assert.deepEqual(getCachedStream(storage, now), { version: CONTENT_STORE_VERSION, chunks: [], answers: [] });
 });
 
+test("legacy preference questionnaires are discarded from the persisted magazine", () => {
+  const storage = memoryStorage();
+  const now = 1_700_000_000_000;
+  storage.values.set(CONTENT_STORE_KEY, JSON.stringify({
+    version: CONTENT_STORE_VERSION,
+    answers: [],
+    chunks: [
+      { ...chunk("legacy-question"), kind: "questionnaire", title: "Choose the next direction", markdown: "Choose.\n\n- More music\n- More films", publishedAt: now },
+      { ...chunk("current-article"), publishedAt: now },
+    ],
+  }));
+  assert.deepEqual(getCachedStream(storage, now + 1).chunks.map(({ id }) => id), ["current-article"]);
+  assert.deepEqual(appendCachedChunks(storage, [{ ...chunk("new-question"), kind: "questionnaire" }], now + 2), []);
+});
+
 test("stream cache is bounded without changing the order of retained entries", () => {
   const storage = memoryStorage();
   const base = 1_700_000_000_000;
@@ -142,7 +157,7 @@ test("only allow-listed content fields survive persistence", () => {
   assert.deepEqual(Object.keys(cached).sort(), ["id", "kind", "markdown", "publishedAt", "source", "title", "topicId", "tribes"]);
 });
 
-test("questionnaire answers are bounded visible labels and shape later refills", () => {
+test("legacy answer storage stays bounded for backward compatibility", () => {
   const storage = memoryStorage();
   const now = 1_700_000_000_000;
   assert.equal(saveStreamAnswer(storage, "bundle:question", "More original creators", now), true);

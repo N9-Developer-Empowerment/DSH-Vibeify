@@ -1,3 +1,4 @@
+import { articleAppearanceRuntimeSource } from "../../../shared/article-appearance.js";
 import { mediaEmbedSource } from "./media.mjs";
 import { vibeInteractiveRuntimeSource } from "../../../shared/vibe-interactive.js";
 import { vibeMarkdownRuntimeSource } from "../../../shared/vibe-markdown.js";
@@ -349,13 +350,17 @@ function renderPlainMarkdown(markdown, title = "") {
 }
 
 function renderSnapshot(value) {
+  const appearance = cleanArticleAppearance(value.appearance);
+  for (const [key, selected] of Object.entries(appearance)) document.body.dataset[key] = selected;
+  const lookNote = document.querySelector(".look-note");
+  if (lookNote) lookNote.textContent = WEBSITE_LOOKS[appearance.look].note ?? "shared from a private local magazine";
   preview.replaceChildren();
   const article = document.createElement("article");
   article.className = "article";
   const leadVisual = value.visual ?? value.inlineVisuals?.[0] ?? null;
   const galleryVisuals = value.visual === null ? value.inlineVisuals?.slice(1) ?? [] : value.inlineVisuals ?? [];
   const lead = renderVisual(leadVisual);
-  if (lead !== "") article.append(lead);
+  if (lead !== "" && appearance.look !== "bbc-news") article.append(lead);
   const copy = document.createElement("div");
   copy.className = "copy";
   const kind = document.createElement("span");
@@ -366,7 +371,9 @@ function renderSnapshot(value) {
   const body = document.createElement("div");
   body.className = "body";
   body.append(renderMarkdown(value.markdown, value.title));
-  copy.append(kind, title, body);
+  copy.append(kind, title);
+  if (lead !== "" && appearance.look === "bbc-news") copy.append(lead);
+  copy.append(body);
   const media = renderMedia(value.media);
   if (media !== null) copy.append(media);
   if (galleryVisuals.length > 0) {
@@ -466,7 +473,7 @@ const bundledIllustrations = Object.fromEntries(EDITORIAL_ILLUSTRATIONS.map((dra
   kind: "illustration", illustrationId: drawing.illustrationId,
   sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
 }]));
-export const APP_JS = `${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
+export const APP_JS = `${articleAppearanceRuntimeSource()}\n\n${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
 
 
 /** The HTML must never reuse a cached client from a different build. */

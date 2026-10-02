@@ -246,7 +246,7 @@ test("private previews and public articles show fixed-provider players without a
   assert.match(APP_JS, /card\.dataset\.mediaProvider = media\.provider/);
 
   const preview = await handleRequest(new Request(`${origin}/new`), {});
-  assert.match(await preview.text(), /selected public images, embedded media, and its source link/);
+  assert.match(await preview.text(), /selected look, public images, embedded media, and source link/);
 });
 
 test("the response policy admits only the four fixed media player hosts", async () => {
@@ -263,7 +263,7 @@ test("preview describes the privacy boundary and production publishing fails clo
   const preview = await handleRequest(new Request(`${origin}/new`), {});
   const previewHtml = await preview.text();
   assert.equal(preview.status, 200);
-  assert.match(previewHtml, /Chat prompts, reasoning, sessions, settings and local history stay on your computer/);
+  assert.match(previewHtml, /Chat prompts, reasoning, sessions, editorial preferences and local history stay on your computer/);
   assert.match(previewHtml, /Make your own Vibe/);
   assert.match(previewHtml, /Publishing is not configured yet/);
 

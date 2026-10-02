@@ -12,8 +12,6 @@ import {
   markdownWithoutLeadVisual,
   newestFirst,
   panelLayoutForChunk,
-  questionnaireIntroduction,
-  questionnaireOptions,
   remoteVisualForMarkdown,
   remoteVisualsForMarkdown,
   storyCoverForChunk,
@@ -32,55 +30,25 @@ test("the bundled stream is a deterministic substantial first-visit content well
   assert.ok(first.every(({ title, markdown }) => title.length > 0 && markdown.length > 40));
 });
 
-test("instant content mixes articles, images and optional questionnaires without a guide gate", () => {
+test("the bundled stream is editorial content without preference questionnaires", () => {
   const stream = createBundledStream(catalog, "2026-08-28", 36);
   const kinds = new Set(stream.map(({ kind }) => kind));
   assert.ok(kinds.has("article"));
   assert.ok(kinds.has("image"));
-  assert.ok(kinds.has("questionnaire"));
-  const question = stream.find(({ kind }) => kind === "questionnaire");
-  assert.ok(questionnaireOptions(question.markdown).length >= 2);
+  assert.equal(kinds.has("questionnaire"), false);
   for (const chunk of stream.filter(({ topicId }) => topicId !== null)) assert.ok(catalog.byId[chunk.topicId]);
 });
 
-test("every explicit update spends an immediate visual page and questionnaire from the local reserve", () => {
+test("every explicit update spends an immediate visual page from the local reserve", () => {
   const chunks = createInstantUpdateChunks(catalog, "refill-under-a-second", ["Anime Night, Sorted"], 1_700_000_000_000);
-  assert.equal(chunks.length, 2);
-  assert.deepEqual(chunks.map(({ kind }) => kind), ["questionnaire", "image"]);
-  assert.equal(chunks[1].source, "fresh-stream");
-  assert.notEqual(chunks[1].title, "Anime Night, Sorted");
-  assert.ok(chunks[1].topicId !== null);
-  assert.ok(questionnaireOptions(chunks[0].markdown).length >= 2);
+  assert.equal(chunks.length, 1);
+  assert.deepEqual(chunks.map(({ kind }) => kind), ["image"]);
+  assert.equal(chunks[0].source, "fresh-stream");
+  assert.notEqual(chunks[0].title, "Anime Night, Sorted");
+  assert.ok(chunks[0].topicId !== null);
   assert.ok(chunks.every(({ id }) => id.startsWith("refill-under-a-second-")));
 });
 
-test("illustrated questionnaires keep rich copy separate from one-tap answer labels", () => {
-  const markdown = [
-    "![Film editor at a digital editing suite](https://upload.wikimedia.org/wikipedia/commons/a/aa/editor.jpg)",
-    "[Photograph · Example Creator · CC BY-SA 4.0](https://commons.wikimedia.org/wiki/File:Editor.jpg)",
-    "",
-    "No score or productivity sermon. Choose one:",
-    "",
-    "1. **Record:** Make a thirty-second film with [OpenShot](https://www.openshot.org/).",
-    "2. **Build:** Draw an impossible business card.",
-    "",
-    "Now ask which route can begin without buying anything.",
-    "",
-    "- Which would become more interesting after one mistake?",
-    "- Which are you quietly hoping somebody else chooses for you?",
-  ].join("\n");
-
-  assert.deepEqual(questionnaireOptions(markdown), [
-    "Which would become more interesting after one mistake?",
-    "Which are you quietly hoping somebody else chooses for you?",
-  ]);
-  const introduction = questionnaireIntroduction(markdown);
-  assert.doesNotMatch(introduction, /!\[|Photograph · Example Creator/);
-  assert.match(introduction, /1\. \*\*Record:\*\*/);
-  assert.match(introduction, /\[OpenShot\]\(https:\/\/www\.openshot\.org\/\)/);
-  assert.match(introduction, /\n\n1\. \*\*Record:/);
-  assert.doesNotMatch(introduction, /Which would become more interesting/);
-});
 
 test("the feed presents newest arrivals first without mutating append-only storage order", () => {
   const stored = Object.freeze([
@@ -323,7 +291,7 @@ test("rolling catalogue images require provenance and discard tracking parameter
 
 test("panel layout uses stable editorial spans instead of positional grid selectors", () => {
   assert.equal(panelLayoutForChunk({ kind: "image", source: "bundle", markdown: "Short" }, 0), "hero");
-  assert.equal(panelLayoutForChunk({ kind: "questionnaire", source: "bundle", markdown: "Pick one" }, 4), "wide");
+  assert.equal(panelLayoutForChunk({ kind: "article", source: "bundle", markdown: "A complete page." }, 4), "standard");
   assert.equal(panelLayoutForChunk({ kind: "article", source: "chat-directed", markdown: "Complete answer" }, 3), "standard");
   assert.equal(panelLayoutForChunk({ kind: "image", source: "bundle", markdown: "Short" }, 2), "compact");
   assert.equal(panelLayoutForChunk({ kind: "article", source: "bundle", markdown: "A useful short article" }, 3), "standard");

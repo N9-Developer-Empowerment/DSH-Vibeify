@@ -1,28 +1,9 @@
 import { remoteVisualForMarkdown, markdownWithoutLeadVisual } from "./article-image-source.js";
 export { commonsSourceUrlsForMarkdown, remoteVisualForMarkdown, remoteVisualsForMarkdown, markdownWithoutLeadVisual, contentLinkForMarkdown } from "./article-image-source.js";
-import { questionnaireParts } from "./questionnaire.js";
 import { illustrationForChunk } from "../../../../shared/editorial-illustrations.js";
 
 export const STREAM_BATCH_SIZE = 8;
 export const GENERATED_STREAM_BATCH_SIZE = 6;
-
-const QUESTIONNAIRES = Object.freeze([
-  Object.freeze({
-    id: "direction",
-    title: "Where should this edition wander next?",
-    markdown: "Pick the thread that sounds good right now. The stream keeps moving whether you answer or not.\n\n- Something to watch\n- A practical idea to try\n- Music and visual culture\n- Surprise me completely",
-  }),
-  Object.freeze({
-    id: "depth",
-    title: "What earns your attention today?",
-    markdown: "This shapes later pages, not the material already in front of you.\n\n- A quick useful hit\n- A properly deep read\n- More images and video\n- More people and original creators",
-  }),
-  Object.freeze({
-    id: "energy",
-    title: "Choose the pace, if you feel like it",
-    markdown: "There is no form to finish. One tap is enough.\n\n- Calm and unhurried\n- Bright and surprising\n- Practical and direct\n- Keep the mix unpredictable",
-  }),
-]);
 
 const ANGLES = Object.freeze([
   Object.freeze({
@@ -62,9 +43,9 @@ function hashText(value) {
 }
 
 /**
- * Spend two locally prepared pages immediately when an explicit update starts.
+ * Spend one locally prepared page immediately when an explicit update starts.
  * They require no provider round trip and therefore guarantee a visual first
- * result plus a questionnaire while the bounded live lanes build deeper work.
+ * result while the bounded live lanes build deeper work.
  */
 export function createInstantUpdateChunks(catalog, runId, recentTitles = [], publishedAt = Date.now()) {
   if (!Array.isArray(catalog?.episodes) || catalog.episodes.length === 0) throw new TypeError("instant update requires an editorial catalogue");
@@ -75,17 +56,7 @@ export function createInstantUpdateChunks(catalog, runId, recentTitles = [], pub
   const candidates = available.length > 0 ? available : catalog.episodes;
   const episode = candidates[hashText(runId) % candidates.length];
   const note = episode.editorialNotes[hashText(`${runId}:note`) % episode.editorialNotes.length];
-  const question = QUESTIONNAIRES[hashText(`${runId}:question`) % QUESTIONNAIRES.length];
   return Object.freeze([
-    Object.freeze({
-      id: `${runId}-instant-question-${question.id}`,
-      kind: "questionnaire",
-      source: "fresh-stream",
-      title: question.title,
-      markdown: question.markdown,
-      topicId: null,
-      publishedAt,
-    }),
     Object.freeze({
       id: `${runId}-instant-${episode.id}`,
       kind: "image",
@@ -93,7 +64,7 @@ export function createInstantUpdateChunks(catalog, runId, recentTitles = [], pub
       title: episode.title,
       markdown: `${episode.description}\n\n**${note}.**`,
       topicId: episode.id,
-      publishedAt: publishedAt + 1,
+      publishedAt,
     }),
   ]);
 }
@@ -107,19 +78,6 @@ export function createBundledStream(catalog, editionKey, count = 36) {
   const day = isoDay(editionKey);
   const chunks = [];
   for (let index = 0; index < count; index += 1) {
-    const position = index % 9;
-    if (position === 3 || position === 7) {
-      const question = QUESTIONNAIRES[(Math.floor(index / 4) + day.charCodeAt(day.length - 1)) % QUESTIONNAIRES.length];
-      chunks.push(Object.freeze({
-        id: `bundle-${day}-question-${index}-${question.id}`,
-        kind: "questionnaire",
-        source: "bundle",
-        title: question.title,
-        markdown: question.markdown,
-        topicId: null,
-      }));
-      continue;
-    }
     const episode = catalog.episodes[(index * 5 + day.charCodeAt(day.length - 2)) % catalog.episodes.length];
     const angle = ANGLES[(index + Math.floor(index / catalog.episodes.length)) % ANGLES.length];
     chunks.push(Object.freeze({
@@ -134,14 +92,6 @@ export function createBundledStream(catalog, editionKey, count = 36) {
     }));
   }
   return Object.freeze(chunks);
-}
-
-export function questionnaireOptions(markdown) {
-  return Object.freeze(questionnaireParts(markdown).options.slice(0, 6));
-}
-
-export function questionnaireIntroduction(markdown) {
-  return markdownWithoutLeadVisual(questionnaireParts(markdown).introduction).trim();
 }
 
 /** Stored chunks stay append-only; presentation reverses arrival order so the latest item is first. */
@@ -191,8 +141,7 @@ export function visualMediaForChunk(catalog, chunk, { includeLinked = true } = {
       episode,
     });
   }
-  const needsStorySpecificVisual = chunk?.kind !== "questionnaire"
-    && chunk?.topicId == null
+  const needsStorySpecificVisual = chunk?.topicId == null
     && chunk?.source !== "bundle"
     && chunk?.source !== "welcome";
   if (needsStorySpecificVisual) return Object.freeze({ ...storyCoverForChunk(chunk), episode });
@@ -215,7 +164,6 @@ export function visualMediaForChunk(catalog, chunk, { includeLinked = true } = {
 /** Keep an editorial rhythm regardless of article length or where it arrived. */
 export function panelLayoutForChunk(chunk, index) {
   if (index === 0) return "hero";
-  if (chunk?.kind === "questionnaire") return "wide";
   return ["feature", "compact", "standard", "standard", "compact", "feature"][(Math.max(1, index) - 1) % 6];
 }
 

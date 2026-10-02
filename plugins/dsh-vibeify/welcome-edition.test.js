@@ -28,7 +28,6 @@ test("the opening edition sells the installed experience again without becoming 
     /pull/i,
     /Stop update/i,
     /editorial settings|editor note/i,
-    /questionnaire/i,
     /local|on this device/i,
     /photograph|video|music/i,
     /save|Not for me/i,
@@ -69,6 +68,12 @@ test("a relaunch restores reader pages above optional orientation", () => {
   assert.deepEqual(visible.slice(2 + welcome.length, 2 + welcome.length + bundle.length).map(({ id }) => id), bundle.map(({ id }) => id));
   assert.deepEqual(visible.slice(0, 2).map(({ id }) => id), ["fresh-old", "chat-old"]);
   assert.equal(visible.some(({ id }) => id === "bundle-yesterday"), false);
+});
+
+test("legacy questionnaire cards are removed before the opening edition is rendered", () => {
+  const legacyQuestion = { id: "old-question", kind: "questionnaire", source: "fresh-stream", title: "Choose", markdown: "Choose.\n\n- One\n- Two", publishedAt: 500 };
+  const visible = composeOpeningStream({ cached: [legacyQuestion], bundle: [legacyQuestion], welcome: [legacyQuestion], now: 1_000 });
+  assert.deepEqual(visible, []);
 });
 
 test("new material added during the visit still arrives above the orientation edition", () => {

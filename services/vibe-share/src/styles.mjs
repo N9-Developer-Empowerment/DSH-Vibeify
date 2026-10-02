@@ -1,3 +1,4 @@
+import { SHARE_APPEARANCE_STYLES } from "./appearance-styles.mjs";
 /** Shared by preview and published articles. Keep width policy here, not in renderers. */
 export const SHARE_STYLES = `
 :root {
@@ -45,6 +46,8 @@ header a {
   background-clip:text;
   color:transparent;
 }
+
+.brand small:empty { display:none; }
 
 .brand small {
   display:block;
@@ -653,4 +656,5 @@ button:disabled {
   border-radius:14px;
   background:#fff;
 }
+${SHARE_APPEARANCE_STYLES}
 `;

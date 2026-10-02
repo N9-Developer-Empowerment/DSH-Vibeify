@@ -17,10 +17,10 @@ function memoryStorage() {
 test("magazine appearance persists separately from Chat colour", () => {
   const storage = memoryStorage();
   const profile = saveAppearanceProfile(storage, { palette: "forest", textSize: "large", spacing: "roomy" });
-  assert.deepEqual(profile, { version: 1, palette: "forest", textSize: "large", spacing: "roomy" });
+  assert.deepEqual(profile, { version: 1, look: "vibe", palette: "forest", textSize: "large", spacing: "roomy" });
   assert.deepEqual(loadAppearanceProfile(storage), profile);
   assert.deepEqual([...storage.values.keys()], [APPEARANCE_STORAGE_KEY]);
-  assert.deepEqual(Object.keys(MAGAZINE_PALETTES), ["midnight", "paper", "forest", "ocean"]);
+  assert.deepEqual(Object.keys(MAGAZINE_PALETTES), ["midnight", "paper", "forest", "ocean", "news"]);
 });
 
 test("invalid or corrupt appearance values fall back to the default", () => {
@@ -43,4 +43,14 @@ test("the magazine settings trigger does not close its freshly opened popup", ()
   assert.equal(shouldCloseAppearanceSettingsOnClick(picker, { closest: () => ({}) }), false);
   assert.equal(shouldCloseAppearanceSettingsOnClick(picker, "inside"), false);
   assert.equal(shouldCloseAppearanceSettingsOnClick(picker, { closest: () => null }), true);
+});
+
+test("old profiles migrate and website looks persist without touching editorial settings", () => {
+  const storage = memoryStorage();
+  storage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ version: 1, palette: "ocean" }));
+  assert.equal(loadAppearanceProfile(storage).look, "vibe");
+  assert.equal(loadAppearanceProfile(storage).palette, "ocean");
+  const profile = saveAppearanceProfile(storage, { look: "bbc-news" });
+  assert.equal(profile.palette, "news");
+  assert.deepEqual(loadAppearanceProfile(storage), profile);
 });

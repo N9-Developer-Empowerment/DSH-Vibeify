@@ -31,8 +31,11 @@ The shared contract is allow-list only:
 | Bounded rendered Markdown | Reasoning, progress, tools, or approvals |
 | Publication time | DSH session, message, thread, or local chunk identity |
 | Selected public image URLs, visual kind, alt text, credits, and source pages; or one generated cover made from the reviewed article | Attachments, private files, account data, credentials, prompts, or private Chat text |
-| One separate public content/source link | Tribes, settings, interactions, questionnaires, or browser history |
+| One separate public content/source link | Tribes, editorial preferences, interactions, questionnaires, or browser history |
+| Fixed website look, colour palette, text size and spacing selections | Arbitrary CSS, site URLs, private settings, or copied website assets |
 | One optional YouTube, Vimeo, Spotify, or SoundCloud link and visible label | Arbitrary iframe sources, embed HTML, autoplay instructions, or unrecognised hosts |
+
+Website looks use a shared fixed catalogue. The BBC News inspired look uses familiar layout cues without the BBC logo, fetched site styling, or an explanatory subtitle. Preview and public rendering retain the selected presentation.
 
 DSH communicates only with the pinned HTTPS share origin. It checks both the response origin and the exact window it opened before sending the card. The share page cannot reach back into DSH and DSH has no publishing credential.
 

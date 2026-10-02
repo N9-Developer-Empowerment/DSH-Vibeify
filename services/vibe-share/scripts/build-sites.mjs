@@ -20,6 +20,7 @@ render = render.replace(
   'from "./vibe-markdown.js"',
 );
 render = render.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
+render = render.replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
 let appSource = await readFile(resolve(project, "src/app-source.mjs"), "utf8");
 appSource = appSource.replace(
   'from "../../../shared/vibe-markdown.js"',
@@ -33,7 +34,11 @@ appSource = appSource.replace(
 
 appSource = appSource.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
 
+appSource = appSource.replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
+const appearanceStyles = (await readFile(resolve(project, "src/appearance-styles.mjs"), "utf8")).replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
 await Promise.all([
+  writeFile(resolve(server, "appearance-styles.mjs"), appearanceStyles),
+  copyFile(resolve(project, "../../shared/article-appearance.js"), resolve(server, "article-appearance.js")),
   copyFile(resolve(project, "src/media.mjs"), resolve(server, "media.mjs")),
   copyFile(resolve(project, "src/styles.mjs"), resolve(server, "styles.mjs")),
   copyFile(resolve(project, "../../shared/interactive-layout.js"), resolve(server, "interactive-layout.js")),

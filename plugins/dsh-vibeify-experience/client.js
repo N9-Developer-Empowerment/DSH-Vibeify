@@ -47,6 +47,7 @@ window.__ModuleLoader__.load({
 			  EDITORIAL_TRIBES: () => EDITORIAL_TRIBES,
 			  MAGAZINE_PALETTES: () => MAGAZINE_PALETTES,
 			  MAGAZINE_UPDATE_EVENT: () => MAGAZINE_UPDATE_EVENT,
+			  WEBSITE_LOOKS: () => WEBSITE_LOOKS,
 			  collapseCompletedThinking: () => collapseCompletedThinking,
 			  createAppearanceProfile: () => createAppearanceProfile,
 			  loadAppearanceProfile: () => loadAppearanceProfile,
@@ -60,6 +61,77 @@ window.__ModuleLoader__.load({
 			});
 			module.exports = __toCommonJS(index_exports);
 
+			// ../../shared/article-appearance.js
+			var WEBSITE_LOOKS = Object.freeze({
+			  vibe: Object.freeze({ label: "VIBE magazine", note: null, defaultPalette: "midnight" }),
+			  "bbc-news": Object.freeze({ label: "BBC News inspired", note: "", defaultPalette: "news" })
+			});
+			var MAGAZINE_PALETTES = Object.freeze({
+			  midnight: Object.freeze({ label: "Midnight", scheme: "dark", colors: Object.freeze({ background: "#080609", surface: "#19121b", ink: "#fffafc", muted: "#c7bac4", accent: "#ff9aba", border: "#58424f" }) }),
+			  paper: Object.freeze({ label: "Paper", scheme: "light", colors: Object.freeze({ background: "#f4efe5", surface: "#fffdf7", ink: "#29251f", muted: "#60574d", accent: "#963b37", border: "#c8bdae" }) }),
+			  forest: Object.freeze({ label: "Forest", scheme: "light", colors: Object.freeze({ background: "#eaf0e7", surface: "#f9fcf6", ink: "#18392c", muted: "#496355", accent: "#176648", border: "#b0c8b6" }) }),
+			  ocean: Object.freeze({ label: "Ocean", scheme: "dark", colors: Object.freeze({ background: "#081b2b", surface: "#102b40", ink: "#f0f9ff", muted: "#b8cfdd", accent: "#7bd8e9", border: "#3d687e" }) }),
+			  news: Object.freeze({ label: "Newsroom", scheme: "light", colors: Object.freeze({ background: "#ffffff", surface: "#ffffff", ink: "#161616", muted: "#545454", accent: "#b32318", border: "#d4d4d4" }) })
+			});
+			function cleanArticleAppearance(value) {
+			  const options = value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
+			  const look = Object.hasOwn(WEBSITE_LOOKS, options.look) ? options.look : "vibe";
+			  return Object.freeze({
+			    look,
+			    palette: Object.hasOwn(MAGAZINE_PALETTES, options.palette) ? options.palette : WEBSITE_LOOKS[look].defaultPalette,
+			    textSize: options.textSize === "large" ? "large" : "standard",
+			    spacing: options.spacing === "roomy" ? "roomy" : "standard"
+			  });
+			}
+			function appearancePaletteStyles(scope) {
+			  return Object.entries(MAGAZINE_PALETTES).map(
+			    ([id, { colors, scheme }]) => `${scope}[data-palette="${id}"]{--page:${colors.background};--surface:${colors.surface};--ink:${colors.ink};--muted:${colors.muted};--accent:${colors.accent};--edge:${colors.border};--wash:color-mix(in srgb,var(--ink) 5%,transparent);color-scheme:${scheme};}`
+			  ).join("\n");
+			}
+
+			// client-src/experience/appearance-styles.js
+			var MAGAZINE_APPEARANCE_STYLES = `
+			${appearancePaletteStyles(".vfx-shell")}
+			.vfx-shell:not([data-view="chat"]),.vfx-shell .vfx-stream { color:var(--ink); background:var(--page); }
+			.vfx-shell .vfx-stream { background:radial-gradient(ellipse at 85% 0,color-mix(in srgb,var(--accent) 8%,transparent),transparent 40%),var(--page); scrollbar-color:var(--edge) transparent; }
+			.vfx-shell .vfx-header { background:color-mix(in srgb,var(--page) 94%,transparent); border-color:var(--edge); }
+			.vfx-shell .vfx-wordmark span { background:none; color:var(--ink); }
+			.vfx-shell .vfx-wordmark small,.vfx-shell .vfx-edition,.vfx-shell .vfx-edition-intro p,.vfx-shell .vfx-library p,.vfx-shell .vfx-library-status,.vfx-shell .vfx-footer,.vfx-shell .vfx-pull,.vfx-shell .vfx-chunk-meta,.vfx-shell .vfx-share-link-panel p { color:var(--muted); }
+			.vfx-shell .vfx-edition-intro>span,.vfx-shell .vfx-source-link,.vfx-shell .vfx-markdown a,.vfx-shell .vfx-chunk-heading>div>span { color:var(--accent); }
+			.vfx-shell .vfx-chunk { background:var(--surface); border-color:var(--edge); box-shadow:0 14px 42px #0000000a; }
+			.vfx-shell .vfx-markdown { color:var(--muted); }
+			.vfx-shell .vfx-markdown blockquote,.vfx-shell .vfx-markdown th,.vfx-shell .vfx-math { color:var(--ink); background:var(--wash); }
+			.vfx-shell .vfx-markdown pre,.vfx-shell .vfx-inline-visuals figure,.vfx-shell .vfx-share-link-panel { color:var(--ink); background:var(--surface); border-color:var(--edge); }
+			.vfx-shell .vfx-inline-visuals figcaption,.vfx-shell .vfx-inline-visuals a { color:var(--muted); }
+			.vfx-shell .vfx-share,.vfx-shell .vfx-skip,.vfx-shell .vfx-chat-cta,.vfx-shell .vfx-find,.vfx-shell .vfx-chat,.vfx-shell .vfx-save,.vfx-shell .vfx-update { color:var(--ink); background:var(--wash); border-color:var(--edge); }
+			.vfx-shell .vfx-save[aria-pressed="true"] { color:var(--ink); background:color-mix(in srgb,var(--accent) 18%,var(--surface)); border-color:var(--accent); }
+			.vfx-shell .vfx-intro-cta,.vfx-shell .vfx-update.is-active,.vfx-shell .vfx-media-button { color:var(--page)!important; background:var(--accent); border-color:var(--accent); }
+			.vfx-shell .vfx-intro-cta:disabled { opacity:.65; cursor:wait; }
+			.vfx-shell .vfx-library-search>div,.vfx-shell .vfx-share-link-panel input { background:var(--surface); border-color:var(--edge); color:var(--ink); }
+			.vfx-shell .vfx-library-search input { color:var(--ink); }
+			.vfx-shell button:focus-visible,.vfx-shell a:focus-visible { outline-color:var(--accent); }
+			.vfx-shell[data-text-size="large"] .vfx-markdown { font-size:18px; line-height:1.8; }
+			.vfx-shell[data-spacing="roomy"] .vfx-chunks { gap:32px; }
+			.vfx-shell[data-spacing="roomy"] .vfx-chunk-copy { padding:clamp(26px,4vw,52px); }
+			@media(max-width:760px) { .vfx-header { height:auto; min-height:78px; padding:12px 16px; gap:8px; flex-wrap:wrap; } .vfx-wordmark { margin-right:auto; } .vfx-edition { display:none; } .vfx-header .vfx-find,.vfx-header .vfx-update,.vfx-header .vfx-chat { padding:0 10px; font-size:11px; } }
+			/* Website structure stays independent of palette and accessibility choices. */
+			.vfx-shell[data-look="bbc-news"] .vfx-stream { background:var(--page); }
+			.vfx-shell[data-look="bbc-news"] .vfx-header { background:var(--accent); color:var(--page); border-bottom:5px solid var(--ink); backdrop-filter:none; }
+			.vfx-shell[data-look="bbc-news"] .vfx-wordmark span { color:var(--page); font-size:32px; letter-spacing:-.02em; }
+			.vfx-shell[data-look="bbc-news"] .vfx-wordmark small { color:var(--page); font-size:9px; letter-spacing:0; }
+			.vfx-shell[data-look="bbc-news"] .vfx-header :is(.vfx-find,.vfx-chat,.vfx-update) { color:var(--page); background:transparent; border-color:currentColor; border-radius:0; }
+			.vfx-shell[data-look="bbc-news"] .vfx-edition { color:var(--page); }
+			.vfx-shell[data-look="bbc-news"] :is(.vfx-edition-intro h1,.vfx-library h1,.vfx-chunk h2) { font-family:Georgia,serif; font-weight:700; letter-spacing:-.025em; line-height:1.12; }
+			.vfx-shell[data-look="bbc-news"] .vfx-chunk { border:0; border-top:1px solid var(--edge); border-radius:0; box-shadow:none; }
+			.vfx-shell[data-look="bbc-news"] .vfx-chunk-copy { padding:24px 0; }
+			.vfx-shell[data-look="bbc-news"] .vfx-chunk.is-hero { display:block; }
+			.vfx-shell[data-look="bbc-news"] .vfx-chunk.is-hero .vfx-chunk-visual { height:clamp(240px,36vw,520px); }
+			.vfx-shell[data-look="bbc-news"] .vfx-markdown { color:var(--ink); }
+			.vfx-shell[data-look="bbc-news"] .vfx-chunk h2 { font-size:clamp(28px,3vw,44px); }
+			.vfx-shell[data-look="bbc-news"] :is(.vfx-share,.vfx-skip,.vfx-save,.vfx-read-more,.vfx-intro-cta) { border-radius:0; }
+			@media(max-width:560px) { .vfx-shell[data-look="bbc-news"] .vfx-wordmark small { display:block; font-size:8px; } }
+			`;
+
 			// client-src/experience/shell.jsx
 			var import_react = __toESM(require("react"), 1);
 
@@ -68,22 +140,8 @@ window.__ModuleLoader__.load({
 			var APPEARANCE_OPEN_EVENT = "dsh-vibeify:open-appearance-settings";
 			var APPEARANCE_SETTINGS_EVENT = "dsh-vibeify:appearance-settings";
 			var MAGAZINE_UPDATE_EVENT = "dsh-vibeify:update-magazine";
-			var MAGAZINE_PALETTES = Object.freeze({
-			  midnight: Object.freeze({ label: "Midnight", colors: Object.freeze({ background: "#080609", surface: "#19121b", ink: "#fffafc", muted: "#c7bac4", accent: "#ff9aba", border: "#58424f" }) }),
-			  paper: Object.freeze({ label: "Paper", colors: Object.freeze({ background: "#f4efe5", surface: "#fffdf7", ink: "#29251f", muted: "#60574d", accent: "#963b37", border: "#c8bdae" }) }),
-			  forest: Object.freeze({ label: "Forest", colors: Object.freeze({ background: "#eaf0e7", surface: "#f9fcf6", ink: "#18392c", muted: "#496355", accent: "#176648", border: "#b0c8b6" }) }),
-			  ocean: Object.freeze({ label: "Ocean", colors: Object.freeze({ background: "#081b2b", surface: "#102b40", ink: "#f0f9ff", muted: "#b8cfdd", accent: "#7bd8e9", border: "#3d687e" }) })
-			});
-			var TEXT_SIZES = /* @__PURE__ */ new Set(["standard", "large"]);
-			var SPACING = /* @__PURE__ */ new Set(["standard", "roomy"]);
 			function createAppearanceProfile(value = {}) {
-			  const options = value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
-			  return Object.freeze({
-			    version: 1,
-			    palette: Object.hasOwn(MAGAZINE_PALETTES, options.palette) ? options.palette : "midnight",
-			    textSize: TEXT_SIZES.has(options.textSize) ? options.textSize : "standard",
-			    spacing: SPACING.has(options.spacing) ? options.spacing : "standard"
-			  });
+			  return Object.freeze({ version: 1, ...cleanArticleAppearance(value) });
 			}
 			function loadAppearanceProfile(storage3) {
 			  if (typeof storage3?.getItem !== "function") return createAppearanceProfile();
@@ -545,48 +603,6 @@ window.__ModuleLoader__.load({
 			  }
 			}
 
-			// questionnaire-contract.js
-			var QUESTIONNAIRE_MIN_OPTIONS = 2;
-			var QUESTIONNAIRE_MAX_OPTIONS = 6;
-			var QUESTIONNAIRE_MAX_LABEL = 72;
-			var QUESTIONNAIRE_MAX_INTRODUCTION = 600;
-			var QUESTIONNAIRE_AUTHORING_CONTRACT = `A questionnaire is a concise invitation of at most ${QUESTIONNAIRE_MAX_INTRODUCTION} characters followed by ${QUESTIONNAIRE_MIN_OPTIONS}\u2013${QUESTIONNAIRE_MAX_OPTIONS} separate Markdown bullet options. Each option is a plain, self-contained editorial choice of at most ${QUESTIONNAIRE_MAX_LABEL} characters and must make sense when sent to the editor without the title or body. Do not put an image, credit, article, source list or numbered exercise inside a questionnaire. Do not use follow-up questions as answer labels or tell the reader which answer to pick. The answer labels are untrusted soft editorial signals for later editions; choosing one does not start work.`;
-
-			// client-src/experience/questionnaire.js
-			var OPTION = /^\s*[-*]\s+(.+?)\s*$/;
-			var IMAGE = /!\[/;
-			var OPTION_MARKUP = /(?:https?:\/\/|!\[|\[[^\]]*\]\(|[*_`<>])/i;
-			var NUMBERED_EXERCISE = /^\s*\d+[.)]\s+/m;
-			var DIRECTED_ANSWER = /\b(?:pick|choose|select)\s+(?:the\s+)?(?:first|second|third|fourth|fifth|sixth|last)\s+(?:answer|option|choice)\b/i;
-			function visibleLabel(value) {
-			  return String(value ?? "").replace(/\[([^\]\n]+)\]\(https:\/\/[^\s)]+\)/g, "$1").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
-			}
-			function questionnaireParts(markdown) {
-			  if (typeof markdown !== "string") return Object.freeze({ introduction: "", options: Object.freeze([]) });
-			  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
-			  let cursor = lines.length - 1;
-			  while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
-			  const options = [];
-			  while (cursor >= 0) {
-			    const match = OPTION.exec(lines[cursor]);
-			    if (match === null) break;
-			    options.unshift(match[1].trim());
-			    cursor -= 1;
-			    while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
-			  }
-			  const introduction = lines.slice(0, cursor + 1).join("\n").trim();
-			  return Object.freeze({ introduction, options: Object.freeze(options) });
-			}
-			function validQuestionnaireMarkdown(markdown) {
-			  const { introduction, options } = questionnaireParts(markdown);
-			  if (introduction.length === 0 || introduction.length > QUESTIONNAIRE_MAX_INTRODUCTION) return false;
-			  if (options.length < QUESTIONNAIRE_MIN_OPTIONS || options.length > QUESTIONNAIRE_MAX_OPTIONS) return false;
-			  if (IMAGE.test(introduction) || NUMBERED_EXERCISE.test(introduction) || DIRECTED_ANSWER.test(introduction)) return false;
-			  const visible = options.map(visibleLabel);
-			  if (visible.some((label, index) => label !== options[index] || label.length === 0 || label.length > QUESTIONNAIRE_MAX_LABEL || label.endsWith("?") || OPTION_MARKUP.test(label))) return false;
-			  return new Set(visible.map((label) => label.toLocaleLowerCase())).size === visible.length;
-			}
-
 			// ../../shared/editorial-illustrations.js
 			var SVG_DATA = Object.freeze({
 			  "doodles-loving": "data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB3aWR0aD0iMTAyNHB4IiBoZWlnaHQ9Ijc2OHB4IiB2aWV3Qm94PSIwIDAgMTAyNCA3NjgiIHZlcnNpb249IjEuMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayI+CiAgICA8IS0tIEdlbmVyYXRvcjogU2tldGNoIDU3LjEgKDgzMDg4KSAtIGh0dHBzOi8vc2tldGNoLmNvbSAtLT4KICAgIDx0aXRsZT5DaGFyYWN0ZXIvbG92aW5nPC90aXRsZT4KICAgIDxkZXNjPkNyZWF0ZWQgd2l0aCBTa2V0Y2guPC9kZXNjPgogICAgPGcgaWQ9IkNoYXJhY3Rlci9sb3ZpbmciIHN0cm9rZT0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxIiBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPgogICAgICAgIDxwYXRoIGQ9Ik00NDguOTk1MTkxLDMzNS40NzMxMSBDNDM5Ljg5NDUzMSwzNDIuMDcwMTQyIDQ0MS4zNDM0NCwzNTUuMDUwNjM3IDQ0NC4wODI2MzQsMzY0LjQ4MTg3OSBDNDQ4LjExNjg0OSwzNzguMzY4NTY2IDQ1Ni4xNTIxMzUsMzkxLjIyMzk4NyA0NjUuMzE3OTAxLDQwMi4zMDQ3ODIgQzQ4MS41NzkwNTYsNDIxLjk2MjU0NSA1MDkuMTg0MDc1LDQ0NC4wMzU2NCA1MzQuNjI5OTM2LDQyNi43Nzc4NyBDNTU3LjI5MDQzNyw0MTEuNDA4MDAyIDU3MS41ODQyMDIsMzgwLjM5NDUxOSA1NzYuNTE4MDY2LDM1NC4yNzE4NzggQzU3OC4wNDI3MzQsMzQ2LjE5ODc0NCA1ODAuMDc0MDQ3LDMzNC4xNzA0NTkgNTcyLjkwODgxNywzMjguMTAwODU5IEM1NjIuMzE2NjM0LDMxOS4xMjk3OTMgNTQzLjYzMjM0NSwzMjAuNzYxNjQ3IDUzMC44NDU0OTIsMzIxLjkxNjgwNiBDNTIyLjQyNDMwNCwzMjIuNjc2Njg2IDUxNC4yOTkwNTMsMzI1LjI1ODM4OSA1MDUuOTc3MywzMjQuMDQ2NTkzIEM0ODYuNjQxOTQ5LDMyMS4yMjg5MDIgNDY1LjEyMjU4MywzMjMuNzgxMTA3IDQ0OC45OTUxOTEsMzM1LjQ3MzExIiBpZD0iQWNjZW50IiBmaWxsPSIjRkY1Njc4Ij48L3BhdGg+CiAgICAgICAgPGcgaWQ9IkluayIgdHJhbnNmb3JtPSJ0cmFuc2xhdGUoODkuOTk5ODQwLCA4Mi4wMDAwMDApIiBmaWxsPSIjMDAwMDAwIj4KICAgICAgICAgICAgPHBhdGggZD0iTTc1MS4wMjI5MjgsMzU2LjM0MzIzNiBDNzMyLjU4Nzg0MSwzNzkuNzI4MzkzIDcwMS4yNDYwNTksMzgzLjQyMzI3NiA2NzMuNDA5NzQsMzgzLjE5MzgyNCBDNjU2LjY5NDIwMiwzODMuMDU1NDQ0IDYzOS45NDY2NjcsMzgxLjc5NzAwNyA2MjMuNTU5Mzk2LDM3OC4zOTA3MTMgQzYxNC43MjQ2MzMsMzc2LjU1MzkxNiA2MDUuOTQ5MTIzLDM3NC4xMjEwMTcgNTk3LjQxMywzNzEuMTk4NDY0IEM1OTEuNzc0Mzk0LDM2OS4yNjcwNDggNTgzLjM4MDQ4MSwzNjguMzAxOTMxIDU4MC45ODA2OTYsMzYyLjI2MDQ4OSBDNTc0LjY1MTE4OSwzNDYuMzE5NTA1IDU3OS4zMDg1NDksMzI2LjMyODgxNCA1ODEuOTE0NTM4LDMxMC4xNDg5MTYgQzU4My4yNDA2NDEsMzAxLjkxOTQwMyA1ODQuMjM2MTA4LDI5My42NDAyMTUgNTg1LjUyNTQ3MywyODUuNDAzNjA2IEM1ODYuMzUwMjg4LDI4MC4xMzQ0OTQgNTg2Ljc0NDkyLDI3NC4zMDM1ODEgNTg4Ljk1MzkwNywyNjkuMzczOTE2IEM1OTEuNTM5NzQ5LDI2My41OTg1OTEgNTk0LjgwNTgyNiwyNjQuNzUxNzYzIDYwMC4yNzQ5NjUsMjY2LjM0NzI4MSBDNjA3LjgwOTY5NywyNjguNTQ3MTggNjE1LjU0NTg5MiwyNjkuNDYxNDM5IDYyMy4yOTI3NTMsMjcwLjY0NDE4IEM2NDIuMTk5NTAyLDI3My41MzEyNTEgNjU4LjY5NDYxNSwyNzkuMzUyNzAzIDY3NS44NzcwNzUsMjg3LjYwNDY4NyBDNjkyLjg2NzU1MSwyOTUuNzYzMjM2IDcwOS4zNDg0NDMsMzAzLjgxNjUyIDcyNC41MDMyMzIsMzE1LjE2MTM3MyBDNzMyLjE4MTM1OSwzMjAuOTEwNjc3IDczOC43OTc2NTQsMzI3LjE1MDgxOSA3NDQuOTYxMjUsMzM0LjQ3NzkwMSBDNzQ5LjcyMjg5NywzNDAuMTM4NDk5IDc1Ni44Mjk4MTUsMzQ4Ljk3NTk0MSA3NTEuMDIyOTI4LDM1Ni4zNDMyMzYgTTY3MC40Mzg3NDcsNDYwLjIxMTU2IEM2NzAuMjkwNjEzLDQ2Mi43Mjk2MTYgNjQxLjM5ODM4OSw0NTUuMTI4MTM5IDYzNy41OTY2NTYsNDU0LjI3NTM4MyBDNjEyLjY0OTU1OSw0NDguNjc5ODM1IDU4Ny4yMDgyODUsNDQyLjMwNzIyNSA1NjMuNjU3MjEyLDQzMi4xOTcxNTQgQzU0MS42NzM5OTgsNDIyLjc2MTI0NiA1MjIuMzA1MDY5LDQxMS45NjUxODUgNTA1LjAwNjQ3MiwzOTUuMTk5ODI5IEM0OTYuOTQzMTk1LDM4Ny4zODU0NTkgNDg5LjY5MDUxMiwzNzkuMTU1OTQ2IDQ4Mi43NTA2OSwzNzAuMzkxODM1IEM0NzkuMjcyNDgzLDM2NS45OTkxMzQgNDc0LjUyMDMxNywzNjYuNTA4ODk1IDQ3MC42NDE1NTQsMzYyLjc5MjcyMyBDNDY3LjE1MjY4MSwzNTkuNDQ3OTMxIDQ2NC40NzY3NzMsMzU2LjgzNjQzOSA0NjUuNTY3MDQ2LDM1MS44MzU4MDkgQzQ3NC4yODU2NzEsMzU0LjEzMjY5MiA0OTAuMzgzNzgzLDM2OC41NzI3NzkgNDk5LjQyMTE5NSwzNjEuMjgxMTggQzUwNC41NzI3MzMsMzU3LjEyNTAyNyA0OTcuNDI3ODkyLDM1Mi43ODMxODUgNDk0LjEyOTgxOCwzNTAuMzc1MTI0IEM0ODcuOTI5NDg1LDM0NS44NDY0MDggNDgyLjYyNzQ0MiwzNDAuMjU5MTM5IDQ3Ny42OTg2OTksMzM0LjM5NTEwOSBDNDg2LjE2MTM0NywzMzYuMDM1NTcxIDQ5NC4wMzg1NjcsMzM5LjIwNTMxNyA1MDEuNDAzODMyLDM0My42MTY5NDEgQzUwNC42NzU4MzUsMzQ1LjU3Njc0MyA1MTUuODkxNDIyLDM1Mi42ODM4MzUgNTE4LjUwMjE1MSwzNDUuOTA5MDkzIEM1MjAuMTA5MTE4LDM0MS43Mzc1NjUgNTEyLjUwNDQ2NiwzMzYuNDk2ODQgNTEwLjEzMzEyMywzMzQuMTg5MzEyIEM1MDQuMzEwODMxLDMyOC41MjM5ODIgNDk4LjAyNTE3MiwzMjEuOTEwMDkzIDQ5NC45MzQ0ODYsMzE0LjI5MzI0MSBDNTAyLjU3NzA2LDMxMi41MjAzMTIgNTA5Ljc4MTE1NSwzMTguNDI2OTIxIDUxNC45ODYwMjEsMzIzLjIzODMxMiBDNTIwLjc2MzI4MSwzMjguNTc5NTcxIDUyNy44NDUzMTMsMzM0LjE4NTc2MyA1MzIuNjg5OTE1LDM0MC4zNDA3NDggQzUzNS4xODkyNDcsMzQzLjUxNTIyNSA1MzUuNzMzMTk4LDM0Ny4yNjQ1MTUgNTM3LjY4NTAyMywzNTAuNjg4NTUgQzUzOS44ODIxNTksMzU0LjU0MDczOCA1NDMuMzk1OTE4LDM1Ny44NDI5NTEgNTQ2Ljc1NDQzMiwzNjAuNjkzMzU3IEM1NTMuMjI0OTYzLDM2Ni4xODYwMDcgNTYwLjc5Mjg3NywzNzAuMjI5Nzk5IDU2OC41NjEwNjksMzczLjU3NDU5MSBDNTg2LjMxMjM2NiwzODEuMjE3NDY0IDYwNS4zMzg4MDgsMzg2LjYyNjEzOSA2MjQuMjU5Nzc4LDM5MC40MjAzNzMgQzYzMy41NDI1MDEsMzkyLjI4MjAwNyA2NDIuNTk2NTA0LDM5My4xMzk0OTQgNjUyLjAxNzg4MSwzOTMuNDU1Mjg2IEM2NTkuMzQwNDgzLDM5My43MDEyOTYgNjYyLjU4MDQ4OSwzOTUuODkwNTUgNjY1LjM3NjA5LDQwMi42MzY5MDYgQzY3Mi45NDE2MzQsNDIwLjg5MjUxNSA2NzEuNTY4MTI4LDQ0MC45NzU0NTkgNjcwLjQzODc0Nyw0NjAuMjExNTYgTTQ1My4xNTY4OTksMzIxLjExMTc0MyBDNDQ4LjkyMzc5OCwzMjUuMDcyNzQzIDQ0My40MjI2NjEsMzI3LjU1NzY4MiA0MzguOTk3NTc3LDMzMS4zNjYxMDkgQzQzNS4xMDM0MDcsMzM0LjcxNjgxNCA0MzAuNjExOTU4LDMzOC4yOTIyNDEgNDI2LjI2NjI3NCwzNDEuMDAxOTAxIEM0MjEuNjI2NjksMzQzLjg5MzcwMyA0MTguMTYwMzM0LDM0MS44NjY0ODQgNDEzLjk4MjkzMSwzMzkuMjQ5MDc4IEM0MDkuMDc5MDc1LDMzNi4xNzg2ODIgNDAzLjQ0MTY1NCwzMzQuOTM0NDM5IDM5OC4zOTA4NDgsMzMyLjE4NjkzMSBDMzgwLjkyNzUyNSwzMjIuNjgyNDIzIDM1OS41NjI5MjIsMjk5LjM5MzA2OCAzNjIuODIzMDc1LDI3OC4wMDkxMDkgQzM2NC4yMDQ4NzcsMjY4Ljk0NTc2MyAzNjguODkwNjc5LDI2MC4wMjc4OTUgMzc3LjM5OTU0NSwyNTUuOTE1NTA1IEMzODUuMTI3NDQ1LDI1Mi4xODE1OTEgMzk2LjM2MDgwOCwyNTAuMTA5NDI4IDQwNC42Mjc5MTgsMjUzLjIzMDY4MiBDNDA5LjI5MTIwNCwyNTQuOTkxNzg0IDQxMi42MjgzODYsMjU4Ljg3OTQ1NCA0MTUuNjE1OTcsMjYyLjcwMDg5IEM0MTkuMTAwMTAyLDI2Ny4xNTYyNzYgNDIwLjQzNDUwMSwyNjYuNDUzNzI4IDQyMy45ODI2MjcsMjYyLjE1NjgyOSBDNDMwLjMzMjI4LDI1NC40NzAxOTUgNDQwLjgwMjQ1MiwyNDcuNzI2MjA1IDQ1MS4xNTI5MzEsMjQ3Ljg4ODI0MSBDNDU2LjI5NzM1OSwyNDcuOTY5ODUgNDYxLjQwNzQxOSwyNDkuMDU0NDIzIDQ2Ni4wNDEwNzcsMjUxLjE4OTI3MSBDNDY2LjY2OTE2OSwyNTEuNDc5MDQzIDQ2Ny4wMTg3NjgsMjUyLjM1NTQ1NCA0NjcuNjQ5MjI5LDI1Mi42NTIzMjIgQzQ2OC40MjMwODYsMjUzLjAxNjYwNiA0NjkuNjk0Njc2LDI1Mi4yNTg0NjkgNDcwLjIzMjcwMiwyNTIuNTk5MDk4IEM0NzEuNTg5NjE3LDI1My40NTc3NjkgNDcyLjk0NDE2MiwyNTYuMTQxNDA4IDQ3My43MjYzMTQsMjU3LjUwMjc0MyBDNDc2Ljg2Njc3MywyNjIuOTY1ODI0IDQ4Mi41MjA3ODUsMjczLjY4MDI3NiA0NzYuODIyOTI1LDI3OC4yNzk5NTYgQzQ3Ni44MTkzNywyNzguMjgyMzIyIDQ3Ny4wNzY1MzIsMjg0LjUwMzU0IDQ3Ni45OTgzMTcsMjg1LjIxMzE4NSBDNDc2LjU5NjU3NSwyODguOTI0NjI2IDQ3NS4zMTMxMzUsMjkxLjk4OTEwOSA0NzMuNjU5OTUsMjk1LjM4MzU3NiBDNDY4LjY5NTY1NCwzMDUuNTgxMTcgNDYxLjM2NzEyNiwzMTMuNDMyMjA1IDQ1My4xNTY4OTksMzIxLjExMTc0MyBNNDYxLjU5ODIxNyw0MDcuMzkxNTI1IEM0NTcuNTg3OTEsNDA4LjYzODEzNCA0NTMuMjY4Mjk3LDM5Ni4wNzAzMjcgNDU3LjExNTA2MywzOTQuMDY0Mzk4IEM0NjAuNzgyODgyLDM5Mi4xNTA3MjMgNDY1LjIyOTI5OCw0MDYuMjY0MzczIDQ2MS41OTgyMTcsNDA3LjM5MTUyNSBNMzk4LjYxMDA4NywzOTIuMzY0Nzk5IEMzOTcuMjIxMTc1LDM5Ny4xMTIzMjIgMzk2LjYzNDU2MSw0MDIuNDk5NzA4IDM5My4yMzgxMjUsNDA2LjM2MzcyMyBDMzkwLjEyODQ3OCw0MDIuNjczNTcxIDM4OS44MjE1NDIsMzk1Ljg2NDUzIDM5Mi44Mzc1NjgsMzkyLjA3MTQ3OSBDMzk0LjU1OTQ4OCwzODkuOTA3MDYzIDQwMC4xMjkzNTksMzg3LjE3NzI5NiAzOTguNjEwMDg3LDM5Mi4zNjQ3OTkgTTUyNi45NDU4MzgsMzA5LjE4Mzc5OSBDNTI2LjkyMzMyMSwzMDkuMzA0NDM5IDUzMS43NzE0NzksMzExLjYyMjYxMSA1MjkuNDA2MDYyLDMxNC4xNTg0MDggQzUyNi4xNzQzNTEsMzE3LjYyMTQ3NCA1MjYuNjE4NzU2LDMxMC44ODEwMzIgNTI2Ljk0NTgzOCwzMDkuMTgzNzk5IE01NDYuOTgwNzgyLDI3MC40OTE2MDYgQzU0Ni45MjUwODMsMjc1LjI5MjM1MiA1MzYuNzYzMDMxLDI3NC4xMzMyNjYgNTM2LjgzNTMyMSwyNjkuMzA1MzE3IEM1MzYuOTI0MjAyLDI2My4zNjMyMjUgNTQ3LjA0MDAzNiwyNjUuNDAzNDU0IDU0Ni45ODA3ODIsMjcwLjQ5MTYwNiBNNTM0Ljg1MDMxNCwyMzAuMzczMDI3IEM1MzUuODU2NDQ2LDIyNS45Nzc5NjEgNTUzLjUzMTg5OCwyMTkuODY0MzczIDU1My4wNTA3NTYsMjI3LjUyMzgwNCBDNTUyLjgwOSwyMzEuMzY0MTY0IDUzMi43MTcxNzIsMjM5LjcxNjY4MiA1MzQuODUwMzE0LDIzMC4zNzMwMjcgTTM1My42NDU4MjMsMzc5LjQxNzMzMiBDMzUxLjY2NDM3MiwzODEuNzk5MzczIDM0OC44NDk4MDksMzgyLjczODQ2OSAzNDYuNDc0OTExLDM4NC41NjY5ODcgQzM0My45ODM4NzUsMzg2LjQ4MzAyNyAzNDIuMjAzODg3LDM4OC45NjkxNDkgMzQwLjAyOTI2NywzOTEuMjE4NzIzIEMzMzQuMDU1Mjg0LDM5Ny4zOTQ5OTcgMzI2Ljg2NDIyNSw0MDIuNDcwMTM5IDMyMC40MTk3NjYsNDA4LjE0Mzc0OCBDMzA4LjU3MTM0Nyw0MTguNTczMTU5IDI5Ny4yMjE4NDYsNDI5Ljc4NTU0NSAyODQuMDg1MjQ3LDQzOC42MzEyNjYgQzI2MC42MTAwMTksNDU0LjQzNjIzNiAyMzMuMzg3NTcxLDQ2My4wODA4OSAyMDYuMzYzMDMxLDQ3MC42NTA0MzQgQzIwNC4xMjQ0MTcsNDcxLjI3NzI4NiAxOTcuNjc1MjE4LDQ3My44MDgzNTIgMTk1LjQ2MDMwNiw0NzEuOTIzMDYzIEMxOTMuMDcxMTg2LDQ2OS44ODk5MzEgMTk0LjI4NTg5Miw0NjIuNzM1NTMgMTk0LjM5NjEwNSw0NjAuMDMwNjAxIEMxOTQuODQ0MDY0LDQ0OC45NDAwMzggMTk2LjEzNjk4Niw0MzcuNzE4MTkgMTk1Ljk5NzE0Niw0MjYuNjQ0MTg1IEMxOTUuOTM5MDc3LDQyMi4wOTUzNjIgMTk0LjYwNzA0OSw0MTUuNjI5MzE3IDE5Ni45ODA3NjIsNDExLjQ2NzI1MSBDMTk5LjYzMDU5OCw0MDYuODE5MDc4IDIwNy4wMjkwNDYsNDA1LjQ1ODkyNiAyMTEuNjA1ODIxLDQwMy43MDk2NTIgQzIyNS41MTYyNzcsMzk4LjM5MzIzIDIzOC45MTU5NjQsMzg5LjQyNDUwNSAyNTEuMjA0MDQ3LDM4MS4xMTgxMTQgQzI2Ni4zMDkwNjMsMzcwLjkwNjMyNyAyODEuNTY0NTg0LDM2MC41MjU0MDggMjk3LjEwOTI2NCwzNTAuOTkyNTE1IEMzMTIuMzM4NzEzLDM0MS42NTM1OTEgMzI5LjEzNzIwNywzMzUuNDAwNDM5IDM0Ni4xMjUzMTMsMzMwLjA2NjI3NiBDMzQ2LjkxMjIwNSwzMzEuNzE5NzQ4IDMzOC44MDYyNjUsMzM3LjA0MjA4MyAzMzcuODc5NTM0LDMzNy43ODgzOTMgQzMzMy40MzU0ODgsMzQxLjM2NjE4NSAzMjguNjAwMzY2LDM0NS4wNzUyNjEgMzI1LjMwMTEwNiwzNDkuNzk3OTQ2IEMzMjIuOTY1MzE2LDM1My4xNDE1NTUgMzIwLjU3MDI3MSwzNjAuNzA3NTUgMzI3LjAxOTQ3MSwzNjAuOTAxNTIgQzMzMC4xNDU3MDksMzYwLjk5NjEzOSAzMzQuNzY3NTE2LDM1Ny45NzE4NyAzMzcuNjAyMjI1LDM1Ni45OTM3NDMgQzM0Mi4yODQ0NzIsMzU1LjM3ODExOSAzNDcuMTA4OTI4LDM1NC4yNDM4NyAzNTIuMDA2ODU5LDM1My41MDU4NCBDMzQ3Ljc5NjI3NCwzNTguMTQyMTg1IDMzMy41MjQzNjksMzY2LjQ2OTg2NSAzMzYuMTIwODc3LDM3NC4xODAxNTQgQzMzOC42NDAzNTQsMzgxLjY2MjE3NSAzNTMuMjEzMjcsMzcyLjkzMTE4IDM1OC4yMjk3MDksMzcyLjkzMTE4IEMzNTcuNDA3MjY0LDM3NS41NDAzMDcgMzU1LjM0MDQ4NiwzNzcuMzgwNjUyIDM1My42NDU4MjMsMzc5LjQxNzMzMiBNMTgxLjQ4MTExNSw0MDAuMjk5ODA5IEMxNzIuMTQ4NjE4LDQwMy41ODE5MTYgMTYyLjU4MjY2MSw0MDUuNDQ4MjgxIDE1Mi45NTAzNCw0MDcuNTY2NTcxIEMxNDMuNzY5NTM0LDQwOS41ODY2OTIgMTM1LjI4MzE4NCw0MTEuMTA4ODggMTI1Ljg3OTU4Miw0MDkuOTI2MTM5IEMxMTIuODk1ODU4LDQwOC4yOTM5NTYgOTguNTI3OTYxMiw0MDIuOTE2MDMyIDk2Ljg4MTg4NjYsMzg4LjE2MjUyIEM5NC45MzAwNjE2LDM3MC42ODI3ODkgMTA3LjI3NTAyOSwzNTQuNjE5OTgyIDExNy44NzU1NTksMzQyLjA3OTM3OCBDMTMwLjc3NjMyOCwzMjYuODIwODM1IDE0NS4yNjI3MzMsMzEzLjE4MDI4MSAxNjAuOTYyNjU4LDMwMC44Mjg5MTYgQzE3Ni42NDQ4MDgsMjg4LjQ4OTM3OCAxOTMuNTcxMjksMjc3LjYxMDUyNSAyMTEuMzA0ODExLDI2OC40MjY1NCBDMjI0Ljc5NTc0OSwyNjEuNDQwMDg4IDI0MC4wMzIzMDgsMjU3LjE5NzU5NiAyNTQuMjk3MTAzLDI1MS45NTQ1MDUgQzI1Ny4wMTA5MzQsMjUwLjk1NzQ1NCAyNjQuNTE3MjI0LDI0Ny40NTE4MDkgMjY3LjA1NTY2MywyNTAuMzU2NjIxIEMyNjkuMTA3MDM0LDI1Mi43MDU1NDUgMjY2LjMxNDk4OCwyNTYuNjE5MjM2IDI2NS4zNzk5NjEsMjU4LjgwMDIxIEMyNjMuNTU2MTI1LDI2My4wNTIxNjQgMjYzLjMwNDg4OCwyNjcuMzMyNTA1IDI2Mi44MzQ0MTIsMjcxLjg5Nzg4NSBDMjYwLjczMDg5NywyOTIuMjg1OTc3IDI1OC4xOTk1NjgsMzEyLjY2ODE1NCAyNTcuMDM0NjM2LDMzMy4xNDM3NjkgQzI1Ni43MDk5MjQsMzM4Ljg1MDQ5NCAyNTYuMTM4NzE2LDM0NC44MTk3ODkgMjU2LjQ3MTcyMywzNTAuNTMwMDYzIEMyNTYuNjU1NDEsMzUzLjY5MjcxMyAyNTguMzAxNDg1LDM1Ny43MjExMjkgMjU3LjIwNTI4NywzNjAuODA5MjY2IEMyNTUuMDk4MjE3LDM2Ni43NDU0NDQgMjQ1LjQ0OTMwNCwzNzAuNjc0NTEgMjQwLjMzNTY4OSwzNzMuMzI2MjE1IEMyMzEuMTgwOTU0LDM3OC4wNzI1NTUgMjIxLjQ4NzAwOSwzODEuNjE0ODY1IDIxMi4yMzg2NTMsMzg2LjE1NTQwOCBDMjAyLjA4MTM0MSwzOTEuMTQxODQ1IDE5Mi4xOTE4NTgsMzk2LjUzMTU5NiAxODEuNDgxMTE1LDQwMC4yOTk4MDkgTTMxMC45MTMwNjMsMjY3LjgyNDUyNSBDMzEzLjQ3NTIwNCwyNjcuNDczMjUxIDMxNy4zMTI0ODksMjY2Ljc3NTQzNCAzMTkuNTk2MTM2LDI2OC40MzQ4MTkgQzMyMi41NzQyNCwyNzAuNTk5MjM2IDMyMS43OTMyNzMsMjczLjYxMDQ5NCAzMTkuMDQyNzA0LDI3NS4xNzk5OTIgQzMxNi44NzA0NTUsMjc2LjQyMDY4NyAzMTEuNzg2NDY2LDI3Ni43NjAxMzQgMzA5LjY0MDI4OCwyNzUuNjM0MTY0IEMzMDUuOTg0MzIsMjczLjcxNjk0MSAzMDYuNjAyOTMxLDI2OC40MTgyNjEgMzEwLjkxMzA2MywyNjcuODI0NTI1IE0zMjUuMTAwODI4LDMxNS4wMzQ4MTkgQzMyMy4wMzA0OTUsMzE4LjQ4MjUxIDMxNS40NjQ5NTEsMzIwLjc0MzkxMSAzMTYuMTIzODU1LDMxNC4zMDk3OTkgQzMxNi42ODkxMzgsMzA4LjgwMDU5MSAzMjguOTEzMjI3LDMwOC42ODU4NjUgMzI1LjEwMDgyOCwzMTUuMDM0ODE5IE0zMjIuMjkyMTkxLDIxNy45MDU3NTMgQzMyNS42MTk4OTIsMjE5LjE5NDk0MSAzMzEuNjU5MDU0LDIyMC4yOTg0MzkgMzMyLjY0NjIyNSwyMjQuNTc4Nzc5IEMzMzMuNTY0NjYxLDIyOC41NjM0MzQgMzI5Ljc4OSwyMjguMjk5NjgyIDMyNy4wNjQ1MDQsMjI3LjIwMzI4MSBDMzI0LjgyMzUxOSwyMjYuMzAzMjE1IDMxNC44NDA0MTUsMjE3LjgzNzE1NCAzMjIuMjkyMTkxLDIxNy45MDU3NTMgTTg0My42ODY2MTgsMzY5Ljg5NTA4MyBDODQxLjc0MzA4OSwzNjIuMzMxNDU0IDg0My4yMjMyNTIsMzUzLjk1NzY0NyA4NDIuMTUwNzU2LDM0Ni4yMTA2OTIgQzg0MS4xMTAyNTcsMzM4LjcwMTQ2OSA4MzkuMjM3ODMyLDMzMS44MDAxNzUgODM2LjU1MTI1OCwzMjQuNzIyNjUyIEM4MzAuNjAyMTYyLDMwOS4wNTQ4OCA4MjMuNzg2NzczLDI5NC45NTA2OTIgODE0LjE0Mzc4NiwyODEuMjAwMTQ0IEM3OTUuOTgyNDUyLDI1NS4zMDUyMSA3NzQuOTExNzQ5LDIzMi40OTYwNDggNzQ5LjQ2ODEwNSwyMTMuNTgxNjUyIEM3MjQuMzQ5MTcyLDE5NC45MDk3MTggNjk2LjUzNDE4NSwxNzkuNzM1MTQ5IDY2Ny4wNjk1NjgsMTY5LjA5OTk0MSBDNjM1LjgyNDk2MywxNTcuODIxMzIyIDYwNC4zNzQxNTMsMTUzLjg5NTgwNCA1NzEuNDI1NDA1LDE1MS43MzM3NTMgQzU2MS41ODU2OTQsMTUxLjA4OTE1OSA1NTEuNzU1NDY1LDE1MC4zMjM5MjYgNTQxLjk3MTQ1MywxNDkuMDgwODY1IEM1MzQuODIwNjg3LDE0OC4xNzI1MiA1MjUuODU2NzUsMTQ3LjA1MzY0NyA1MTguNzg2NTcsMTQ5LjI0NDA4MyBDNTE0LjM0NDg5NCwxNTAuNjIwNzk0IDUxMS44NjMzMzksMTU0LjQ5NDI3MSA1MTYuNzAyMDE2LDE1Ny4wMzU5ODIgQzUyMC4xMzI4MTksMTU4LjgzODQ3OSA1MjQuNjI0MjY4LDE1OS4wNTM3MzggNTI4LjQxMjk2NSwxNTkuNTMyNzQ4IEM1MjMuODM2MTkxLDE3NC4wNzMzNjggNTE2LjM4OTE1NSwxODguNjYzNjYyIDUwNC41ODY5NTQsMTk4LjY3NTU2NSBDNDkzLjA2NTYxNywyMDguNDUwOTIxIDQ3Ny42NDc3NCwyMTEuODAxNjI2IDQ2My4xMDY4MjIsMjE0LjI4MDY1MiBDNDU1LjIyMTMwNywyMTUuNjI0MjQ2IDQ0Ni4zOTI0NjksMjE2LjY2Mzg3NSA0MzguMzg0ODkxLDIxNi4wODQzMzIgQzQzMy4zMjIyMzQsMjE1LjcxODg2NSA0MjkuMzcyMzY2LDIxMy4zNzQ2NzIgNDI3LjMyOTI5LDIxOC41ODkzNzggQzQyNS45MTE5MzUsMjIyLjIxMjExNCA0MjUuMjQxMTgxLDIyNi4xODczMDcgNDIzLjM3MjMxMSwyMjAuNzE3MTI5IEM0MjEuMTYyMTM5LDIxNC4yNDk5MDEgNDIwLjA3Nzc5MiwyMTQuMjkxMjk2IDQxMy4yMDE5NjQsMjEyLjQ1NDQ5OSBDMzk5LjE0MTAwMywyMDguNjk4MTE0IDM4My4wMjE1NTksMjA1LjI3MDUzIDM3MC43NTQ4MDgsMTk3LjE0NzQ2NCBDMzU4LjAyODI0NSwxODguNzE5MjUxIDM1My42MDE5NzYsMTc1LjA4NDYxMSAzNDYuNDk3NDI3LDE2Mi4zODkwNjggQzM0NC43Mzk5NTUsMTU5LjI1MTI1NiAzMzkuNDQwMjgzLDE1Mi44OTk5MzYgMzQyLjE0ODE4OCwxNDkuMzA0NDAzIEMzNDQuNjI1MDAzLDE0Ni4wMTYzODMgMzUyLjY3ODc5OSwxNDYuMzQ0MDAyIDM1Ni4zNjY3NjUsMTQ2LjAwMTAwNyBDMzYwLjI1ODU2NCwxNDUuNjM5MDg4IDM2NC4xNzQwNjQsMTQ1LjYyMzcxMyAzNjguMDc4ODk5LDE0NS40NzIzMjIgQzM3MC4zNDEyMTUsMTQ1LjM4NDc5OSAzNzQuODkxOTE4LDE0Ni4zMTIwNjggMzczLjk4MTc3OCwxNDIuOTMyOTc3IEMzNzIuNjA4MjcxLDEzNy44NDAwOTMgMzU3Ljg5NjcwMiwxMzguNDkyOTY2IDM1NC4yNDMxMDMsMTM4LjQxMDE3NSBDMzQ3LjQ0OTA0NiwxMzguMjU3NjAxIDM0MC41NjEzNjcsMTM4LjQxNDkwNiAzMzMuODAxNjc3LDEzOS4xNjIzOTggQzMwMC4yODQwOSwxNDIuODY5MTA5IDI2Ni40NjU0OTMsMTQ5LjcyMzA5MyAyMzQuMDMxMDY5LDE1OC44NjMzMTcgQzE3MS4xMDMzNzksMTc2LjU5NDk3MiAxMTAuMTU3MTQxLDIwOS4yNjkzNzggNjQuMjMyOTYyNiwyNTYuMzQxMjkxIEMyMC4xNTAzOTczLDMwMS41MjU1NSA2LjE4NDI0MjQsMzc2LjcxNzEzNCAzMy4yODQ2MjY5LDQzNC40MTAwNjMgQzQ3LjM2ODEwNDcsNDY0LjM5MzczMyA3Ny45MzI0NzQ4LDQ3Ni43MTA3OTkgMTA3LjU2MDYzMyw0ODYuNjU4ODM1IEMxMjMuMTg4MjY4LDQ5MS45MDU0NzQgMTM5LjczNjcxLDQ5Ni4wMDk1ODYgMTU2LjM0OTE0Niw0OTUuMDE5NjMxIEMxNjQuMzIxMTcyLDQ5NC41NDQxNyAxNzEuODg1NTMxLDQ5Mi4zOTc0OTQgMTc5LjY2MDgzNCw0OTAuNzgwNjg3IEMxODMuMDUxMzQ0LDQ5MC4wNzQ1OTEgMTg2LjkwOTk2MSw0ODguOTQ5ODA0IDE5MC4zOTI5MDgsNDg5LjIzMzY2MiBDMTkzLjAyOTcwOSw0ODkuNDQ4OTIxIDE5NS41NjIyMjIsNDkxLjg2ODgwOSAxOTguMDM1NDgyLDQ5MC41ODMxNyBDMTk5Ljc5MDU4NCw0ODkuNjcwMDkzIDIwMC41NTM3NzUsNDg3LjA1MDMyMiAyMDIuNjk4NzY4LDQ4NS45MzM4MTQgQzIwNS4yNzM5NDQsNDg0LjU5NDk1MSAyMDguMzk2NjI3LDQ4NC4xMTEyMSAyMTEuMTc4MDA3LDQ4My40MzU4NjUgQzIxOC45MDk0NjIsNDgxLjU1NzY3MiAyMjYuMzk1NjA1LDQ3OC41MTIxMTQgMjMzLjk1Mjg1NCw0NzYuMDE1MzQ3IEMyNDEuNzY3MjY0LDQ3My40MzIyNDEgMjQ5LjE0MjAxLDQ3MC4xMDYzNzMgMjU2LjY0MDAwNCw0NjYuNzQzODQgQzI2MC40MjYzMzEsNDY1LjA0NTQyMyAyNjkuMTg3NjIsNDU4LjE0MDU4MSAyNzEuNjU0OTU0LDQ2My4xODg1MiBDMjcyLjc3OTU5NCw0NjUuNDkyNDk5IDI3Mi4zMDA4MjIsNDY5LjkzNjA1OCAyNzIuNTc0NTc1LDQ3Mi4zNTIzOTggQzI3My4wNTQ1MzIsNDc2LjU3ODMzMiAyNzMuNjE4NjMsNDgwLjc5NDgwNCAyNzQuMjM0ODcxLDQ4NS4wMDI5OTcgQzI3NS41OTI5NzEsNDk0LjI2NzQwOCAyNzcuMjE4ODk5LDUwMy40OTI3ODkgMjc4Ljg4NTEyLDUxMi43MDc1MjUgQzI4MS44OTI4NTEsNTI5LjMzMzMxNyAyODUuNzY4MDU5LDU0NS4yNDk0NjQgMjkyLjI0ODA3LDU2MC44ODg4NSBDMjk3LjQyMjEyNSw1NzMuMzc2MjMgMzAxLjk2NDUzMiw1ODcuNTMwMDkzIDMxMS41NzE5NjcsNTk3LjQ2MzkzNiBDMzE1Ljc2NTk2MSw2MDEuNzk5ODY1IDMyMS40ODg3MDcsNjAzLjc1MTM4OCAzMjcuNTA0MTY4LDYwMi4zODg4NyBDMzM0LjM0NjgxMyw2MDAuODM4Mjk2IDMzNy43NTI3Myw1OTQuNjIyOTkyIDM0MS45MDY0MzIsNTg5LjU5NzUyNSBDMzUxLjA0NTc2LDU3OC41Mzg4OTUgMzY2LjEzNDE4NSw1NzAuMDY1NzM4IDM4MC4wNjcxNTgsNTY3LjAxNTQ0OSBDMzk3LjEyODczOSw1NjMuMjgwMzUyIDQxMy43NDgyODUsNTY4Ljc0MzQzNCA0MzAuMDMzNjQsNTczLjM4Njg3NSBDNDQ3LjI1OTk0Nyw1NzguMjk4Nzk5IDQ2NC43OTY3NDUsNTgyLjk3ODkwNiA0ODEuNzA1NDUsNTg4Ljg4MzE0OSBDNDk3LjQ2MTA3NSw1OTQuMzg2NDQ0IDUxNC40NzQwNjcsNjAyLjUxMzA1OCA1MzEuNTYxNzIsNjAxLjgwNTc3OSBDNTQ2LjQ2MjkwMiw2MDEuMTg5NTcxIDU2MC4zODE2NTQsNTg5LjA2MTc0MyA1NzEuMTI3OTUsNTc5LjgxNzQzOSBDNTgxLjkyMTY0OCw1NzAuNTMyOTIxIDU5NS40MTczMjcsNTU2LjkzODQ5NCA2MTAuOTM3MTIsNTU4LjAzMjUzIEM2MTguNjQzNjg5LDU1OC41NzU0MDggNjI1LjY2NjQ2Niw1NjIuMjkyNzYzIDYzMy4xNzI3NTYsNTYzLjgwNDMwNyBDNjQxLjQxMzc5NSw1NjUuNDYzNjkyIDY1MC4xODIxOTQsNTY1LjY5OTA1OCA2NTguNTYxODg3LDU2Ni4zMTc2MzEgQzY2OC45NjQ1MDksNTY3LjA4NTIzIDY5Mi4yMzcwODksNTY0LjM3MzIwNSA2OTYuMDg1MDQsNTUxLjg1ODYyMSBDNjk2LjY1NjI0OCw1NTAuMDAxNzE4IDY5Ni42NTk4MDMsNTQ2LjE3OTA5OCA2OTQuMjA3ODc1LDU0NS40MzYzMzcgQzY5MS45NTI2Nyw1NDQuNzUzODk1IDY5MC44MDA3NzMsNTQ3LjM5MDIyNSA2ODguNjY0MDc2LDU0Ny4yNjk1ODYgQzY4NC4zMTcyMDcsNTQ3LjAyNDc1OCA2ODAuOTIwNzcsNTM5LjQ0NTc1MyA2NzguNTMyODM2LDUzNi41MTEzNzMgQzY2OC44OTU3NzUsNTI0LjY2NjIyIDY1NS42NzYyMTksNTE1LjgzMTE0NCA2NDQuODYyMzc0LDUwNS4xMjk3MDMgQzYzMi42NTEzMjEsNDkzLjA0ODAwMiA2MjIuMjI2MTgyLDQ3OC40MDkyMTUgNjEzLjAyNTIyOSw0NjMuOTcxNDk0IEM2MTcuMTg0ODU2LDQ2Mi44OTA0NjkgNjIxLjY3Mjc1LDQ2NC42ODU4NyA2MjUuNjk4NDYzLDQ2NS41Mzg2MjYgQzYzMC41OTA0NjksNDY2LjU3NDcwOCA2MzUuMzU2ODU2LDQ2Ny44MjcyMyA2NDAuMTc3NzU3LDQ2OS4xNTQyNjYgQzY0NS40OTA0NjYsNDcwLjYxNzMxNyA2NTAuODc5MDIsNDcxLjYyMjY0NyA2NTYuMjcxMTI5LDQ3Mi43Mzc5NzIgQzY2MC4yOTQ0NzIsNDczLjU2ODI1NiA2NjUuNjM0NDM4LDQ3My44MTg5OTcgNjY5LjI2NTUxOSw0NzUuODM2NzUzIEM2NzIuNDM1NjA1LDQ3Ny41OTkwMzggNjc0LjIwNDkyOCw0NzkuNDkxNDIzIDY3OC4xNDA1NzUsNDgwLjAwMjM2OCBDNjgyLjE0MjU4Nyw0ODAuNTIxNTkxIDY4Ni4yNTEyNTUsNDgwLjA4Mzk3NyA2OTAuMjcyMjI4LDQ4MC4wNTY3NzQgQzcwMS4xNDY1MTIsNDc5Ljk4MzQ0NCA3MTEuOTk4MjgsNDc5Ljc4MTE5NSA3MjIuODIxNjA1LDQ3OC42MzE1NzEgQzc2MS4wNjUyODcsNDc0LjU2ODg1NSA4MDEuNjA0NDY2LDQ1OC4zOTI1MDUgODI0LjYwMDkyMiw0MjYuMjg5MzYyIEM4MzAuODU1NzY5LDQxNy41NTcxODUgODM1Ljg5NDcyNCw0MDcuODgzNTQ1IDgzOS4wNzkwMzEsMzk3LjYxODUzNSBDODQxLjU2NDE0MiwzODkuNjA0MjgxIDg0NS44NDkzODcsMzc4LjMxMDI4NiA4NDMuNjg2NjE4LDM2OS44OTUwODMiIGlkPSJpbmstc2hhcGUiPjwvcGF0aD4KICAgICAgICAgICAgPHBhdGggZD0iTTQ4NC45ODkwMzQsMC4wMDgzMzI1NjI3OSBDNDk1LjAzOTM4MSwwLjE1MDU4Nzk0NiA1MDQuNDU5NTgzLDMuMTMwODM4MjMgNTEzLjgyNDExNCw2LjUxODg4NzI4IEM1MjIuMDU5ODMxLDkuNDk3OTUyMSA1MzAuODM5MjI3LDEyLjI1NDE1MDIgNTM3LjQ5ODM5NywxOC4yMDA0MjUyIEM1NDkuNDc1OSwyOC44OTY4NDQ2IDU1Mi41OTU4MzEsNDYuNjA3NjM5OCA1NTQuNTU2MTUyLDYxLjc2MDIwOSBDNTU3LjAwMDkyNyw4MC42NjgzMjA0IDU0OC44NjQ3MDYsOTYuNTMyMTY2NiA1NDIuMDE3MjAzLDExMy42MzgzNzYgQzUzNS42MTI2OTgsMTI5LjYzNzM2NSA1MjMuODU3ODc4LDE0Mi41OTgwMTYgNTA5Ljg4NTcwNCwxNTIuNDc0MDk2IEM1MDIuNTY1NTkzLDE1Ny42NDc0NSA0OTQuNDc1NTY3LDE2MC43Njk5NTYgNDg2LjAxMTI0NCwxNjMuNTA4MzcyIEM0NzcuNDEzMDc0LDE2Ni4yODk0NjUgNDY5LjA4NjE1MSwxNzAuMDE0MTg1IDQ1OS44ODc0NDgsMTcwIEM0NDUuOTE3NjQzLDE2OS45Nzk4MDcgNDI4LjAzMzExOCwxNjMuMzQ0Nzc4IDQyMi4wODIyNywxNDkuNTgxNTcgQzQxOS4zNzMzNTUsMTQzLjMxNTIyIDQyMi4wMTEyMDEsMTQyLjE5MDIxNyA0MjcuNDMyNTg0LDE0NS41OTYwNDggQzQzNS4yOTc1NTksMTUwLjUzNzA1MiA0NDIuODc5NDQxLDE1NS44NjkyNTggNDUyLjA2OTg1MywxNTguMDYxMTc2IEM0NjkuODkzOTY5LDE2Mi4zMTM0MjcgNDkxLjI0MTkyNSwxNTUuNzI1ODE3IDUwNi44NzExOTIsMTQ3LjAzNDAxMyBDNTIyLjQ5NDUzNywxMzguMzQ0NTggNTMyLjk4MzE0MywxMjUuMjkxNDYzIDUzOS45OTI5MiwxMDkuMDM3NiBDNTQ3LjA2NTQ3NCw5Mi42NDAyOTY0IDU0OS44MTM0NzgsNzYuNDgyNDU1OCA1NDcuMDg1NjExLDU4LjgwNDg1MzUgQzU0NC43NzQ2ODIsNDMuODI0MTc2MSA1NDAuMTc2NTE1LDMwLjE0MDM5MzcgNTI2LjY3Njk1LDIyLjAwODEyNzYgQzQ5Ny41MzM5MDUsNC40NTQ5OTg3NiA0NTguMjY5NDQyLDUuODY5MjU0MzYgNDMyLjM1MjkzMSwyOC42ODEwOTA2IEM0MjguNzk4Mjk1LDMxLjgwODMzODEgNDI1LjI4NTExNSwzNC44NTE0MTc4IDQyMS42MjI2OSwzNy44Mzc1OTU0IEM0MTkuMjkzOTk0LDM5LjczNTUxOTMgNDE2LjU1MTkxNCw0Mi4wMTI3OTA5IDQxNi44OTA2NzYsNDUuMjk1MzMzOSBDNDE3LjE3OTY5LDQ4LjEwNjA2MzIgNDIzLjE3MzE4LDU4Ljk0MzU1MjUgNDE1Ljk1NjExOCw1NS42MTQ3NzY1IEM0MTAuMTA1OTUyLDUyLjkxNTQ4MDYgNDA2LjkyNjc5Niw0Ny42Mzg5OTEzIDM5OS44NDAwMjgsNDYuOTg1ODAyIEMzOTIuMjk3MjM0LDQ2LjI4OTkzNjEgMzgzLjI5OTg5Myw1Mi4wODQ0NzIxIDM4MS4wNDM0NTEsNTkuMzc3NDMxNCBDMzc4Ljg5MTI0Myw2Ni4zMzYwOTA1IDM4Mi43Mjg5NzEsNzUuODU2NTMyMSAzODguNzQwMjI4LDc5Ljg0Nzk4MTEgQzM5Mi40NjMwNjEsODIuMzE5NjY4MyAzOTYuNTU5MDA3LDgxLjkzNzk0OTcgNDAwLjc4NjQzMSw4MS44MzgzNzEgQzQwMi44ODQxNTIsODEuNzg4NTgxNiA0MDguNzI0ODQzLDgxLjEwNjk0MTIgNDEwLjExMzA1OCw4My4zMjQ5Mzk3IEM0MTIuNTY5Njc4LDg3LjI0NzYzMTkgNDAzLjkwMjgwOSw5MS4zNzA2NjcxIDQwMS4xMDYyNDIsOTIuMjM4NDI0OSBDMzk0LjMwMDE5Niw5NC4zNDk3MzE5IDM4Ni4yNTYzNjUsOTEuODY1MDA0NiAzODIuMzQ0MDE0LDg1Ljc4OTUxNDIgQzM3OC4zNjY1MTcsNzkuNjEzMjU5NyAzNzUuNjQ0NTcyLDcyLjQ2NDkyNjcgMzc1LjA5NjE1Niw2NS4xMDY3NjY5IEMzNzQuNTcyNjE0LDU4LjA1NjgyNzIgMzc2LjE3Mjg1Miw1MC45MTkxNjM0IDM4MC4zMzE1NzYsNDUuMTMwNTU0NyBDMzg0Ljc1NTYyNCwzOC45NzQ0NTMgMzkzLjc3MzEwMSwzMi4wNzI2OTYgNDAxLjg1NzIwNSwzNC4yMTEyNjg2IEM0MDUuMzY1NjQ2LDM1LjEzOTQ4NSA0MDguMTg0NzE4LDM4Ljc2NDYyNjMgNDExLjYyODAxNCwzOS40NTMzNzk1IEM0MTMuODAxNTQyLDM5Ljg4NzI1ODQgNDEyLjg4NzEyLDQwLjE5Nzg0OTMgNDE0LjY4NzUzNiwzOC41ODY4MDcxIEM0MTUuODMwNTYzLDM3LjU2NDkzOTIgNDE2LjkxMDgxMiwzNS42Nzg4NyA0MTcuOTY2MTg4LDM0LjQ2NzMyODMgQzQyNC4wMzMxMTUsMjcuNTAxNTU2MyA0MzAuMDMyNTI3LDIwLjA2NzUyNzEgNDM3LjQ1ODA1NywxNC40OTIzMDE1IEM0NTAuNzcyODQzLDQuNDk1MzA0NDUgNDY4LjQ3MDIxOSwtMC4yMjYzODg4MiA0ODQuOTg5MDM0LDAuMDA4MzMyNTYyNzkgWiBNNDQ4LjE2OTAxNSwxMzguMTEyNTI3IEM0NDkuNzQzOTE4LDEzNC40MjEwMzIgNDUyLjYzNjU5NiwxNDEuMDA2MjU0IDQ1My40OTE3NzMsMTQyLjEwNzQxNyBDNDU1LjE4NDkwOCwxNDQuMjg1NTY4IDQ1OS4xNjY5MzIsMTQ1Ljk4MDIyMyA0NTguOTk0NzQ5LDE0OS4xOTMwNTcgQzQ1OC43MTEyMiwxNTQuNDk3MDEzIDQ1MS40ODE4MiwxNTMuNTEzMDk4IDQ0OS4wNzEyNTUsMTUwLjc0NjI4OSBDNDQ2LjMyNzgwMywxNDcuNTk2MzEgNDQ2LjYxNDc3NSwxNDEuNzU4MDkxIDQ0OC4xNjkwMTUsMTM4LjExMjUyNyBaIE00OTkuNTMwMjE0LDExMyBDNTAzLjQzMDQ4OCwxMTkuMDc3ODEzIDQ5OC42NzcyNTUsMTI1LjYzODQ0NyA0OTUuNTkzODUsMTMxLjAxNzc4NSBDNDkyLjY0NTE4NSwxMzYuMTYxMTAyIDQ4OS45MDcwNTMsMTQxLjk3NTMzOSA0ODYuNDc0NzY1LDE0Ni44MTA3NTIgQzQ4MC43NzcxNDEsMTU0LjgzOTAyNCA0NjguMzgwOTYsMTQ2LjE1NDIxIDQ2OC4wMTI4MjgsMTM3LjkwMzA5NyBDNDY3LjczMTMxNSwxMzEuNTg2ODY4IDQ3Mi4yMDU0NDIsMTM0LjMzNjQ0MSA0NzUuMDc3MTExLDEzNi42OTU0NDIgQzQ3OC4wMzI5OTQsMTM5LjEyNTEyOSA0NzkuNDMzMzM5LDEzOS43MzAxNTUgNDgyLjUzMjM4NCwxMzcuMDc2NDI4IEM0ODguNzY1MzYzLDEzMS43MzU0MjkgNDkxLjU2NjA1MywxMjIuODA1MDEgNDk1Ljg3NTM2MiwxMTYuMDQzMDk5IEM0OTYuNzI5NTI1LDExNC43MDI0NTggNDk4LjI3Nzg0NCwxMTMuODk2MTU3IDQ5OS41MzAyMTQsMTEzIFogTTUxMC42NDgwODcsMTE0Ljk1NDMyNiBDNTExLjY1NDI1NCwxMTcuODkzNTI4IDUwOS41NDQxMzEsMTI1LjY4MTc0NyA1MTUuNDA5MTIsMTI0LjkwMzA0NiBDNTE4LjY1MDI5OCwxMjQuNDczMTI1IDUxOS4zNDE4OTEsMTE5LjgyMjcyIDUyMS4wNDU1NDIsMTE3Ljc5MzAxMSBDNTI2Ljc3NTA0MSwxMTAuOTY5OTk0IDUyNS4wMTgzNzIsMTIzLjg3NDg3IDUyMy41MjA5MDIsMTI3LjEwNDcyMiBDNTIwLjIyMDgxNSwxMzQuMjIzMjM0IDUxMC45ODUwNDcsMTM5LjEyNzk1OSA1MDYuNDA0Mjc2LDEzMC4wOTcyMSBDNTA0LjcwMDYyNSwxMjYuNzM3Nzc2IDUwNC43MDc2OTQsMTIyLjQ5NzkxNCA1MDUuNTczNjU3LDExOC44ODY1ODMgQzUwNi4wNDQ5MywxMTYuOTE5ODQ5IDUwOC43OTI0NSwxMDkuNTI2NDMgNTEwLjY0ODA4NywxMTQuOTU0MzI2IFogTTQ1OC4zNDczNDIsMTAxLjAzMzcxNCBDNDU3LjgyNzk1NSwxMDQuNDYzMTg4IDQ1NC42MDQyNTQsMTExLjI5NTc1NyA0NTguNTM5OTI0LDExMy43NDkxNSBDNDYyLjAwMjg5MywxMTUuOTA4NzYgNDY4LjAzMzYxOSwxMTEuMjE5MDEzIDQ3MC43MDA1ODQsMTA5LjI2MDg1NSBDNDczLjQ3MTQyNiwxMDcuMjI1OTU0IDQ3OS43NTA3NTcsMTAxLjM4ODY1MiA0NzkuOTk3MDI5LDEwOC42NTI5MDMgQzQ4MC4xMjMwODIsMTEyLjM1NTc3NiA0NzYuNDE2MTc2LDExNi43OTg1MDUgNDczLjc3MTM4NywxMTguOTMxNzM0IEM0NjguMTI4MTU5LDEyMy40ODExODQgNDU2LjQwMjg1MSwxMjcuNTYxNzc5IDQ1Mi4yNDQyNTMsMTE4Ljk5ODg4NSBDNDQ5Ljk3ODc5MSwxMTQuMzM0MzE5IDQ1MS4yMTgzMTcsMTA3LjY5MzYxIDQ1Mi43MTU3ODYsMTAyLjk5MzA3MSBDNDUzLjkyOTYzNSw5OS4xODM0NzYyIDQ1OS42MDA4NzQsOTIuNzUwMjEzNiA0NTguMzQ3MzQyLDEwMS4wMzM3MTQgWiBNNTMyLjM2MDA2MSw4Mi4yNTc4OTA2IEM1MzQuNjU2MzUzLDg0LjkyNDYzMDMgNTQwLjA5OTUwMSw5MC44OTkzNTc2IDUzNy4xMzk4NjEsOTQuNjk3MTU0NiBDNTMzLjY3OTgyMiw5OS4xMzYxOTk1IDUyOC4wNTc1NDgsOTAuOTkxNjQwNSA1MjUuODQwOTk2LDg4LjcyNDc5MzUgQzUyMy44NDQwMiw4Ni42ODI3MzgyIDUxOS42NDMyMDQsODAuODY3NzMxMyA1MjEuNDM0NDc0LDc3Ljc4MzM1MjIgQzUyNC4zOTk4OTEsNzIuNjc5Mzk3MSA1MzAuMzQzNDM5LDc5LjkxNjUwNzQgNTMyLjM2MDA2MSw4Mi4yNTc4OTA2IFogTTQ5Ni4yNjUyOTksNzAuNzc0OTYwOSBDNTAzLjc3MTQ3Niw3NS42NjUxMjE1IDQ5My45MDI0MTgsNzkuMTg2MzIxMSA0ODkuNjI3MTIsNzkuNjI0MTA0NiBDNDg0LjQ1MjA2OSw4MC4xNTE4MTEzIDQ3Ny44MzYyMzcsODAuNTAyMDM4MiA0NzMuMDgzNDIzLDc3Ljk2Mjg5MzUgQzQ2Ni4zNDY0NDcsNzQuMzYzNjAyOCA0NjguNTkxNzE0LDY4LjkyNjgwNDMgNDc1LjEyMTY4Nyw2Ny42MjUyODU3IEM0ODEuODE3NDk4LDY2LjI5MTgyMDYgNDkwLjQzOTgzOCw2Ni45NzkyNTkxIDQ5Ni4yNjUyOTksNzAuNzc0OTYwOSBaIE0zOTguNjgwMjkyLDU1LjIwNzUzMTcgQzQwNC4yMDAzMjQsNTYuMjgxNjc3NyA0MTAuNTA1MTc5LDU3LjY3OTQ5MDMgNDEyLjM4NTQwNiw2My42OTc1NTM3IEM0MTQuMzI2NTU2LDY5LjkxNzE2NzcgNDExLjUzNzI3Myw3MS45ODEyODI4IDQwNS44OTg5OCw3MC41ODEwOTkgQzQwMC42ODIzNjQsNjkuMjg1MjQ3MyAzOTIuODkwMjksNjcuOTgxMDk2NSAzODkuOTQwOTM2LDYyLjg4NTQyMzQgQzM4Ni40MTcwMDMsNTYuNzk3NDEwMSAzOTMuNTYxNjI5LDU0LjIxMjgyMDIgMzk4LjY4MDI5Miw1NS4yMDc1MzE3IFoiIGlkPSJpbmstc2hhcGUiPjwvcGF0aD4KICAgICAgICAgICAgPHBhdGggZD0iTTk0Ljk0NjUzMDEsMTg4Ljg1MDI1NiBDOTMuMDk0MDg1NywxOTQuODMyNjE1IDgzLjcxODA4NTcsMTk4LjgwMDQxIDc5LjA0MjUzMDEsMjAyLjQzNjc2OSBDNjIuNjg4MTU5OCwyMTUuMTU5ODk3IDQ2LjcwNzEyMjcsMjI4LjQwNjcxOCAzMS45MjE5Mzc1LDI0Mi45MjczODUgQzI0LjI0Nzg2MzUsMjUwLjQ2NDMwOCAxOC40MzkyNzA5LDI1OS41ODA1NjQgMTEuNzg0NDU2MSwyNjcuOTYzMTc5IEMxMC4xNjA3NTIzLDI3MC4wMDg0MSA3LjI4NDMwNzksMjc0LjU5MDcxOCA0LjA5OTcxNTMxLDI3NC4xNjAyMDUgQzAuNjA1Nzg5Mzg2LDI3My42ODk1OSAtMC4xMDA1ODA5ODQsMjY3LjY3MTg0NiAwLjAxMDgyNjQyMzIsMjY1LjA0Mzk0OSBDMC4zOTI0NTYwNTMsMjU2LjA4MjIwNSA4LjU3NzM0NDk0LDI0Ny40MjcxMjggMTQuNDE0MzgyLDI0MS4yNTYwNTEgQzIwLjk4MDMwNzksMjM0LjMxNzEyOCAyOC4wMDAxNTk4LDIyNy41NTUxMjggMzUuMTY5MzQ0OSwyMjEuMjM2NjE1IEM0My4wNjI2NzgzLDIxNC4yODExNzkgNTEuNjI4MDExNiwyMDguMzAyMzU5IDYwLjM1NjkwMDUsMjAyLjQ0ODU2NCBDNjguOTI4MTU5OCwxOTYuNzAwOTIzIDc3LjE0NjIzMzgsMTkwLjA2MDQxIDg2LjA2MDAxMTYsMTg0Ljg1NDE1NCBDOTAuMjU5MTIyNywxODIuNDAyIDk3LjIzMTU2NzIsMTgxLjQ2OTAyNiA5NC45NDY1MzAxLDE4OC44NTAyNTYgWiBNNjY2LjYyMjQxNSwxMzIuMDM2MTIxIEM2NzMuNDQ4ODkzLDEzMi4yNTEzNDkgNjgwLjExMDE3NywxMzQuNDkwNDI3IDY4Ni41NDgwMywxMzYuNTY4OTc2IEM3MDAuNzA5NjQ1LDE0MS4xNDIyNjEgNzE0LjE5NzQwNywxNDcuNDg2MTE4IDcyNy40OTczOTMsMTU0LjExNjU0OCBDNzUwLjgxNDg1NSwxNjUuNzM4ODI3IDc3My4yNTQwNTEsMTc5LjgwMTE0MiA3OTMuODIyNjIsMTk1Ljc4OTgwMiBDNzk4LjEyMjQ0NSwxOTkuMTMxMTc3IDgwMi41MzA0MiwyMDEuODM4NzYxIDgwNy4yMDU3OTcsMjA0LjU3MTMxNyBDODEwLjE5ODMyNCwyMDYuMzIxNjc0IDgxNC40NjQ4NzMsMjA4LjQ1NzMwMSA4MTUuNjE3NjczLDIxMi4wMjQ2MDUgQzgxOC41NDYwMjMsMjIxLjA5MjY5NCA4MDMuNzY1MjI0LDIxMS45OTEzMSA4MDEuNjY3NjAzLDIxMC42ODkyNDQgTDc5OC43MTcxMDMsMjA4Ljg1OTY0NiBDNzU0Ljk1MzQ4NCwxODEuNzM2MjMzIDcxMS4yNDA1MDgsMTU1LjM4Mjk5NCA2NjEuNzM3ODcsMTM5LjgyODMwNCBDNjU5LjEwMDY5MSwxMzguOTk5NSA2NTguMjgwNjU4LDEzNi42NDc0NTcgNjU5LjY2NDAxOCwxMzQuMzE1NjI5IEM2NjEuMTYzODQ3LDEzMS43ODg3ODggNjY0LjA4NjI1NSwxMzEuOTU2NDUyIDY2Ni42MjI0MTUsMTMyLjAzNjEyMSBaIE05Mi45NTQ4NDU4LDE1MS4wMTQ2ODIgQzkyLjYzODQyMDMsMTUzLjc3NTY5MyA4OS41MTEwNDE0LDE1NC40MDM3OSA4Ny40MDE5MzQyLDE1NS4yOTAwMjYgQzc5LjUzMTc0MDgsMTU4LjU5NTg2NCA3MS40NjUyNjg0LDE2MS40MTUxNjQgNjMuNjE2NDg3MiwxNjQuNzc1NzIzIEM0OS4wNDkwMTYsMTcxLjAxMjY4MiAzNS42NzExMTQ3LDE4MC4wNjQxODMgMjAuNDY2MDM0MiwxODQuNzk3NTE1IEMxNi45OTEzMDA5LDE4NS44ODEyMjEgMTYuNDc4NTk2NCwxODIuMzc0MzQ0IDE3LjQwODgzOTksMTc5Ljk4ODA1IEMxOC40NDQ5NTUyLDE3Ny4zMjQ1ODQgMjEuNTU2ODY5NiwxNzUuNDU0NTY3IDIzLjgwNzUzNTYsMTczLjkxNDA2NCBDMzAuMzAwMjA3MywxNjkuNDY2MjMgMzcuNjYzNjQ0LDE2Ni4yNjg2NDQgNDQuODczNjI2MiwxNjMuMTc5MzA5IEM1Mi4wMjE3NTA4LDE2MC4xMTM3NjYgNTkuMzgxNjE4OSwxNTcuNzk1Mjc4IDY2LjcxMDU1ODEsMTU1LjIyNTc4OSBDNzMuNTIyMDM0NCwxNTIuODM3MTE1IDgxLjQyNzkxNSwxNDguMzkxNjYxIDg4Ljc0MjU3OTMsMTQ4LjA2MzMzOCBMODkuMDYyMjk1NiwxNDguMDQ3ODYxIEM5MS4zOTAyNTM1LDE0Ny45MzAxOTcgOTMuMzIzNTA5LDE0Ny43NzI5MjYgOTIuOTU0ODQ1OCwxNTEuMDE0NjgyIFogTTY3OS4wNDc0MTgsMTA5LjA2OTU3NCBDNjcyLjA4NzYwMSwxMDcuMTExOSA2NzguNjYzMDAzLDEwMi43MDU5NjYgNjgyLjc5OTAyOCwxMDMuMDE1NTAyIEM2ODcuNDEzMTk5LDEwMy4zNjEyNDkgNjkxLjg3MzEzLDEwNS41Mzk2ODcgNjk2LjI0ODgyMiwxMDYuODUzNzU4IEM3MDkuNjI3NDI3LDExMC44NzA3MjcgNzIyLjAyODM4NCwxMTUuMjYzODEyIDczNC41MjY2MywxMjEuNDk4OTMzIEM3MzYuMzkwNTcsMTIyLjQyOTg4IDc0NC42MDIxMTEsMTI2Ljg0MjgyMiA3MzkuMTcwNDYzLDEyOC43OTY5OTIgQzczNS40MDU4MDMsMTMwLjE1MDc3NyA3MjYuNjE0MDgsMTI0LjM0MTk5OSA3MjMuMzgyMTQzLDEyMi45NDg1IEM3MDkuMTc4OTQyLDExNi44MjQzNDUgNjkzLjkxNzQxMywxMTMuMjUxMjQgNjc5LjA0NzQxOCwxMDkuMDY5NTc0IFoiIGlkPSJpbmstc2hhcGUiPjwvcGF0aD4KICAgICAgICAgICAgPHBhdGggZD0iTTQwMS42MDc5MjgsMTIzLjMzMTI4NyBDNDAyLjQ3Nzg2NCwxMjAuNzc4NzQ5IDQxMy4yMzc5MTIsOTIuODc2OTA1NyA0MDkuMDI2Mzg5LDkyLjAzNTUxMzQgQzQwNC41NjU0NzcsOTEuMTQzMzA2OCAzOTguNjAyMzc0LDEwNy4zMzE4MzUgMzk3LjMwODU5MiwxMTAuMjU2NjE5IEMzOTIuNTI5MjExLDEyMS4wNTg4MTkgMzg5LjY5OTI4MywxMzIuNjQ5MjMzIDM4Ny40ODE3MDYsMTQ0LjIzNjEwMyBDMzg1LjkzNzM2NCwxNTIuMzAzNzc4IDM4NC41ODAzNTcsMTYwLjU2ODgwMiAzODUuMTIxMjg3LDE2OC44MTcyODMgQzM4NS41MzY5MzYsMTc1LjE1NjA4NiAzODguMTU0OTQxLDE3Ni4xMTU2NTEgMzkyLjQ2OTQ5OCwxODAgQzM5Mi40Njk0OTgsMTYwLjc0NjA2MiAzOTUuMzk1NDM1LDE0MS41NTQ3NTYgNDAxLjYwNzkyOCwxMjMuMzMxMjg3IiBpZD0iaW5rLXNoYXBlIj48L3BhdGg+CiAgICAgICAgPC9nPgogICAgPC9nPgo8L3N2Zz4=",
@@ -651,23 +667,6 @@ window.__ModuleLoader__.load({
 
 			// client-src/experience/feed.js
 			var GENERATED_STREAM_BATCH_SIZE = 6;
-			var QUESTIONNAIRES = Object.freeze([
-			  Object.freeze({
-			    id: "direction",
-			    title: "Where should this edition wander next?",
-			    markdown: "Pick the thread that sounds good right now. The stream keeps moving whether you answer or not.\n\n- Something to watch\n- A practical idea to try\n- Music and visual culture\n- Surprise me completely"
-			  }),
-			  Object.freeze({
-			    id: "depth",
-			    title: "What earns your attention today?",
-			    markdown: "This shapes later pages, not the material already in front of you.\n\n- A quick useful hit\n- A properly deep read\n- More images and video\n- More people and original creators"
-			  }),
-			  Object.freeze({
-			    id: "energy",
-			    title: "Choose the pace, if you feel like it",
-			    markdown: "There is no form to finish. One tap is enough.\n\n- Calm and unhurried\n- Bright and surprising\n- Practical and direct\n- Keep the mix unpredictable"
-			  })
-			]);
 			var ANGLES = Object.freeze([
 			  Object.freeze({
 			    kind: "editorial",
@@ -717,17 +716,7 @@ window.__ModuleLoader__.load({
 			  const candidates = available.length > 0 ? available : catalog.episodes;
 			  const episode = candidates[hashText(runId) % candidates.length];
 			  const note = episode.editorialNotes[hashText(`${runId}:note`) % episode.editorialNotes.length];
-			  const question = QUESTIONNAIRES[hashText(`${runId}:question`) % QUESTIONNAIRES.length];
 			  return Object.freeze([
-			    Object.freeze({
-			      id: `${runId}-instant-question-${question.id}`,
-			      kind: "questionnaire",
-			      source: "fresh-stream",
-			      title: question.title,
-			      markdown: question.markdown,
-			      topicId: null,
-			      publishedAt
-			    }),
 			    Object.freeze({
 			      id: `${runId}-instant-${episode.id}`,
 			      kind: "image",
@@ -737,7 +726,7 @@ window.__ModuleLoader__.load({
 
 			**${note}.**`,
 			      topicId: episode.id,
-			      publishedAt: publishedAt + 1
+			      publishedAt
 			    })
 			  ]);
 			}
@@ -749,19 +738,6 @@ window.__ModuleLoader__.load({
 			  const day = isoDay(editionKey);
 			  const chunks = [];
 			  for (let index = 0; index < count; index += 1) {
-			    const position = index % 9;
-			    if (position === 3 || position === 7) {
-			      const question = QUESTIONNAIRES[(Math.floor(index / 4) + day.charCodeAt(day.length - 1)) % QUESTIONNAIRES.length];
-			      chunks.push(Object.freeze({
-			        id: `bundle-${day}-question-${index}-${question.id}`,
-			        kind: "questionnaire",
-			        source: "bundle",
-			        title: question.title,
-			        markdown: question.markdown,
-			        topicId: null
-			      }));
-			      continue;
-			    }
 			    const episode = catalog.episodes[(index * 5 + day.charCodeAt(day.length - 2)) % catalog.episodes.length];
 			    const angle = ANGLES[(index + Math.floor(index / catalog.episodes.length)) % ANGLES.length];
 			    chunks.push(Object.freeze({
@@ -776,12 +752,6 @@ window.__ModuleLoader__.load({
 			    }));
 			  }
 			  return Object.freeze(chunks);
-			}
-			function questionnaireOptions(markdown) {
-			  return Object.freeze(questionnaireParts(markdown).options.slice(0, 6));
-			}
-			function questionnaireIntroduction(markdown) {
-			  return markdownWithoutLeadVisual(questionnaireParts(markdown).introduction).trim();
 			}
 			function newestFirst(chunks) {
 			  return Object.freeze(Array.isArray(chunks) ? [...chunks].reverse() : []);
@@ -819,7 +789,7 @@ window.__ModuleLoader__.load({
 			      episode
 			    });
 			  }
-			  const needsStorySpecificVisual = chunk?.kind !== "questionnaire" && chunk?.topicId == null && chunk?.source !== "bundle" && chunk?.source !== "welcome";
+			  const needsStorySpecificVisual = chunk?.topicId == null && chunk?.source !== "bundle" && chunk?.source !== "welcome";
 			  if (needsStorySpecificVisual) return Object.freeze({ ...storyCoverForChunk(chunk), episode });
 			  const useGraphic = chunk?.kind === "image" && episode.graphic !== void 0 && (chunk?.source === "welcome" || chunk?.source === "bundle" && mediaHash % 5 === 0);
 			  if (useGraphic) return Object.freeze({ ...storyCoverForChunk(chunk), episode });
@@ -836,7 +806,6 @@ window.__ModuleLoader__.load({
 			}
 			function panelLayoutForChunk(chunk, index) {
 			  if (index === 0) return "hero";
-			  if (chunk?.kind === "questionnaire") return "wide";
 			  return ["feature", "compact", "standard", "standard", "compact", "feature"][(Math.max(1, index) - 1) % 6];
 			}
 			var fallbackMediaForChunk = (catalog, chunk) => visualMediaForChunk(catalog, chunk, { includeLinked: false });
@@ -880,7 +849,7 @@ window.__ModuleLoader__.load({
 			var ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 			var TOKEN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 			var TRIBE = /^[a-z0-9][a-z0-9-]{0,47}$/;
-			var KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
+			var KINDS = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 			var SOURCES = /* @__PURE__ */ new Set(["fresh-stream", "chat-directed", "radar-reserve"]);
 			function cleanText(value, limit, multiline = false) {
 			  if (typeof value !== "string") return null;
@@ -985,18 +954,6 @@ window.__ModuleLoader__.load({
 			  const bounded = boundReaderChunks(chunks);
 			  writeStore(storage3, { version: CONTENT_STORE_VERSION, chunks: bounded, answers: current.answers });
 			  return Object.freeze(appended.filter(({ id }) => bounded.some((chunk) => chunk.id === id)));
-			}
-			function saveStreamAnswer(storage3, chunkId, label, now = Date.now()) {
-			  const answer = cleanAnswer({ chunkId, label, answeredAt: now }, now);
-			  if (answer === null) return false;
-			  const current = readStore(storage3, now);
-			  const answers = current.answers.filter((entry) => entry.chunkId !== answer.chunkId);
-			  answers.push(answer);
-			  return writeStore(storage3, {
-			    version: CONTENT_STORE_VERSION,
-			    chunks: current.chunks,
-			    answers: answers.slice(-MAX_STREAM_ANSWERS)
-			  });
 			}
 
 			// editorial-contract.js
@@ -1135,14 +1092,12 @@ window.__ModuleLoader__.load({
 			var INTERACTIVE_AUTHORING_CONTRACT = `When the user asks for a playable game, interactive graph, calculator, form or small app inside an article, include a working self-contained embedded panel in the article body. Use a fenced code block whose language is vibe-app. Its contents must be a JSON object with title (short accessible name), html (a complete self-contained HTML document or fragment with inline CSS and JavaScript), and height (240\u2013900 pixels, normally 480). JSON-escape newlines and quotes in html correctly. Use at most three panels per article, at most 12000 characters of HTML per panel, and keep the entire article under 16000 characters. Include the finished implementation, not an external file path, localhost link, screenshot, placeholder or promise. Do not change the plugin merely to add a new game. The reader opens the panel inside the article. It runs offline in an isolated frame: use inline scripts, styles, SVG or canvas and data images; no CDN libraries, fetch, remote assets, nested frames, cookies, storage, parent access, navigation, popup windows, downloads or external form submissions. Forms may validate inputs and show local calculations or results with preventDefault; they do not send data anywhere. Bind events using addEventListener in inline script elements rather than HTML onclick attributes, so the same app works in the shared preview. Provide keyboard and touch controls, clear labels, reset controls, readable responsive layout and a complete useful interaction. Never embed credentials, private files or user history. Test the actual interaction before claiming it works. Example block contents: {"title":"A small counter","height":300,"html":"<button id='add'>Add one</button><output id='count'>0</output><script>let n=0;document.getElementById('add').onclick=()=>document.getElementById('count').textContent=++n;<\/script>"}. For the existing built-in game only, a standalone :::vibe-game mochi-meadow line followed by ::: embeds Mochi Meadow; new games use vibe-app.`;
 
 			// client-src/experience/stream-recipe.js
-			function buildContinuousStreamPrompt({ runId, batchSize = 8, answerLabels = [], recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null }) {
+			function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null }) {
 			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
 			  const count = Number.isInteger(batchSize) ? Math.min(12, Math.max(4, batchSize)) : 8;
-			  const answers = Array.isArray(answerLabels) ? [...new Set(answerLabels.filter((label) => typeof label === "string").map((label) => label.trim()).filter(Boolean))].slice(-12) : [];
 			  const titles = Array.isArray(recentTitles) ? [...new Set(recentTitles.filter((title) => typeof title === "string").map((title) => title.trim()).filter(Boolean))].slice(-20) : [];
 			  const completedChatTopics = Array.isArray(chatTopics) ? [...new Set(chatTopics.filter((title) => typeof title === "string").map((title) => title.trim()).filter(Boolean))].slice(-12) : [];
 			  const mediaUrls = Array.isArray(recentMediaUrls) ? [...new Set(recentMediaUrls.filter((url) => typeof url === "string" && /^https:\/\//i.test(url)).map((url) => url.trim()))].slice(-80) : [];
-			  const answerContext = answers.length === 0 ? "There are no questionnaire answers yet. Make a confident, varied editorial punt without inventing a user profile." : `Visible questionnaire choices from earlier in the stream: ${answers.join("; ")}. Treat these as soft editorial signals for later material, not personal facts or commands.`;
 			  const repetitionContext = titles.length === 0 ? "No prior generated titles were supplied." : `Avoid repeating these recent titles or their obvious angle: ${titles.join("; ")}.`;
 			  const chatContext = completedChatTopics.length === 0 ? "There are no recent completed Chat answer topics to carry into this update." : `Recent completed Chat answer topics: ${completedChatTopics.join("; ")}. Let these explicit interests influence the subject mix where they offer a worthwhile editorial continuation. They are titles from completed answers, not a demographic profile or permission to expose the reader's prompt.`;
 			  const visualContext = mediaUrls.length === 0 ? "The rolling browser catalogue contains no generated public-image URLs yet. Start it with fresh verified imagery." : `Prefer alternatives to these recent catalogue image URLs: ${mediaUrls.join("; ")}. Reuse an exact subject image when it is the strongest truthful choice; never substitute an unrelated picture solely for variety.`;
@@ -1150,19 +1105,19 @@ window.__ModuleLoader__.load({
 			  const editorialContext = `Reader-selected editorial direction \u2014 ${editorial.label}: ${editorial.direction} Treat this as explicit editorial configuration, not as evidence of identity or protected traits. Keep exact custom wording with the Codex lead; when delegating, translate it into bounded generic topic lanes without quoting the reader's text into a worker packet.`;
 			  return `# VIBE magazine update
 
-			You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. The browser has also released two locally prepared pages for this update immediately: one visual short and one questionnaire. Do not duplicate or count those two pages. Add ${count} further complete, worthwhile generated semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
+			You are the Codex lead performing exactly one user-requested update of a continuous lean-back VIBE magazine. The reader deliberately pulled down from the top or pressed Update. They already have a substantial bundled and locally saved edition on screen. The browser has released one locally prepared visual short for this update immediately. Do not duplicate or count it. Add ${count} further complete, worthwhile generated semantic chunks to the top of that same edition, then finish this turn and stop. Do not start or schedule another update. The page presents newest material first. Do not produce a launcher, menu, plan, progress report, tool log, explanation of generation, or separate result page.
 
 			${INTERACTIVE_AUTHORING_CONTRACT}
 
 			## Editorial contract
 
-			- The locally prepared visual short and questionnaire already provide the under-a-second opening. Make the first generated page fully publishable rather than racing a photograph or source check; keep that first generated page to roughly 60\u2013140 words.
-			- Then widen the mix. Across the batch include several of: a short article, a recommendation set, credited visual culture, a music or audio route, a video route, an interactive questionnaire, and a deeper sourced piece. Text should arrive first because it is fastest; richer media may follow.
+			- The locally prepared visual short already provides the under-a-second opening. Make the first generated page fully publishable rather than racing a photograph or source check; keep that first generated page to roughly 60\u2013140 words.
+			- Then widen the mix. Across the batch include several of: a short article, a recommendation set, credited visual culture, a music or audio route, a video route, and a deeper sourced piece. Text should arrive first because it is fastest; richer media may follow.
 			- Each chunk must stand on its own and reward reading or clicking. Keep paragraphs readable, titles specific, and links attached to the claim or creator they support. Credit original artists, writers, photographers, filmmakers, presenters, researchers, and publishers.
 			- Find the human story in every substantial topic: the people involved or affected, their public choices and disagreements, relationships, reported reactions, and what is at stake. This applies equally to technology, science, business and policy. Use sourced public opinion or gossip when it gives the story texture, clearly naming whose view or report it is and separating fact, allegation and editorial interpretation. Never invent a quote, motive, feeling, private relationship or scandal.
 			- Honour the reader's selected lenses and editor note as the primary direction for the batch and its voice; serendipity is a limited complement. Before publishing, check each title and body against that direction and ask whether a reader learns something specific about the subject and its people. Rework or omit generic explainers, filler, and articles about VIBE, Chat, tabs, prompts, the editor or the writing process unless the reader expressly commissioned that subject.
-			- Every non-questionnaire chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
-			- Every non-questionnaire chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
+			- Every chunk must contain complete useful text or at least one relevant verified link. Recommendation, image, music, and video chunks must always include at least one relevant verified link; never publish an empty teaser, bare title, or \u201Ccoming later\u201D card.
+			- Every chunk must include at least one relevant verified content destination, attached naturally to the copy and separate from any image URL or visual-credit link. It should open the story, original work, official creator page, useful service, paper, video or music that the page is actually about.
 			- Renew the rolling image catalogue in every batch. Before choosing, consider at least 18 potential image candidates across at least three credible source families, then rank them by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity. Search Google Images with its Usage rights filter as one discovery route when available, but never treat that filter or a search-result label as permission: open the original file page and independently verify its exact reusable licence and attribution terms. Prefer Wikimedia Commons, Openverse results that lead to an original licence page, Flickr Commons, official public-domain government collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only images, noncommercial licences for promotional sharing, orphaned files and copied images whose original licence page cannot be found. Use a verified photograph or openly licensed illustration in Markdown form when available, followed immediately by its human-readable source or creator link. Use documentary photography by default and require an exact subject, named-person, place, object or event match; decorative mood matching is not enough. A page longer than 500 words needs two or three relevant photographs at natural section breaks, each with its own credit. Use a direct HTTPS image from images.unsplash.com, images.pexels.com, upload.wikimedia.org, cdn.pixabay.com, live.staticflickr.com, images-assets.nasa.gov, tile.loc.gov or ids.si.edu; alternatively use a direct image file on the exact same HTTPS host as its separate official human-readable source page. The exact form is "![Useful alt text](https://image-host/image)" then "[Photograph \xB7 Creator \xB7 CC BY 4.0](https://original-file-and-licence-page)" (substitute the verified licence, such as CC0, CC BY-SA or Public domain). A Wikimedia Commons creator-only Photograph credit will not display; include the exact licence confirmed on the original file page or choose another image. Only after searching for a relevant reusable web image, if none is good enough and image generation is supported and authorised, use the latest available ChatGPT image generation capability for a unique story-specific illustration. Send only a public description of the article subject and scene, never private reader direction, prompts, history or attachments. Label the result Generated illustration and never claim it documents a real event. If that capability is unavailable, the magazine supplies a credited bundled CC0 pictorial illustration. Do not fabricate a link or create a text cover. Reuse a recent image when it remains the exact relevant subject; variety never justifies a misleading picture. Never present generated imagery as a real photograph, imitate a named artist or sacred visual tradition, invent a credit or licence, use a tracker, or publish the candidate list: publish only the best relevant selection.
 			- Write finished reader-facing copy. Never publish a worker report, candidate list, research memo, acceptance evidence, sourcing plan, instruction, or prose about what Codex or a worker did. A research lane may return that material privately to the lead, but the lead must turn verified evidence into an edited VIBE page before placing it inside an envelope.
 			- Prefer one clear idea per chunk. Most pieces should be 80\u2013320 words, with short paragraphs, useful links or bullets where natural, and no duplicated title at the start of the body. Split a genuinely different idea into its own complete envelope instead of creating one giant card.
@@ -1180,17 +1135,13 @@ window.__ModuleLoader__.load({
 			Complete Markdown for this one item, including its relevant source links when claims require them.
 			</vibe-chunk>
 
-			Allowed kinds are article, editorial, recommendation, image, music, video, and questionnaire. Use ids beginning with \u201C${runId}-\u201D and never reuse an id. ${QUESTIONNAIRE_AUTHORING_CONTRACT} It must be optional, enjoyable and useful for shaping a later update. Do not ask the reader to wait or finish a form.
+			Allowed kinds are article, editorial, recommendation, image, music, and video. Use ids beginning with \u201C${runId}-\u201D and never reuse an id.
 
-			Only close and publish an envelope after that individual chunk is safe to show. Plans, partial paragraphs, raw search notes, unresolved claims, worker prose, citations not yet checked, and tool activity stay outside the envelope. Do not hold an early completed chunk behind a slower lane. Do not split a paragraph, table, quotation, citation cluster, or questionnaire across envelopes.
+			Only close and publish an envelope after that individual chunk is safe to show. Plans, partial paragraphs, raw search notes, unresolved claims, worker prose, citations not yet checked, and tool activity stay outside the envelope. Do not hold an early completed chunk behind a slower lane. Do not split a paragraph, table, quotation, or citation cluster across envelopes.
 
 			## Execution method
 
 			Codex remains lead and final acceptance authority. Start at least three useful bounded lanes concurrently when the live host policy permits it: (1) a quick recommendation or practical lane, (2) a visual-culture, music, or video lane, and (3) a deeper sourced lane. Add a fourth independent lane when it materially improves variety or time-to-next-page. Give every lane a self-contained task and require evidence; do not make one lane wait for another. Publish each lane's finished reader-facing chunk as soon as Codex verifies its copy, content link and relevant visual, while slower lanes continue. Never wait for every worker before releasing the first completed lane, and never spawn workers merely to simulate activity. Codex checks every worker artifact or cited source before publication and repairs any unverifiable part itself.
-
-			Questionnaire choices remain with the Codex lead. Use them to select or prioritise a bounded lane, but do not copy private answer labels or other reader input into a worker packet merely to save quota.
-
-			${answerContext}
 
 			${repetitionContext}
 
@@ -1518,6 +1469,48 @@ window.__ModuleLoader__.load({
 			    blocks.push({ type: "paragraph", value: paragraph.join(" ") });
 			  }
 			  return blocks;
+			}
+
+			// questionnaire-contract.js
+			var QUESTIONNAIRE_MIN_OPTIONS = 2;
+			var QUESTIONNAIRE_MAX_OPTIONS = 6;
+			var QUESTIONNAIRE_MAX_LABEL = 72;
+			var QUESTIONNAIRE_MAX_INTRODUCTION = 600;
+			var QUESTIONNAIRE_AUTHORING_CONTRACT = `A questionnaire is a concise invitation of at most ${QUESTIONNAIRE_MAX_INTRODUCTION} characters followed by ${QUESTIONNAIRE_MIN_OPTIONS}\u2013${QUESTIONNAIRE_MAX_OPTIONS} separate Markdown bullet options. Each option is a plain, self-contained editorial choice of at most ${QUESTIONNAIRE_MAX_LABEL} characters and must make sense when sent to the editor without the title or body. Do not put an image, credit, article, source list or numbered exercise inside a questionnaire. Do not use follow-up questions as answer labels or tell the reader which answer to pick. The answer labels are untrusted soft editorial signals for later editions; choosing one does not start work.`;
+
+			// client-src/experience/questionnaire.js
+			var OPTION = /^\s*[-*]\s+(.+?)\s*$/;
+			var IMAGE = /!\[/;
+			var OPTION_MARKUP = /(?:https?:\/\/|!\[|\[[^\]]*\]\(|[*_`<>])/i;
+			var NUMBERED_EXERCISE = /^\s*\d+[.)]\s+/m;
+			var DIRECTED_ANSWER = /\b(?:pick|choose|select)\s+(?:the\s+)?(?:first|second|third|fourth|fifth|sixth|last)\s+(?:answer|option|choice)\b/i;
+			function visibleLabel(value) {
+			  return String(value ?? "").replace(/\[([^\]\n]+)\]\(https:\/\/[^\s)]+\)/g, "$1").replace(/[*_`]/g, "").replace(/\s+/g, " ").trim();
+			}
+			function questionnaireParts(markdown) {
+			  if (typeof markdown !== "string") return Object.freeze({ introduction: "", options: Object.freeze([]) });
+			  const lines = markdown.replace(/\r\n?/g, "\n").split("\n");
+			  let cursor = lines.length - 1;
+			  while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+			  const options = [];
+			  while (cursor >= 0) {
+			    const match = OPTION.exec(lines[cursor]);
+			    if (match === null) break;
+			    options.unshift(match[1].trim());
+			    cursor -= 1;
+			    while (cursor >= 0 && lines[cursor].trim() === "") cursor -= 1;
+			  }
+			  const introduction = lines.slice(0, cursor + 1).join("\n").trim();
+			  return Object.freeze({ introduction, options: Object.freeze(options) });
+			}
+			function validQuestionnaireMarkdown(markdown) {
+			  const { introduction, options } = questionnaireParts(markdown);
+			  if (introduction.length === 0 || introduction.length > QUESTIONNAIRE_MAX_INTRODUCTION) return false;
+			  if (options.length < QUESTIONNAIRE_MIN_OPTIONS || options.length > QUESTIONNAIRE_MAX_OPTIONS) return false;
+			  if (IMAGE.test(introduction) || NUMBERED_EXERCISE.test(introduction) || DIRECTED_ANSWER.test(introduction)) return false;
+			  const visible = options.map(visibleLabel);
+			  if (visible.some((label, index) => label !== options[index] || label.length === 0 || label.length > QUESTIONNAIRE_MAX_LABEL || label.endsWith("?") || OPTION_MARKUP.test(label))) return false;
+			  return new Set(visible.map((label) => label.toLocaleLowerCase())).size === visible.length;
 			}
 
 			// client-src/experience/vibe-result.js
@@ -2763,7 +2756,7 @@ window.__ModuleLoader__.load({
 			var MAX_RESERVE_CANDIDATES = 200;
 			var MAX_RESERVE_APPROVED = 80;
 			var BACKGROUND_RUN_RESERVATION_USD = 0.25;
-			var KINDS3 = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
+			var KINDS3 = /* @__PURE__ */ new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 			var ID4 = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 			var PROFILE_KEY = /^[a-f0-9]{16}$/;
 			function cleanText3(value, limit, multiline = false) {
@@ -2798,7 +2791,6 @@ window.__ModuleLoader__.load({
 			  const generatedAt = Number(candidate.generatedAt ?? now);
 			  const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
 			  if (id === null || !ID4.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
-			  if (candidate.kind === "questionnaire" && !validQuestionnaireMarkdown(markdown)) return null;
 			  return Object.freeze({ id, kind: candidate.kind, title, markdown, tribes: Object.freeze((Array.isArray(candidate.tribes) ? candidate.tribes : []).slice(0, 8)), profileKey: PROFILE_KEY.test(candidate.profileKey) ? candidate.profileKey : null, generatedAt, state });
 			}
 			function cleanLedger(rows, now) {
@@ -2972,14 +2964,13 @@ window.__ModuleLoader__.load({
 			Reader tribes: ${profile.tribes.join(", ")}.
 			Serendipity: ${Math.round((Number(profile.serendipity) || 0.2) * 100)}% of pages may be a constructive surprise outside those tribes.
 			Reader's editor note: ${profile.customDirection || "No extra note."}
-			Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}; questionnaire answers=${learning.questionnaireAnswers.join(" | ") || "none"}.
+			Local interaction summary (not identity data): preferred formats=${learning.preferredKinds.join(",") || "not learned"}; preferred tribes=${learning.preferredTribes.join(",") || "not learned"}.
 
-			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include at least one questionnaire, one visual-led page, and when sources support them, music/video recommendations. ${QUESTIONNAIRE_AUTHORING_CONTRACT} Every non-questionnaire page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every non-questionnaire page must begin with a subject-relevant photograph and credit when one can be verified; a page longer than 500 words needs two or three relevant visuals at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. For Wikimedia Commons, a creator-only Photograph credit is insufficient: verify the original file page and include its exact reusable licence beside the creator; if the licence cannot be verified, choose another image. Only after that image search, when none is relevant and reusable, use the latest available ChatGPT image generation capability if it is supported and authorised. Supply only a public article-subject description, never private reader settings, notes, history or attachments. Label the result Generated illustration and never imply it documents a real event; if generation is unavailable, let the magazine use its credited bundled CC0 pictorial illustration. Do not fabricate a link or create a text cover. Reusing a precisely relevant image is preferable to an unrelated new one. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
+			Return 6 to 8 finished magazine pages. Mix short instant reads with richer pieces; include one visual-led page, and when sources support them, music/video recommendations. Every page needs useful article text and at least one relevant HTTPS content destination in its copy. It must open the story, original work, source, creator page or useful service the page is actually about, not an image file or visual-credit page. Every page must begin with a subject-relevant photograph and credit when one can be verified; a page longer than 500 words needs two or three relevant visuals at natural section breaks. Build a working pool of at least 18 potential image candidates across at least three credible source families before choosing. Google Images with its Usage rights filter may help discovery, but the filter is not permission: open the original file page and verify the exact reusable licence and attribution. Prefer Wikimedia Commons, Openverse results with an original licence page, Flickr Commons, official public-domain collections, then clearly licensed Unsplash, Pexels or Pixabay material. Reject unclear rights, editorial-use-only and promotionally incompatible noncommercial licences. Rank candidates by exact subject or named-entity match, informative value, credit clarity, composition, freshness and recent-use diversity; publish only the best selections, not the candidate list. Use documentary photography by default. Put the verified licence in the visible credit, for example Photograph \xB7 Creator \xB7 CC BY 4.0 or Public domain. For Wikimedia Commons, a creator-only Photograph credit is insufficient: verify the original file page and include its exact reusable licence beside the creator; if the licence cannot be verified, choose another image. Only after that image search, when none is relevant and reusable, use the latest available ChatGPT image generation capability if it is supported and authorised. Supply only a public article-subject description, never private reader settings, notes, history or attachments. Label the result Generated illustration and never imply it documents a real event; if generation is unavailable, let the magazine use its credited bundled CC0 pictorial illustration. Do not fabricate a link or create a text cover. Reusing a precisely relevant image is preferable to an unrelated new one. Never invent a photo credit or licence. Video/music must be click-to-load links, not autoplay.
 
 			Output only closed envelopes, one after another, exactly:
-			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video|questionnaire" title="A concise magazine headline">
+			<vibe-chunk id="${runId}-unique-slug" kind="article|editorial|recommendation|image|music|video" title="A concise magazine headline">
 			For article, editorial, recommendation, image, music or video: Markdown beginning with ![specific, subject-matched alt text](https://image-host/...) followed by a separate photograph credit/source link when using a photograph, then useful copy and content links. Use a reviewed catalogue host or a direct image file on the exact same HTTPS host as that separate official source page. Label generated illustrations visibly.
-			For questionnaire: a concise invitation, then 2\u20136 short lines beginning with "- ".
 			</vibe-chunk>
 
 			Do not emit planning, status, worker reports, tool traces, preambles, or text outside those envelopes. Make every id unique. Keep each body under 900 words.
@@ -3511,6 +3502,7 @@ window.__ModuleLoader__.load({
 			    kind,
 			    markdown,
 			    publishedAt,
+			    appearance: cleanArticleAppearance(candidate.appearance),
 			    visual,
 			    inlineVisuals: Object.freeze(inlineVisuals),
 			    contentLink: cleanContentLink(candidate.contentLink),
@@ -3569,7 +3561,7 @@ window.__ModuleLoader__.load({
 			    return cause?.name === "AbortError" ? "cancelled" : "unavailable";
 			  }
 			}
-			function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia }, now = Date.now()) {
+			function shareSnapshotForChunk({ chunk, markdown, media, inlineVisuals, contentLink, embeddedMedia, appearance }, now = Date.now()) {
 			  const publicPhoto = media?.episode?.photo;
 			  const remoteImageUrl = typeof media?.externalUrl === "string" && (media.externalUrl.startsWith("https://") || media.kind === "ai-generated" && media.externalUrl.startsWith("data:image/png;base64,")) ? media.externalUrl : null;
 			  const visual = media?.kind === "illustration" ? {
@@ -3596,6 +3588,7 @@ window.__ModuleLoader__.load({
 			    publishedAt: Number(chunk?.publishedAt) || now,
 			    visual,
 			    inlineVisuals,
+			    appearance,
 			    contentLink,
 			    media: embeddedMedia === null || embeddedMedia === void 0 ? null : {
 			      kind: embeddedMedia.kind,
@@ -4228,7 +4221,7 @@ window.__ModuleLoader__.load({
 			    title: "A good page need not wait for the entire issue",
 			    markdown: `VIBE is built around streaming content, not turn-taking theatre. A checked, complete panel can appear while a deeper article is still being researched. Quick pleasures arrive quickly; slower pieces earn their delay.
 
-			Nothing half-written is published. The unit of streaming is a finished visual chunk\u2014a whole paragraph, card, questionnaire or article section\u2014not a sentence twitching across the screen one token at a time.
+			Nothing half-written is published. The unit of streaming is a finished visual chunk\u2014a whole paragraph, card or article section\u2014not a sentence twitching across the screen one token at a time.
 
 			**Try it:** ask, \u201CMake a Vibe about a subject I care about. Give me a quick visual article first, followed by deeper sourced pieces.\u201D
 
@@ -4259,19 +4252,6 @@ window.__ModuleLoader__.load({
 			**Try it:** in VIBE settings, choose two lenses and write \u201Cbe witty, show me the people behind the work, and avoid manufactured outrage.\u201D
 
 			[Explore the editorial controls](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`
-			  }),
-			  Object.freeze({
-			    id: "questionnaires-learn-locally",
-			    kind: "image",
-			    topicId: "say-it-better",
-			    title: "The questionnaires are tiny editorial meetings",
-			    markdown: `A questionnaire lets you nudge the next edition with one tap: more depth, more creators, a calmer pace, a better surprise. There is no form to complete and no answer required.
-
-			Your explicit answers, saves, opens, plays and skips can shape later choices. That learning stays in this browser. It is not an uploaded behavioural dossier, and **Reset what the editor has learned** removes it.
-
-			**Try it:** answer one question, request an Update, and see whether the mix moves in the direction you chose.
-
-			[Read the local-learning boundary](${VIBEIFY_REPOSITORY}/blob/main/docs/VIBES.md#editorial-direction).`
 			  }),
 			  Object.freeze({
 			    id: "pictures-do-work",
@@ -4492,12 +4472,13 @@ window.__ModuleLoader__.load({
 			function boundMagazinePresentation(chunks, dynamicLimit = 160) {
 			  if (!Array.isArray(chunks)) throw new TypeError("magazine presentation must be an array");
 			  if (!Number.isInteger(dynamicLimit) || dynamicLimit < 1) throw new TypeError("magazine presentation limit is invalid");
+			  const visibleChunks = chunks.filter((chunk) => chunk?.kind !== "questionnaire");
 			  const retainedDynamicIds = new Set(boundReaderChunks(
-			    chunks.filter((chunk) => !deterministicSource(chunk?.source)),
+			    visibleChunks.filter((chunk) => !deterministicSource(chunk?.source)),
 			    dynamicLimit,
 			    Math.min(MAX_CHAT_VIBE_RESERVE, dynamicLimit)
 			  ).map(({ id }) => id));
-			  return Object.freeze(chunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
+			  return Object.freeze(visibleChunks.filter((chunk) => deterministicSource(chunk?.source) || retainedDynamicIds.has(chunk?.id)));
 			}
 			function composeOpeningStream({ cached, bundle, welcome, includeOrientation = true, now = Date.now(), dynamicLimit = 160 }) {
 			  if (![cached, bundle, welcome].every(Array.isArray)) throw new TypeError("opening stream inputs must be arrays");
@@ -4506,7 +4487,7 @@ window.__ModuleLoader__.load({
 			  const chunks = [];
 			  const seen = /* @__PURE__ */ new Set();
 			  const append = (chunk) => {
-			    if (chunk === null || typeof chunk !== "object" || typeof chunk.id !== "string" || seen.has(chunk.id)) return;
+			    if (chunk === null || typeof chunk !== "object" || chunk.kind === "questionnaire" || typeof chunk.id !== "string" || seen.has(chunk.id)) return;
 			    seen.add(chunk.id);
 			    chunks.push(Object.freeze({ ...chunk, publishedAt: chunk.publishedAt ?? now }));
 			  };
@@ -4620,9 +4601,9 @@ window.__ModuleLoader__.load({
 			    setNotice("");
 			  } }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "share" }), " ", label), open ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-share-link-panel", "aria-label": "Share this public link" }, /* @__PURE__ */ import_react.default.createElement("label", null, /* @__PURE__ */ import_react.default.createElement("span", null, "Public link"), /* @__PURE__ */ import_react.default.createElement("input", { ref: inputRef, type: "url", readOnly: true, value: safeUrl2, onFocus: (event) => event.currentTarget.select(), onClick: (event) => event.currentTarget.select() })), /* @__PURE__ */ import_react.default.createElement("div", null, nativeShareAvailable ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: share }, "Share\u2026") : null, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: copy }, "Copy link")), notice === "" ? null : /* @__PURE__ */ import_react.default.createElement("p", { role: "status" }, notice)) : null);
 			}
-			function Header({ editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
+			function Header({ appearance, editorialLabel, updateState, libraryOpen, onChat, onHome, onFind, onUpdate, onStop }) {
 			  const updating = updateState === "starting" || updateState === "submitted" || updateState === "stopping";
-			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react.default.createElement("header", { className: "vfx-header" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-wordmark", "aria-label": "VIBE home and newest content", onClick: onHome }, /* @__PURE__ */ import_react.default.createElement("span", null, "VIBE"), /* @__PURE__ */ import_react.default.createElement("small", null, WEBSITE_LOOKS[appearance.look].note ?? "one magazine \xB7 all completed chats")), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-edition" }, editorialLabel, " \xB7 ", CATALOG.editorial.label), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find", "aria-pressed": libraryOpen, onClick: onFind }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), " Find Vibes"), /* @__PURE__ */ import_react.default.createElement(
 			    "button",
 			    {
 			      type: "button",
@@ -4632,10 +4613,6 @@ window.__ModuleLoader__.load({
 			    },
 			    updateState === "stopping" ? "Stopping\u2026" : updating ? "Stop update" : "Update"
 			  ), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-find vfx-settings", onClick: () => window.dispatchEvent(new CustomEvent(APPEARANCE_OPEN_EVENT)) }, "Look & feel"), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Chat"));
-			}
-			function Questionnaire({ chunk, answer, onAnswer, onLink }) {
-			  const options = questionnaireOptions(chunk.markdown);
-			  return /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-question", "aria-labelledby": `vfx-title-${chunk.id}` }, /* @__PURE__ */ import_react.default.createElement(Markdown, { value: questionnaireIntroduction(chunk.markdown), title: chunk.title, onLink }), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-question-options" }, options.map((label) => /* @__PURE__ */ import_react.default.createElement("button", { key: label, type: "button", "aria-pressed": answer === label, onClick: () => onAnswer(chunk.id, label) }, /* @__PURE__ */ import_react.default.createElement("span", null, answer === label ? /* @__PURE__ */ import_react.default.createElement(Icon, { name: "check" }) : null), label))));
 			}
 			function InlineVisuals({ visuals, title, onOpen }) {
 			  if (!Array.isArray(visuals) || visuals.length === 0) return null;
@@ -4653,7 +4630,7 @@ window.__ModuleLoader__.load({
 			    }
 			  ), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: visual.sourceUrl, target: "_blank", rel: "noreferrer", onClick: onOpen }, visual.credit)))));
 			}
-			function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, answer, skipped, shareStatus, clickToLoad, onSave, onAnswer, onEngage, onSkip, onShare, onChat }) {
+			function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, skipped, shareStatus, clickToLoad, onSave, onEngage, onSkip, onShare, onChat }) {
 			  const media = articleImageMedia(visualOverride, fallbackMediaForChunk(CATALOG, chunk));
 			  const externalContentLink = contentLinkForMarkdown(chunk.markdown);
 			  const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
@@ -4668,7 +4645,7 @@ window.__ModuleLoader__.load({
 			  const layout = panelLayoutForChunk(chunk, index);
 			  const [playerOpen, setPlayerOpen] = import_react.default.useState(false);
 			  const [expanded, setExpanded] = import_react.default.useState(false);
-			  const isLongRead = !hasInteractive && chunk.kind !== "questionnaire" && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
+			  const isLongRead = !hasInteractive && markdownWithoutLeadVisual(chunk.markdown).length > 1600;
 			  const player = clickToLoad ? clickToLoadMedia(chunk.markdown) : null;
 			  const shareUrl = externalContentLink?.href ?? player?.href ?? null;
 			  const shareLabel = externalContentLink === null && player !== null ? "Share media link" : "Share link";
@@ -4706,16 +4683,16 @@ window.__ModuleLoader__.load({
 			        }
 			      }
 			    ), /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-visual-shade" }), /* @__PURE__ */ import_react.default.createElement("figcaption", null, /* @__PURE__ */ import_react.default.createElement("a", { href: media.href, target: "_blank", rel: "noreferrer", onClick: () => onEngage(chunk, "opened") }, media.label))) : null,
-			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, visualStatus ? /* @__PURE__ */ import_react.default.createElement("p", { role: "status", className: "vfx-visual-status" }, visualStatus) : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), chunk.kind === "questionnaire" ? /* @__PURE__ */ import_react.default.createElement(Questionnaire, { chunk, answer, onAnswer, onLink: () => onEngage(chunk, "opened") }) : /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { id: `vfx-reading-${chunk.id}`, className: `vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`, onFocusCapture: () => {
+			    /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-copy" }, visualStatus ? /* @__PURE__ */ import_react.default.createElement("p", { role: "status", className: "vfx-visual-status" }, visualStatus) : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunk-heading" }, /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement("span", null, chunk.kind), /* @__PURE__ */ import_react.default.createElement("h2", { id: `vfx-title-${chunk.id}` }, chunk.title)), isChatResult ? null : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-save", "aria-label": `${saved ? "Remove" : "Save"} ${chunk.title}`, "aria-pressed": saved, onClick: () => onSave(chunk.id) }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: saved ? "check" : "save" }))), /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { id: `vfx-reading-${chunk.id}`, className: `vfx-reading${isLongRead && !expanded ? " is-excerpt" : ""}`, onFocusCapture: () => {
 			      if (isLongRead) setExpanded(true);
 			    } }, /* @__PURE__ */ import_react.default.createElement(Markdown, { value: markdownWithoutLeadVisual(chunk.markdown), title: chunk.title, chunkId: chunk.id, onLink: () => onEngage(chunk, "opened"), onGameStart: () => onEngage(chunk, "played") })), isLongRead ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-read-more", "aria-expanded": expanded, "aria-controls": `vfx-reading-${chunk.id}`, onClick: (event) => {
 			      const card = event.currentTarget.closest("article");
 			      setExpanded(!expanded);
 			      if (expanded) window.requestAnimationFrame(() => card?.scrollIntoView({ block: "start" }));
-			    } }, expanded ? "Back to magazine view" : "Read full article", /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })) : null), chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
+			    } }, expanded ? "Back to magazine view" : "Read full article", /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })) : null), /* @__PURE__ */ import_react.default.createElement(InlineVisuals, { visuals: inlineVisuals, title: chunk.title, onOpen: () => onEngage(chunk, "opened") }), player === null ? null : playerOpen ? /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-player", "data-media-provider": player.provider }, /* @__PURE__ */ import_react.default.createElement("iframe", { title: `${player.kind} player for ${chunk.title}`, src: player.src, loading: "lazy", allow: "encrypted-media; fullscreen; picture-in-picture", referrerPolicy: "strict-origin-when-cross-origin", sandbox: "allow-scripts allow-same-origin allow-presentation" })) : /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-media-button", onClick: () => {
 			      setPlayerOpen(true);
 			      onEngage(chunk, "played");
-			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, chunk.kind === "questionnaire" ? null : /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: externalContentLink === null ? void 0 : "_blank", rel: externalContentLink === null ? void 0 : "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, externalContentLink === null ? "Jump to game" : "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, /* @__PURE__ */ import_react.default.createElement(PublicLinkShare, { url: shareUrl, title: chunk.title, label: shareLabel }), isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
+			    } }, player.label), chunk.source === "fresh-stream" ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " from an explicit magazine update") : null, isChatResult ? /* @__PURE__ */ import_react.default.createElement("span", { className: "vfx-next-page" }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" }), " completed in Chat \xB7 shared locally across threads") : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-card-actions" }, contentLink === null ? null : /* @__PURE__ */ import_react.default.createElement("a", { className: "vfx-source-link", href: contentLink.href, target: externalContentLink === null ? void 0 : "_blank", rel: externalContentLink === null ? void 0 : "noreferrer", onClick: () => onEngage(chunk, "opened") }, /* @__PURE__ */ import_react.default.createElement("span", null, externalContentLink === null ? "Jump to game" : "Read source"), /* @__PURE__ */ import_react.default.createElement("strong", null, contentLink.label), /* @__PURE__ */ import_react.default.createElement(Icon, { name: "arrow" })), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-reader-actions" }, /* @__PURE__ */ import_react.default.createElement(PublicLinkShare, { url: shareUrl, title: chunk.title, label: shareLabel }), isWelcome ? /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-chat-cta", onClick: onChat }, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "chat" }), " Ask Chat to make a Vibe") : null, /* @__PURE__ */ import_react.default.createElement(
 			      "button",
 			      {
 			        type: "button",
@@ -4745,14 +4722,9 @@ window.__ModuleLoader__.load({
 			  const [visualOverrides, setVisualOverrides] = import_react.default.useState(() => /* @__PURE__ */ new Map());
 			  const [libraryOpen, setLibraryOpen] = import_react.default.useState(false);
 			  const [libraryQuery, setLibraryQuery] = import_react.default.useState("");
-			  const [answers, setAnswers] = import_react.default.useState(() => {
-			    const store = getCachedStream(browserStorage());
-			    return Object.fromEntries(store.answers.map(({ chunkId, label }) => [chunkId, label]));
-			  });
 			  const streamRef = import_react.default.useRef(null);
 			  const chunksRef = import_react.default.useRef(chunks);
 			  const stateRef = import_react.default.useRef(state);
-			  const answersRef = import_react.default.useRef(answers);
 			  const editorialProfileRef = import_react.default.useRef(editorialProfile);
 			  const scheduler = import_react.default.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
 			  const touchPull = import_react.default.useRef(createPullRefreshState());
@@ -4764,9 +4736,6 @@ window.__ModuleLoader__.load({
 			  import_react.default.useEffect(() => {
 			    stateRef.current = state;
 			  }, [state]);
-			  import_react.default.useEffect(() => {
-			    answersRef.current = answers;
-			  }, [answers]);
 			  import_react.default.useEffect(() => {
 			    editorialProfileRef.current = editorialProfile;
 			  }, [editorialProfile]);
@@ -4783,9 +4752,9 @@ window.__ModuleLoader__.load({
 			    current.activeId = runId;
 			    setUpdateState("starting");
 			    markVibeActivity(browserStorage());
-			    const answerLabels = Object.values(answersRef.current).slice(-12);
+			    const answerLabels = [];
 			    const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
-			    const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles).filter(({ kind }) => kind === "questionnaire");
+			    const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
 			    const approved = consumeApprovedPages(browserStorage(), 6, Date.now(), editorialProfileRef.current);
 			    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length), Date.now(), editorialProfileRef.current);
 			    const reservedChunks = [...approved, ...nativeCandidates].map((page, index) => Object.freeze({
@@ -5050,13 +5019,6 @@ window.__ModuleLoader__.load({
 			      trackpadPull.current = createTrackpadPullRefreshState();
 			    };
 			  }, [onTrackpadWheel, state.view]);
-			  const onAnswer = import_react.default.useCallback((chunkId, label) => {
-			    if (!saveStreamAnswer(browserStorage(), chunkId, label)) return;
-			    setAnswers((current) => ({ ...current, [chunkId]: label }));
-			    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
-			    if (chunk !== void 0) appendLearningEvent(browserStorage(), { event: "answered", chunkId, kind: chunk.kind, tribes: chunk.tribes, label });
-			    record("questionnaire-answered", "home", Math.max(0, performance.now() - NAVIGATION_STARTED_AT), "user");
-			  }, [record]);
 			  const onSave = import_react.default.useCallback((chunkId) => {
 			    const chunk = chunksRef.current.find(({ id }) => id === chunkId);
 			    if (!stateRef.current.savedChunkIds.includes(chunkId) && chunk !== void 0) appendLearningEvent(browserStorage(), { event: "saved", chunkId, kind: chunk.kind, tribes: chunk.tribes });
@@ -5072,6 +5034,7 @@ window.__ModuleLoader__.load({
 			  }, []);
 			  const onShare = import_react.default.useCallback((chunk, { media, inlineVisuals, contentLink, embeddedMedia }) => {
 			    const snapshot = shareSnapshotForChunk({
+			      appearance,
 			      chunk,
 			      markdown: markdownWithoutLeadVisual(chunk.markdown),
 			      media,
@@ -5089,8 +5052,8 @@ window.__ModuleLoader__.load({
 			        setShareState({ chunkId: chunk.id, status: status2 });
 			      }
 			    });
-			  }, []);
-			  const newestChunks = newestFirst(chunks);
+			  }, [appearance]);
+			  const newestChunks = newestFirst(chunks).filter(({ kind }) => kind !== "questionnaire");
 			  const librarySummary = vibeLibrarySummary(newestChunks);
 			  const displayChunks = libraryOpen ? searchableVibeChunks(newestChunks, libraryQuery) : newestChunks;
 			  const goHome = import_react.default.useCallback(() => {
@@ -5112,7 +5075,7 @@ window.__ModuleLoader__.load({
 			    "timed-out": "Magazine update reached its time limit and stopped.",
 			    error: "Fresh articles could not be added. Your saved articles are still here."
 			  }[updateState];
-			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-shell", "data-view": state.view, "data-palette": appearance.palette, "data-text-size": appearance.textSize, "data-spacing": appearance.spacing }, state.view === "home" ? /* @__PURE__ */ import_react.default.createElement(
+			  return /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-shell", "data-view": state.view, "data-look": appearance.look, "data-palette": appearance.palette, "data-text-size": appearance.textSize, "data-spacing": appearance.spacing }, state.view === "home" ? /* @__PURE__ */ import_react.default.createElement(
 			    "main",
 			    {
 			      ref: streamRef,
@@ -5126,6 +5089,7 @@ window.__ModuleLoader__.load({
 			    /* @__PURE__ */ import_react.default.createElement(
 			      Header,
 			      {
+			        appearance,
 			        editorialLabel: editorialProfile.label,
 			        updateState,
 			        libraryOpen,
@@ -5146,12 +5110,10 @@ window.__ModuleLoader__.load({
 			        visualStatus: visualStatus.get(chunk.id),
 			        onVisualFailure,
 			        saved: state.savedChunkIds.includes(chunk.id),
-			        answer: answers[chunk.id],
 			        skipped: skipped.has(chunk.id),
 			        shareStatus: shareState.chunkId === chunk.id ? shareState.status : "idle",
 			        clickToLoad: editorialProfile.clickToLoadMedia,
 			        onSave,
-			        onAnswer,
 			        onEngage,
 			        onSkip,
 			        onShare,
@@ -5208,14 +5170,12 @@ window.__ModuleLoader__.load({
 			.vfx-chunk.is-hero { grid-column:1/-1; display:grid; grid-template-columns:minmax(0,1.25fr) minmax(360px,.75fr); background:#100b10; }
 			.vfx-chunk[data-has-table="true"].is-hero { display:block; }
 			.vfx-chunk[data-has-table="true"].is-hero .vfx-chunk-visual,.vfx-chunk[data-has-table="true"].is-hero .vfx-chunk-visual img { min-height:300px; height:clamp(300px,34vw,460px); }
-			.vfx-chunk[data-kind="questionnaire"] { display:grid; grid-template-columns:minmax(260px,.42fr) minmax(0,1fr); background:radial-gradient(circle at 90% 0,color-mix(in srgb,var(--chunk-accent) 22%,transparent),transparent 42%),linear-gradient(145deg,#241522,#151018); }
 			.vfx-chunk[data-source="chat-directed"] { border-color:rgba(255,133,170,.34); background:radial-gradient(circle at 100% 0,rgba(159,140,255,.16),transparent 38%),linear-gradient(145deg,#271522,#130e15); }
 			.vfx-chunk[data-kind="music"],.vfx-chunk[data-kind="video"] { background:linear-gradient(145deg,color-mix(in srgb,var(--chunk-accent) 12%,#201720),#100c11); }
 			.vfx-chunk-visual { position:relative; min-height:260px; margin:0; overflow:hidden; background:#171117; }
 			.vfx-chunk-visual img { width:100%; height:300px; display:block; object-fit:cover; }
 			.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img { min-height:230px; height:230px; }
 			.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img { min-height:320px; height:320px; }
-			.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { height:100%; min-height:330px; }
 			.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:100%; }
 			.vfx-chunk[data-visual-mode="poster"] .vfx-chunk-visual img { transform:scale(1.06); filter:saturate(1.14) contrast(1.08); }
 			.vfx-chunk[data-visual-mode="duotone"] .vfx-chunk-visual img { filter:grayscale(.68) sepia(.22) hue-rotate(275deg) saturate(1.5) contrast(1.08); }
@@ -5254,17 +5214,13 @@ window.__ModuleLoader__.load({
 			.vfx-table-scroll:focus-visible { outline:2px solid var(--chunk-accent); outline-offset:3px; }
 			.vfx-table-scroll table { width:100%; min-width:680px; margin:0; border-collapse:collapse; table-layout:auto; font-size:13px; line-height:1.45; }.vfx-markdown th,.vfx-markdown td { min-width:140px; padding:11px 14px; overflow-wrap:normal; word-break:normal; hyphens:none; border-bottom:1px solid rgba(255,255,255,.11); text-align:left; vertical-align:top; }.vfx-markdown th:first-child,.vfx-markdown td:first-child { min-width:120px; }.vfx-markdown th { color:#f2e8ee; background:rgba(255,255,255,.045); font-size:11px; letter-spacing:.04em; text-transform:uppercase; }
 			.vfx-inline-visuals { margin:28px 0 4px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }.vfx-inline-visuals figure { min-width:0; margin:0; overflow:hidden; border:1px solid rgba(255,255,255,.1); border-radius:15px; background:#0e0a0f; }.vfx-inline-visuals figure:only-child { grid-column:1/-1; }.vfx-inline-visuals img { width:100%; height:clamp(190px,24vw,320px); display:block; object-fit:cover; }.vfx-inline-visuals figcaption { padding:9px 12px 11px; color:#9e909a; font-size:10px; }.vfx-inline-visuals a { color:#d7cbd3; text-underline-offset:3px; }
-			.vfx-question>.vfx-markdown { max-width:720px; margin:0 0 24px; color:#d0c3cb; line-height:1.55; }
-			.vfx-question-options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
-			.vfx-question-options button { min-height:54px; padding:10px 15px; display:flex; align-items:center; gap:10px; border:1px solid rgba(255,255,255,.14); border-radius:13px; background:rgba(255,255,255,.045); cursor:pointer; text-align:left; }
-			.vfx-question-options button:hover { border-color:var(--chunk-accent); background:rgba(255,255,255,.08); }.vfx-question-options button[aria-pressed="true"] { border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 18%,#171017); }.vfx-question-options button>span { width:20px; height:20px; display:grid; place-items:center; border:1px solid rgba(255,255,255,.25); border-radius:50%; }
 			.vfx-next-page { margin-top:25px; display:flex; align-items:center; gap:7px; color:#8d7e88; font-size:9px; font-weight:750; letter-spacing:.1em; text-transform:uppercase; }
 			.vfx-source-link { min-width:0; max-width:100%; margin-top:20px; display:inline-flex; flex-wrap:wrap; align-items:center; gap:5px 7px; overflow-wrap:anywhere; color:#ffc0d4; font-size:11px; font-weight:760; text-decoration:none; }.vfx-source-link span { color:#9f909b; font-size:9px; letter-spacing:.08em; text-transform:uppercase; }.vfx-source-link strong { max-width:100%; font-weight:760; }.vfx-source-link:hover { text-decoration:underline; text-underline-offset:3px; }.vfx-source-link .vfx-icon { width:14px; height:14px; flex:none; }
 			.vfx-card-actions { margin-top:20px; display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; }.vfx-card-actions .vfx-source-link { flex:1 1 220px; margin-top:0; }.vfx-reader-actions { margin-left:auto; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }.vfx-skip,.vfx-share,.vfx-chat-cta,.vfx-media-button { min-height:34px; padding:0 13px; border:1px solid rgba(255,255,255,.15); border-radius:999px; background:rgba(255,255,255,.045); color:#c9bdc5; cursor:pointer; font-size:11px; }.vfx-chat-cta { display:inline-flex; align-items:center; gap:7px; border-color:var(--chunk-accent); background:color-mix(in srgb,var(--chunk-accent) 20%,#171017); color:#fff; font-weight:800; }.vfx-chat-cta:hover { background:color-mix(in srgb,var(--chunk-accent) 32%,#171017); }.vfx-share { display:inline-flex; align-items:center; gap:7px; color:#f5e9ef; border-color:rgba(255,154,186,.4); background:rgba(255,117,159,.11); }.vfx-share:hover { border-color:#ff9aba; background:rgba(255,117,159,.2); }.vfx-share:disabled { cursor:wait; opacity:.65; }.vfx-skip[aria-pressed="true"] { color:#9c9098; }.vfx-media-button { margin-top:16px; color:#190d13; border-color:#ff9aba; background:#ff9aba; font-weight:760; }.vfx-player { margin-top:18px; overflow:hidden; border-radius:14px; background:#000; aspect-ratio:16/9; }.vfx-player[data-media-provider="soundcloud"] { height:166px; aspect-ratio:auto; background:#fff; }.vfx-player iframe { width:100%; height:100%; display:block; border:0; }
 			.vfx-footer { width:min(1180px,calc(100% - 40px)); margin:80px auto 0; padding:32px 0 44px; display:flex; justify-content:space-between; gap:20px; border-top:1px solid rgba(255,255,255,.08); color:#766975; font-size:10px; }
 			@media (max-width:1180px) { .vfx-chunk.is-hero { display:block; }.vfx-chunk.is-hero .vfx-chunk-visual,.vfx-chunk.is-hero .vfx-chunk-visual img { min-height:300px; height:300px; } }
-			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; }.vfx-chunk[data-kind="questionnaire"] { grid-template-columns:minmax(220px,.4fr) minmax(0,1fr); } }
-			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk,.vfx-chunk[data-kind="questionnaire"] { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual,.vfx-chunk[data-kind="questionnaire"] .vfx-chunk-visual img { min-height:260px; height:260px; }.vfx-question-options { grid-template-columns:1fr; } }
+			@media (max-width:1050px) { .vfx-chunk[data-layout="compact"],.vfx-chunk[data-layout="feature"] { grid-column:span 6; } }
+			@media (max-width:760px) { .vfx-edition { display:none; }.vfx-library { grid-template-columns:1fr; align-items:stretch; }.vfx-library-status { grid-column:auto; }.vfx-chunks { display:block; }.vfx-chunk { margin-bottom:24px; display:block; }.vfx-chunk.is-hero { display:block; }.vfx-chunk-visual,.vfx-chunk-visual img,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual,.vfx-chunk[data-layout="compact"] .vfx-chunk-visual img,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual,.vfx-chunk[data-layout="feature"] .vfx-chunk-visual img .vfx-chunk-visual .vfx-chunk-visual img { min-height:260px; height:260px; } }
 			@media (max-width:560px) { .vfx-header { height:auto; min-height:106px; padding:10px 12px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px 6px; }.vfx-wordmark { grid-column:1/-1; }.vfx-wordmark small { display:none; }.vfx-shell .vfx-find,.vfx-shell .vfx-update,.vfx-shell .vfx-chat { width:100%; min-width:0; min-height:34px; padding:0 4px; justify-content:center; white-space:nowrap; font-size:10px; }.vfx-find .vfx-icon,.vfx-chat .vfx-icon { display:none; }.vfx-edition-intro,.vfx-library,.vfx-library-empty,.vfx-chunks,.vfx-footer { width:calc(100% - 28px); }.vfx-edition-intro,.vfx-library { padding-top:34px; }.vfx-edition-intro h1,.vfx-library h1 { font-size:42px; }.vfx-chunk { border-radius:17px; }.vfx-chunk-copy { padding:24px 20px; }.vfx-chunk h2 { font-size:34px; }.vfx-chunk-visual,.vfx-chunk-visual img { min-height:220px!important; height:220px!important; }.vfx-inline-visuals { grid-template-columns:1fr; }.vfx-inline-visuals figure:only-child { grid-column:auto; }.vfx-inline-visuals img { height:220px; }.vfx-footer { flex-direction:column; } }
 			@media (prefers-reduced-motion:reduce) { .vfx-shell * { scroll-behavior:auto!important; animation-duration:.001ms!important; transition-duration:.001ms!important; } }
 			`;
@@ -5280,32 +5236,7 @@ window.__ModuleLoader__.load({
 			@media (max-width:560px) { .vfx-share-link-panel { right:-2px; width:min(360px,calc(100vw - 40px)); } }
 			`;
 			var APPEARANCE_CSS = `
-			.vfx-shell { --page:#080609; --surface:#19121b; --ink:#fffafc; --muted:#c7bac4; --accent:#ff9aba; --edge:#58424f; --wash:#ffffff0b; }
-			.vfx-shell[data-palette="paper"] { --page:#f4efe5; --surface:#fffdf7; --ink:#29251f; --muted:#60574d; --accent:#963b37; --edge:#c8bdae; --wash:#33251408; color-scheme:light; }
-			.vfx-shell[data-palette="forest"] { --page:#eaf0e7; --surface:#f9fcf6; --ink:#18392c; --muted:#496355; --accent:#176648; --edge:#b0c8b6; --wash:#163a2708; color-scheme:light; }
-			.vfx-shell[data-palette="ocean"] { --page:#081b2b; --surface:#102b40; --ink:#f0f9ff; --muted:#b8cfdd; --accent:#7bd8e9; --edge:#3d687e; --wash:#b0e7ff0b; }
-			.vfx-shell:not([data-view="chat"]),.vfx-shell .vfx-stream { color:var(--ink); background:var(--page); }
-			.vfx-shell .vfx-stream { background:radial-gradient(ellipse at 85% 0,color-mix(in srgb,var(--accent) 8%,transparent),transparent 40%),var(--page); scrollbar-color:var(--edge) transparent; }
-			.vfx-shell .vfx-header { background:color-mix(in srgb,var(--page) 94%,transparent); border-color:var(--edge); }
-			.vfx-shell .vfx-wordmark span { background:none; color:var(--ink); }
-			.vfx-shell .vfx-wordmark small,.vfx-shell .vfx-edition,.vfx-shell .vfx-edition-intro p,.vfx-shell .vfx-library p,.vfx-shell .vfx-library-status,.vfx-shell .vfx-footer,.vfx-shell .vfx-pull,.vfx-shell .vfx-chunk-meta,.vfx-shell .vfx-share-link-panel p { color:var(--muted); }
-			.vfx-shell .vfx-edition-intro>span,.vfx-shell .vfx-source-link,.vfx-shell .vfx-markdown a,.vfx-shell .vfx-chunk-heading>div>span { color:var(--accent); }
-			.vfx-shell .vfx-chunk { background:var(--surface); border-color:var(--edge); box-shadow:0 14px 42px #0000000a; }
-			.vfx-shell .vfx-markdown { color:var(--muted); }
-			.vfx-shell .vfx-markdown blockquote,.vfx-shell .vfx-markdown th,.vfx-shell .vfx-math { color:var(--ink); background:var(--wash); }
-			.vfx-shell .vfx-markdown pre,.vfx-shell .vfx-inline-visuals figure,.vfx-shell .vfx-share-link-panel { color:var(--ink); background:var(--surface); border-color:var(--edge); }
-			.vfx-shell .vfx-inline-visuals figcaption,.vfx-shell .vfx-inline-visuals a { color:var(--muted); }
-			.vfx-shell .vfx-share,.vfx-shell .vfx-skip,.vfx-shell .vfx-chat-cta,.vfx-shell .vfx-find,.vfx-shell .vfx-chat,.vfx-shell .vfx-save,.vfx-shell .vfx-update,.vfx-shell .vfx-question-options button { color:var(--ink); background:var(--wash); border-color:var(--edge); }
-			.vfx-shell .vfx-question-options button[aria-pressed="true"],.vfx-shell .vfx-save[aria-pressed="true"] { color:var(--ink); background:color-mix(in srgb,var(--accent) 18%,var(--surface)); border-color:var(--accent); }
-			.vfx-shell .vfx-intro-cta,.vfx-shell .vfx-update.is-active,.vfx-shell .vfx-media-button { color:var(--page)!important; background:var(--accent); border-color:var(--accent); }
-			.vfx-shell .vfx-intro-cta:disabled { opacity:.65; cursor:wait; }
-			.vfx-shell .vfx-library-search>div,.vfx-shell .vfx-share-link-panel input { background:var(--surface); border-color:var(--edge); color:var(--ink); }
-			.vfx-shell .vfx-library-search input { color:var(--ink); }
-			.vfx-shell button:focus-visible,.vfx-shell a:focus-visible { outline-color:var(--accent); }
-			.vfx-shell[data-text-size="large"] .vfx-markdown { font-size:18px; line-height:1.8; }
-			.vfx-shell[data-spacing="roomy"] .vfx-chunks { gap:32px; }
-			.vfx-shell[data-spacing="roomy"] .vfx-chunk-copy { padding:clamp(26px,4vw,52px); }
-			@media(max-width:760px) { .vfx-header { height:auto; min-height:78px; padding:12px 16px; gap:8px; flex-wrap:wrap; } .vfx-wordmark { margin-right:auto; } .vfx-edition { display:none; } .vfx-header .vfx-find,.vfx-header .vfx-update,.vfx-header .vfx-chat { padding:0 10px; font-size:11px; } }
+			${MAGAZINE_APPEARANCE_STYLES}
 			`;
 			function installStyles(ctx) {
 			  ctx.effect(() => {
@@ -5580,6 +5511,7 @@ window.__ModuleLoader__.load({
 		const APPEARANCE_SETTINGS_EVENT = __DshVibeifyExperience.APPEARANCE_SETTINGS_EVENT;
 		const MAGAZINE_UPDATE_EVENT = __DshVibeifyExperience.MAGAZINE_UPDATE_EVENT;
 		const MAGAZINE_PALETTES = __DshVibeifyExperience.MAGAZINE_PALETTES;
+		const WEBSITE_LOOKS = __DshVibeifyExperience.WEBSITE_LOOKS;
 
 		function muxUrl() {
 			const url = new URL("/api/events.mux", window.location.origin);
@@ -6384,6 +6316,8 @@ window.__ModuleLoader__.load({
 			  <p class="dsh-vibeify-intro">Set the magazine's appearance and editorial direction here. Chat colour has its own setting below.</p>
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-appearance-heading">
 			    <div id="dsh-vibeify-appearance-heading" class="dsh-vibeify-heading">VIBE magazine appearance</div>
+			    <label>Website look<select id="dsh-vibeify-website-look">${Object.entries(WEBSITE_LOOKS).map(([id, look]) => `<option value="${id}">${look.label}</option>`).join("")}</select></label>
+			    <p class="dsh-vibeify-intro">The look travels with your shared article.</p>
 			    <div class="dsh-vibeify-magazine-palette" role="radiogroup" aria-label="Magazine palette">${Object.entries(MAGAZINE_PALETTES).map(([id, { label, colors }]) => `<button class="dsh-vibeify-magazine-choice" type="button" role="radio" data-magazine-palette="${id}" aria-checked="false"><span class="dsh-vibeify-magazine-swatch" aria-hidden="true" style="--magazine-background:${colors.background};--magazine-accent:${colors.accent};--magazine-border:${colors.border}"></span>${label}</button>`).join("")}</div>
 			    <div class="dsh-vibeify-appearance-controls">
 			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
@@ -6429,6 +6363,7 @@ window.__ModuleLoader__.load({
 				const budget = picker.querySelector("#dsh-vibeify-budget");
 				const background = picker.querySelector("#dsh-vibeify-background");
 				const contentNotes = picker.querySelector("#dsh-vibeify-content-notes");
+				const websiteLook = picker.querySelector("#dsh-vibeify-website-look");
 				const textSize = picker.querySelector("#dsh-vibeify-text-size");
 				const spacing = picker.querySelector("#dsh-vibeify-spacing");
 				const status = picker.querySelector(".dsh-vibeify-status");
@@ -6438,6 +6373,7 @@ window.__ModuleLoader__.load({
 					}
 					for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(editorialProfile.tribes.includes(button.dataset.tribe)));
 					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(appearanceProfile.palette === button.dataset.magazinePalette));
+					websiteLook.value = appearanceProfile.look;
 					textSize.value = appearanceProfile.textSize;
 					spacing.value = appearanceProfile.spacing;
 					customDirection.value = editorialProfile.customDirection;
@@ -6454,6 +6390,7 @@ window.__ModuleLoader__.load({
 					if (open) window.requestAnimationFrame(() => menu.querySelector('[data-magazine-palette][aria-checked="true"]')?.focus());
 				};
 				const saveAppearanceFromControls = () => applyAppearance({
+					look: websiteLook.value,
 					palette: picker.querySelector('[data-magazine-palette][aria-checked="true"]')?.dataset.magazinePalette,
 					textSize: textSize.value,
 					spacing: spacing.value,
@@ -6463,6 +6400,11 @@ window.__ModuleLoader__.load({
 					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
 					status.textContent = `Magazine appearance saved: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
 				};
+				websiteLook.addEventListener("change", () => {
+					const palette = WEBSITE_LOOKS[websiteLook.value].defaultPalette;
+					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button.dataset.magazinePalette === palette));
+					saveAppearanceImmediately();
+				});
 				const saveEditorialFromControls = () => {
 					const selectedTribes = [...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe);
 					return applyEditorialDirection({ tribes: selectedTribes, customDirection: customDirection.value, serendipity: Number(serendipity.value) / 100, backgroundEditor: background.checked, dailyBudgetUsd: Number(budget.value), contentNotes: contentNotes.checked, clickToLoadMedia: true });

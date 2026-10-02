@@ -10,7 +10,7 @@ Think of it as a small editorial studio:
 - **Chat is the commissioning desk.** A request starts one agent turn. Say **“Make a Vibe about…”** when you specifically want an edited visual article or series. Its completed answer remains in Chat. For that explicit Vibe request, each complete verified card may also appear in Vibe before the whole answer is finished.
 - **A public radar watches the world, not the reader.** GitHub publishes a content-only catalogue of current public signals every 30 minutes. It contains no local history or preferences.
 - **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
-- **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page and questionnaire remain the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
+- **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page remains the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
 - **The lead is the editor.** It plans, divides eligible work, verifies evidence, and decides what is safe and good enough to publish.
 - **Workers are contributors.** DeepSeek or another available worker can research or build bounded pieces, but its raw report is never itself a Vibe article.
 - **Finished pages stream independently.** A quick page does not wait for a deeper research lane. Each complete, checked page appears as soon as it is ready.
@@ -60,7 +60,7 @@ Opening Vibe, returning to it, scrolling, reaching the bottom, or changing a col
 
 ## The radar and reserve
 
-The shared radar is deliberately modest: public headline/link signals from reviewed sources, broad geography and broad audience hints. A scheduled GitHub Action rebuilds it every 30 minutes and publishes the JSON openly, so its inputs and output can be inspected. The radar cannot see a reader's chats, saves, questionnaire answers or settings.
+The shared radar is deliberately modest: public headline/link signals from reviewed sources, broad geography and broad audience hints. A scheduled GitHub Action rebuilds it every 30 minutes and publishes the JSON openly, so its inputs and output can be inspected. The radar cannot see a reader's chats, saves or settings.
 
 Each browser then owns three private layers:
 
@@ -68,7 +68,7 @@ Each browser then owns three private layers:
 2. **candidates** prepared by the native provider or bounded worker lanes; and
 3. **ready pages** accepted for immediate release in governed mode.
 
-The local editor uses selected audience lenses, a bounded free-text note, explicit saves/opens/plays/skips and questionnaire answers. That learning stays on the device and can be reset. A useful-serendipity control deliberately admits some material outside the selected lenses. The editor's brief is to entertain, educate and inform with freedom, creativity and humour—not to maximise anger.
+The local editor uses selected audience lenses, a bounded free-text note, and explicit saves/opens/plays/skips. Direction comes from settings and later Chat requests. A useful-serendipity control deliberately admits some material outside the selected lenses.
 
 ## How to ask for a Vibe
 
@@ -127,7 +127,7 @@ sequenceDiagram
     P->>V: Pull at the top or press Update
     V-->>P: Release ready pages immediately
     alt Reserve is short
-        V-->>P: Show local visual page + questionnaire immediately
+        V-->>P: Show a local visual page immediately
         V->>L: Start one bounded generated batch
     end
     L-->>V: Publish a short complete page first
@@ -145,7 +145,7 @@ sequenceDiagram
     L-->>V: Finish the requested batch and stop
 ```
 
-The immediate visual page and questionnaire use no provider call and target a sub-second arrival. Generated work then follows progressively:
+The immediate visual page uses no provider call and targets a sub-second arrival. Generated work then follows progressively:
 
 1. the lead publishes a small, honest page that does not require fresh research;
 2. quick/practical, culture/media, and deeper sourced lanes can run concurrently;
@@ -154,9 +154,9 @@ The immediate visual page and questionnaire use no provider call and target a su
 5. each finished page crosses a complete-envelope boundary and appears immediately; and
 6. the parent update stops after the requested batch or after its safety timeout.
 
-The browser never publishes half a paragraph or a stream of raw tokens. It waits only for one **complete semantic chunk**—a finished article, recommendation, image page, music or video route, editorial, or questionnaire—then releases that item without waiting for the whole batch.
+The browser never publishes half a paragraph or a stream of raw tokens. It waits only for one **complete semantic chunk**—a finished article, recommendation, image page, music or video route, or editorial—then releases that item without waiting for the whole batch.
 
-For visual pages, Vibeify first keeps any exact credited image already selected by the editor. The optional **DSH Visuals** plugin can then search Wikimedia Commons and Openverse, plus Pexels and Pixabay when the reader has stored those providers' keys under **Settings → Images**. It receives only the short displayed title of an explicit magazine page, never its body, prompt, attachments, Chat history, preferences, keys or current private images. Results are ranked for named-person, place, object, work or event relevance and remain attached to the original creator, licence and source page. Recent image URLs are excluded to reduce repetition. When the plugin is absent, every provider fails or no accepted exact image exists, the local card uses a unique story-specific typographic visual rather than unrelated stock, and the preview derives its equivalent public cover from the same reviewed title and excerpt. Separately, every generated non-questionnaire page includes a reader-facing content link in the prose; the compact **Read source** action points to that story, work, creator, paper, video, music or useful service—not to the image file or its credit page.
+For visual pages, Vibeify first keeps any exact credited image already selected by the editor. The optional **DSH Visuals** plugin can then search Wikimedia Commons and Openverse, plus Pexels and Pixabay when the reader has stored those providers' keys under **Settings → Images**. It receives only the short displayed title of an explicit magazine page, never its body, prompt, attachments, Chat history, preferences, keys or current private images. Results are ranked for named-person, place, object, work or event relevance and remain attached to the original creator, licence and source page. Recent image URLs are excluded to reduce repetition. When the plugin is absent, every provider fails or no accepted exact image exists, the local card uses a unique story-specific typographic visual rather than unrelated stock, and the preview derives its equivalent public cover from the same reviewed title and excerpt. Separately, every generated page includes a reader-facing content link in the prose; the compact **Read source** action points to that story, work, creator, paper, video, music or useful service—not to the image file or its credit page.
 
 Private reading and public publishing deliberately use different reuse rules, but the subject and composition stay aligned. The curated welcome/bundled edition may reuse its offline images locally. A generated or Chat-derived article must use an accepted relevant remote image or its unique story-specific cover. **Preview and share** checks a permanent public-image register, keeps only unused relevant images, and creates the matching unique text-led public cover if none remains. The generated cover is labelled as editorial typography rather than photography and becomes the public page's responsive and social image.
 
@@ -171,7 +171,7 @@ Private reading and public publishing deliberately use different reuse rules, bu
 | Run a public-content Chat request | No additional call beyond that requested Chat turn | Closed verified pages stream independently; final answer stays in Chat | The Chat turn ends |
 | Complete any other Chat request | No additional call beyond that requested Chat turn | Final answer stays in Chat and may gain a Vibe page | The Chat turn ends |
 | Pull at the top or press **Update** | Usually no new call when at least four ready pages exist | Ready pages immediately; local fallbacks and one foreground batch only if short | One release; any fallback batch has Stop/error/20-minute ceiling |
-| Answer a questionnaire, save, open, play or skip | No | The explicit signal is saved locally | It may shape later reserve selection |
+| Save, open, play or skip | No | The explicit signal is saved locally | It may shape later reserve selection |
 
 Background preparation runs only while the page is open and visible, after Vibe use within 24 hours, with at least six valid radar signals, below the reserve target, and within the configured daily cap. It checks every 30 minutes, uses a dedicated hidden session, reserves at most US $0.25 per run against a hard user-configured ceiling of US $2/day, and has a 15-minute per-run timeout. Turning off **Fill the hidden reserve** pauses it.
 
@@ -210,9 +210,9 @@ Partial envelopes, raw worker reports, candidate lists, research memos, tool out
 
 ## Local storage and privacy
 
-The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, broad selected tribe ids, publication time, and up to 32 visible questionnaire choices. Reader-specific pages expire after 30 days and the cache holds at most 160 cards; up to 96 completed, non-questionnaire Chat-made Vibes have protected room within that total so a large editorial refill cannot displace all commissioned work. **Find Vibes** searches titles and article text inside that already-cleaned local cache without a network request. Completed DSH history can refill eligible answers after a relaunch without resuming their Chats.
+The magazine cache stays in the current browser. It retains only presentation data: a local or hashed id, page kind, source class, title, bounded Markdown, optional catalogue topic, broad selected tribe ids, publication time, and up to 32 legacy questionnaire choices. Reader-specific pages expire after 30 days and the cache holds at most 160 cards; up to 96 completed Chat-made Vibes have protected room within that total so a large editorial refill cannot displace all commissioned work. **Find Vibes** searches titles and article text inside that already-cleaned local cache without a network request. Completed DSH history can refill eligible answers after a relaunch without resuming their Chats.
 
-The separate reserve stores only public radar signals, bounded candidate/ready pages, recent-use time and a daily spend ledger. Local learning stores only explicit interaction type, bounded page id/kind, broad tribe ids, visible questionnaire label and time.
+The separate reserve stores only public radar signals, bounded candidate/ready pages, recent-use time and a daily spend ledger. Local learning stores only explicit interaction type, bounded page id/kind, broad tribe ids, optional legacy questionnaire label and time.
 
 It does not store raw prompts, DSH session ids, account information, attachments, reasoning, tool calls, approval contents, credentials, or worker packets. Vibeify does not send current images or private project material to a different provider without explicit permission.
 

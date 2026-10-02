@@ -116,6 +116,7 @@ window.__ModuleLoader__.load({
 		const APPEARANCE_SETTINGS_EVENT = __DshVibeifyExperience.APPEARANCE_SETTINGS_EVENT;
 		const MAGAZINE_UPDATE_EVENT = __DshVibeifyExperience.MAGAZINE_UPDATE_EVENT;
 		const MAGAZINE_PALETTES = __DshVibeifyExperience.MAGAZINE_PALETTES;
+		const WEBSITE_LOOKS = __DshVibeifyExperience.WEBSITE_LOOKS;
 
 		function muxUrl() {
 			const url = new URL("/api/events.mux", window.location.origin);
@@ -920,6 +921,8 @@ window.__ModuleLoader__.load({
 			  <p class="dsh-vibeify-intro">Set the magazine's appearance and editorial direction here. Chat colour has its own setting below.</p>
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-appearance-heading">
 			    <div id="dsh-vibeify-appearance-heading" class="dsh-vibeify-heading">VIBE magazine appearance</div>
+			    <label>Website look<select id="dsh-vibeify-website-look">${Object.entries(WEBSITE_LOOKS).map(([id, look]) => `<option value="${id}">${look.label}</option>`).join("")}</select></label>
+			    <p class="dsh-vibeify-intro">The look travels with your shared article.</p>
 			    <div class="dsh-vibeify-magazine-palette" role="radiogroup" aria-label="Magazine palette">${Object.entries(MAGAZINE_PALETTES).map(([id, { label, colors }]) => `<button class="dsh-vibeify-magazine-choice" type="button" role="radio" data-magazine-palette="${id}" aria-checked="false"><span class="dsh-vibeify-magazine-swatch" aria-hidden="true" style="--magazine-background:${colors.background};--magazine-accent:${colors.accent};--magazine-border:${colors.border}"></span>${label}</button>`).join("")}</div>
 			    <div class="dsh-vibeify-appearance-controls">
 			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
@@ -965,6 +968,7 @@ window.__ModuleLoader__.load({
 				const budget = picker.querySelector("#dsh-vibeify-budget");
 				const background = picker.querySelector("#dsh-vibeify-background");
 				const contentNotes = picker.querySelector("#dsh-vibeify-content-notes");
+				const websiteLook = picker.querySelector("#dsh-vibeify-website-look");
 				const textSize = picker.querySelector("#dsh-vibeify-text-size");
 				const spacing = picker.querySelector("#dsh-vibeify-spacing");
 				const status = picker.querySelector(".dsh-vibeify-status");
@@ -974,6 +978,7 @@ window.__ModuleLoader__.load({
 					}
 					for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(editorialProfile.tribes.includes(button.dataset.tribe)));
 					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(appearanceProfile.palette === button.dataset.magazinePalette));
+					websiteLook.value = appearanceProfile.look;
 					textSize.value = appearanceProfile.textSize;
 					spacing.value = appearanceProfile.spacing;
 					customDirection.value = editorialProfile.customDirection;
@@ -990,6 +995,7 @@ window.__ModuleLoader__.load({
 					if (open) window.requestAnimationFrame(() => menu.querySelector('[data-magazine-palette][aria-checked="true"]')?.focus());
 				};
 				const saveAppearanceFromControls = () => applyAppearance({
+					look: websiteLook.value,
 					palette: picker.querySelector('[data-magazine-palette][aria-checked="true"]')?.dataset.magazinePalette,
 					textSize: textSize.value,
 					spacing: spacing.value,
@@ -999,6 +1005,11 @@ window.__ModuleLoader__.load({
 					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
 					status.textContent = `Magazine appearance saved: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
 				};
+				websiteLook.addEventListener("change", () => {
+					const palette = WEBSITE_LOOKS[websiteLook.value].defaultPalette;
+					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button.dataset.magazinePalette === palette));
+					saveAppearanceImmediately();
+				});
 				const saveEditorialFromControls = () => {
 					const selectedTribes = [...picker.querySelectorAll('[data-tribe][aria-pressed="true"]')].map((button) => button.dataset.tribe);
 					return applyEditorialDirection({ tribes: selectedTribes, customDirection: customDirection.value, serendipity: Number(serendipity.value) / 100, backgroundEditor: background.checked, dailyBudgetUsd: Number(budget.value), contentNotes: contentNotes.checked, clickToLoadMedia: true });

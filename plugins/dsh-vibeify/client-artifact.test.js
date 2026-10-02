@@ -56,7 +56,7 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /home-first-frame/);
   assert.match(client, /feed-restored/);
   assert.match(client, /chunk-appended/);
-  assert.match(client, /questionnaire-answered/);
+  assert.doesNotMatch(client, /saveStreamAnswer\(browserStorage\(\), chunkId, label\)/);
   assert.match(client, /magazine-update-started/);
   assert.match(client, /manual-stream-update/);
   assert.match(client, /completed threads to one local magazine/);
@@ -109,14 +109,9 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.doesNotMatch(client, /MIN_BACKGROUND_RUNS_PER_VISIT|buffer-low-water|shouldStartStreamRun|continuous-stream/);
 });
 
-test("questionnaires use the shared Markdown renderer before their one-tap choices", () => {
-  const start = client.indexOf("function Questionnaire");
-  const end = client.indexOf("function InlineVisuals", start);
-  assert.ok(start >= 0 && end > start);
-  const questionnaire = client.slice(start, end);
-  assert.match(questionnaire, /createElement\(Markdown/);
-  assert.doesNotMatch(questionnaire, /createElement\("p"/);
-  assert.match(client, /\.vfx-question>\.vfx-markdown\s*\{/);
+test("the magazine artifact has no preference-questionnaire renderer", () => {
+  assert.doesNotMatch(client, /function Questionnaire/);
+  assert.match(client, /newestFirst\(chunks\)\.filter\(\(\{ kind \}\) => kind !== "questionnaire"\)/);
 });
 
 test("new presentation retains the existing DSH safety controls", () => {

@@ -16,7 +16,7 @@ const MAX_LABEL = 72;
 const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
 const TOKEN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const TRIBE = /^[a-z0-9][a-z0-9-]{0,47}$/;
-const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video", "questionnaire"]);
+const KINDS = new Set(["article", "editorial", "recommendation", "image", "music", "video"]);
 // Only reader-specific material belongs in durable browser storage. The bundled
 // examples and welcome edition are deterministic assets supplied by the active
 // plugin version, so persisting either would make an upgraded relaunch look old.

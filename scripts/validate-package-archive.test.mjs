@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   missingRelativeModules,
+  packageArchiveEntries,
   relativeModuleSpecifiers,
 } from "./validate-package-archive.mjs";
 
@@ -34,3 +35,9 @@ test("a missing or escaping relative import fails closed", () => {
     { filename: "index.js", specifier: "../outside.js" },
   ]);
 });
+
+for (const newline of ["\n", "\r\n"]) {
+  test(`package listing accepts ${newline === "\n" ? "LF" : "Windows CRLF"} without changing filenames`, () => {
+    assert.deepEqual(packageArchiveEntries(["package/", "package/package.json", "package/nested/", "package/nested/file.js", "outside/file"].join(newline)), ["package.json", "nested/file.js"]);
+  });
+}

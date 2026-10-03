@@ -32,6 +32,9 @@ fail() {
 }
 
 say() { printf '\n%s\n' "$1"; }
+local_dsh_responds() {
+  curl --silent --output /dev/null --max-time 2 "http://127.0.0.1:$port/"
+}
 
 if [[ "$(uname -s)" != "Linux" ]]; then
   fail "This installer is for Linux. Use the macOS or Windows download for another system."
@@ -68,13 +71,46 @@ if [[ "$check_only" == true ]]; then
   exit 0
 fi
 
+# Global npm upgrades and profile installs replace files used by a running
+# DSH process. Defer the complete update until DSH has been closed.
+if local_dsh_responds; then
+  fail "DSH is already open. No software or profile files were changed. Finish active work, close DSH, then run this installer again to install the update."
+fi
+
+# DSH's plugin installation depends on pnpm overrides and build-script policy.
+# Keep the qualified pnpm isolated under this user's DSH home rather than
+# changing the system or global npm installation.
+qualified_pnpm_version="10.34.6"
+dsh_home="${DSH_HOME:-$HOME/.dsh}"
+pnpm_directory="$dsh_home/tools/pnpm"
+pnpm_command="$pnpm_directory/node_modules/.bin/pnpm"
+installed_pnpm_version=""
+if [[ -x "$pnpm_command" ]]; then
+  installed_pnpm_version="$("$pnpm_command" --version)" || fail "The existing user-local pnpm could not be checked."
+fi
+if [[ "$installed_pnpm_version" != "$qualified_pnpm_version" ]]; then
+  say "Installing the qualified pnpm version in the DSH user directory..."
+  mkdir -p "$pnpm_directory" || fail "The DSH user tools directory could not be created."
+  npm install --prefix "$pnpm_directory" --no-save "pnpm@$qualified_pnpm_version" || fail "The qualified pnpm version could not be installed in the DSH user directory."
+  installed_pnpm_version="$("$pnpm_command" --version)" || fail "The qualified pnpm installation could not be verified."
+  if [[ "$installed_pnpm_version" != "$qualified_pnpm_version" ]]; then
+    fail "pnpm version verification failed: expected $qualified_pnpm_version, found $installed_pnpm_version."
+  fi
+fi
+export PATH="$pnpm_directory/node_modules/.bin:$PATH"
+
 printf '\nChoose how you want the AI side to work:\n'
 printf '  1. DeepSeek only — connect a DeepSeek account inside DSH\n'
 printf '  2. ChatGPT only — sign in with ChatGPT now\n'
 printf '  3. Both — Codex leads; DeepSeek handles suitable work\n'
 printf '  4. Install first and connect an account later\n'
-read -r -p "Choice [1]: " account_choice
-account_choice="${account_choice:-1}"
+default_choice="1"
+profile_package="${DSH_HOME:-$HOME/.dsh}/profiles/$profile/package.json"
+if [[ -f "$profile_package" ]] && node -e 'const p=require(process.argv[1]);process.exit(p.dependencies?.["dsh-vibeify"]?0:1)' "$profile_package"; then
+  default_choice="2"
+fi
+read -r -p "Choice [$default_choice]: " account_choice
+account_choice="${account_choice:-$default_choice}"
 
 provider_mode="deepseek"
 if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
@@ -97,28 +133,20 @@ say "Installing or updating Vibeify..."
 say "Checking the installation without making a paid model call..."
 "$project_directory/scripts/doctor.sh" || fail "The installation completed but did not pass its non-billing checks."
 
-update_staged=false
-if curl --silent --fail --max-time 2 "http://127.0.0.1:$port/" >/dev/null 2>&1; then
-  update_staged=true
-  say "Vibeify is staged. DSH is already open, so this installer will not interrupt it. Finish active work, close DSH, then run this installer again to activate the update."
-else
-  node "$project_directory/scripts/start-dsh.mjs" --profile "$profile" --host 127.0.0.1 --port "$port" || fail "DSH could not be started."
-  for _ in $(seq 1 40); do
-    if curl --silent --fail --max-time 2 "http://127.0.0.1:$port/" >/dev/null 2>&1; then break; fi
-    sleep 1
-  done
-fi
+node "$project_directory/scripts/start-dsh.mjs" --profile "$profile" --host 127.0.0.1 --port "$port" || fail "DSH could not be started."
+server_log="${DSH_HOME:-$HOME/.dsh}/logs/dsh-web.log"
+for _ in $(seq 1 40); do
+  if node "$project_directory/scripts/dsh-web-readiness.mjs" check "$port" "$server_log"; then break; fi
+  sleep 1
+done
 
-if ! curl --silent --fail --max-time 2 "http://127.0.0.1:$port/" >/dev/null 2>&1; then
+if ! node "$project_directory/scripts/dsh-web-readiness.mjs" check "$port" "$server_log"; then
   fail "DSH was installed but did not become ready. Use the privacy-safe support report in the FAQ; do not share the whole log."
 fi
 
-if [[ "$update_staged" == true ]]; then
-  say "The current DSH page remains open on its previously loaded bundle. The staged update is not active yet."
-else
-  if command -v xdg-open >/dev/null 2>&1; then xdg-open "http://127.0.0.1:$port/" >/dev/null 2>&1 || true; fi
-  say "DSH Vibeify is ready at http://127.0.0.1:$port/."
-fi
+authenticated_url="$(node "$project_directory/scripts/dsh-web-readiness.mjs" url "$port" "$server_log")" || fail "The local DSH page address could not be read."
+if command -v xdg-open >/dev/null 2>&1; then xdg-open "$authenticated_url" >/dev/null 2>&1 || true; fi
+say "DSH Vibeify is ready at http://127.0.0.1:$port/."
 if [[ "$account_choice" == "1" || "$account_choice" == "3" ]]; then
   printf 'In DSH, open Settings → Models to connect DeepSeek.\n'
 elif [[ "$account_choice" == "4" ]]; then

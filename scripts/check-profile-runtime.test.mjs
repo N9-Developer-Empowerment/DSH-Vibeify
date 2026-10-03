@@ -12,7 +12,7 @@ async function fixture(t) {
   for (const name of ["dsh-agent", "dsh-agent-preset-registry", "dsh-tools", "dsh-subagent", "dsh-tool-subagent", "dsh-scope"]) {
     const folder = join(modules, name);
     await mkdir(folder, { recursive: true });
-    await writeFile(join(folder, "package.json"), JSON.stringify({ name: `@deepseek-ai/${name}`, version: "0.1.7-rc.2" }));
+    await writeFile(join(folder, "package.json"), JSON.stringify({ name: `@deepseek-ai/${name}`, version: "0.2.0-rc.2" }));
   }
   const packagePath = join(directory, "package.json");
   await writeFile(packagePath, "{}");
@@ -28,7 +28,7 @@ test("equal versions in separate scope modules are rejected", async (t) => {
   const { modules, packagePath } = await fixture(t);
   const duplicate = join(modules, "dsh-tools", "node_modules", "@deepseek-ai", "dsh-scope");
   await mkdir(duplicate, { recursive: true });
-  await writeFile(join(duplicate, "package.json"), '{"version":"0.1.7-rc.2"}');
+  await writeFile(join(duplicate, "package.json"), '{"version":"0.2.0-rc.2"}');
   assert.throws(() => checkProfileRuntime(packagePath), /Split DSH session scopes/);
 });
 

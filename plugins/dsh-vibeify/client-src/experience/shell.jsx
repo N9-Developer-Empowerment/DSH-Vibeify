@@ -28,7 +28,7 @@ import {
   createEditorialProfile,
   loadEditorialProfile,
 } from "./editorial-settings.js";
-import { buildContinuousStreamPrompt } from "./stream-recipe.js";
+import { articleRestyleEligibility, articleRestyleResultIsCurrent, buildArticleRestylePrompt, buildContinuousStreamPrompt } from "./stream-recipe.js";
 import { appendStreamMetric } from "./stream-metrics.js";
 import {
   loadExperienceState,
@@ -284,7 +284,7 @@ function InlineVisuals({ visuals, title, onOpen }) {
   );
 }
 
-function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, skipped, shareStatus, clickToLoad, onSave, onEngage, onSkip, onShare, onChat }) {
+function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, skipped, shareStatus, restyleStatus, clickToLoad, onSave, onEngage, onSkip, onShare, onRestyle, onChat }) {
   const media = articleImageMedia(visualOverride, fallbackMediaForChunk(CATALOG, chunk));
   const externalContentLink = contentLinkForMarkdown(chunk.markdown);
   const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
@@ -306,6 +306,7 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
   const shareUrl = externalContentLink?.href ?? player?.href ?? null;
   const shareLabel = externalContentLink === null && player !== null ? "Share media link" : "Share link";
   const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
+  const restyleEligibility = articleRestyleEligibility(chunk);
   return (
     <article
       className={`vfx-chunk${isHero ? " is-hero" : ""}`}
@@ -385,6 +386,18 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
                 <Icon name="share" />
                 {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
               </button>
+              {restyleEligibility.reason === "private" || ["empty", "title"].includes(restyleEligibility.reason) ? null : (
+                <button
+                  type="button"
+                  className="vfx-share"
+                  disabled={!restyleEligibility.eligible || ["starting", "submitted", "stopping"].includes(restyleStatus)}
+                  title={restyleEligibility.reason === "too-long" ? "Rewrite unavailable: this article is longer than the 16,000-character rewrite limit." : undefined}
+                  onClick={() => onRestyle(chunk)}
+                >
+                  {restyleEligibility.reason === "too-long" ? "Rewrite unavailable · article too long" :
+                  ({ starting: "Preparing rewrite…", submitted: "Rewriting…", stopping: "Stopping…", complete: "Rewrite ready", busy: "Editor busy", error: "Try rewrite again", "timed-out": "Try rewrite again", stopped: "Rewrite stopped", "look-changed": "Rewrite cancelled · look changed" }[restyleStatus] ?? "Rewrite in this style")}
+                </button>
+              )}
               {isChatResult || isWelcome ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
             </div>
           </div>
@@ -402,6 +415,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
+  const [restyleState, setRestyleState] = React.useState(() => ({ chunkId: null, status: "idle" }));
   const [visualStatus, setVisualStatus] = React.useState(() => new Map());
   const visualLifecycle = React.useRef(null);
   const onVisualFailure = React.useCallback((url) => {
@@ -415,7 +429,8 @@ function ExperienceShell({ codexFeatures, connection }) {
   const chunksRef = React.useRef(chunks);
   const stateRef = React.useRef(state);
   const editorialProfileRef = React.useRef(editorialProfile);
-  const scheduler = React.useRef({ active: false, activeId: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+  const appearanceRef = React.useRef(appearance);
+  const scheduler = React.useRef({ active: false, activeId: null, action: null, restyleLook: null, restyleInvalidated: false, invalidatedRestyleIds: new Set(), consumed: 0, runsStarted: 0, scrollFrame: null });
   const touchPull = React.useRef(createPullRefreshState());
   const trackpadPull = React.useRef(createTrackpadPullRefreshState());
   const trackpadSettleTimer = React.useRef(null);
@@ -423,6 +438,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   React.useEffect(() => { chunksRef.current = chunks; }, [chunks]);
   React.useEffect(() => { stateRef.current = state; }, [state]);
   React.useEffect(() => { editorialProfileRef.current = editorialProfile; }, [editorialProfile]);
+  React.useEffect(() => { appearanceRef.current = appearance; }, [appearance]);
 
   const record = React.useCallback((event, recipeId, durationMs, source) => {
     appendStreamMetric(browserStorage(), { event, recipeId, durationMs, source });
@@ -434,6 +450,10 @@ function ExperienceShell({ codexFeatures, connection }) {
     if (stateRef.current.view !== "home" || current.active) return;
     current.runsStarted += 1;
     current.active = true;
+    current.action = "update";
+    current.restyleLook = null;
+    current.restyleInvalidated = false;
+    setRestyleState({ chunkId: null, status: "idle" });
     const runId = `refill-${Date.now().toString(36)}-${current.runsStarted}`;
     current.activeId = runId;
     setUpdateState("starting");
@@ -441,8 +461,8 @@ function ExperienceShell({ codexFeatures, connection }) {
     const answerLabels = [];
     const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
     const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
-    const approved = consumeApprovedPages(browserStorage(), 6, Date.now(), editorialProfileRef.current);
-    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length), Date.now(), editorialProfileRef.current);
+    const approved = consumeApprovedPages(browserStorage(), 6, Date.now(), editorialProfileRef.current, appearanceRef.current.look);
+    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length), Date.now(), editorialProfileRef.current, appearanceRef.current.look);
     const reservedChunks = [...approved, ...nativeCandidates].map((page, index) => Object.freeze({
       id: `reserve:${page.id}`,
       kind: page.kind,
@@ -459,6 +479,7 @@ function ExperienceShell({ codexFeatures, connection }) {
     if (reservedChunks.length >= 4) {
       current.active = false;
       current.activeId = null;
+      current.action = null;
       setUpdateState("complete");
       record("magazine-update-complete", runId, 0, "local-cache");
       return;
@@ -479,21 +500,55 @@ function ExperienceShell({ codexFeatures, connection }) {
       chatTopics,
       recentMediaUrls,
       editorialProfile: editorialProfileRef.current,
+      websiteLook: appearanceRef.current.look,
     });
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: GENERATED_STREAM_BATCH_SIZE, answerLabels });
     record("magazine-update-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
   }, [codexFeatures, record]);
 
+  const startRestyle = React.useCallback((chunk) => {
+    const current = scheduler.current;
+    if (stateRef.current.view !== "home" || current.active || !articleRestyleEligibility(chunk).eligible) return;
+    current.runsStarted += 1;
+    current.active = true;
+    current.action = "restyle";
+    current.restyleLook = appearanceRef.current.look;
+    current.restyleInvalidated = false;
+    const runId = `restyle-${Date.now().toString(36)}-${current.runsStarted}`;
+    current.activeId = runId;
+    setRestyleState({ chunkId: chunk.id, status: "starting" });
+    setUpdateState("starting");
+    const prompt = buildArticleRestylePrompt({ runId, chunk, websiteLook: current.restyleLook });
+    const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: 4 });
+    record("article-restyle-started", runId, 0, "fresh-stream");
+    window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
+  }, [record]);
+
   React.useEffect(() => {
-    const onAppearance = (event) => setAppearance(createAppearanceProfile(event.detail));
+    const onAppearance = (event) => {
+      const profile = createAppearanceProfile(event.detail);
+      appearanceRef.current = profile;
+      setAppearance(profile);
+      const current = scheduler.current;
+      if (current.active && current.action === "restyle" && current.restyleLook !== profile.look) {
+        current.restyleInvalidated = true;
+        current.invalidatedRestyleIds.add(current.activeId);
+        setRestyleState((previous) => ({ ...previous, status: "look-changed" }));
+        setUpdateState("stopping");
+        window.dispatchEvent(new CustomEvent(RECIPE_STOP_EVENT, { detail: { id: current.activeId } }));
+      }
+    };
     const onUpdate = () => {
       stateRef.current = { ...stateRef.current, view: "home" };
       dispatch({ type: "home" });
       setLibraryOpen(false);
       startRun();
     };
-    const onStorageAppearance = (event) => { if (event.key === "dsh-vibeify.appearance.v1" || event.key === null) setAppearance(loadAppearanceProfile(browserStorage())); };
+    const onStorageAppearance = (event) => {
+      if (event.key !== "dsh-vibeify.appearance.v1" && event.key !== null) return;
+      onAppearance({ detail: loadAppearanceProfile(browserStorage()) });
+    };
     window.addEventListener(APPEARANCE_SETTINGS_EVENT, onAppearance);
     window.addEventListener(MAGAZINE_UPDATE_EVENT, onUpdate);
     window.addEventListener("storage", onStorageAppearance);
@@ -508,6 +563,7 @@ function ExperienceShell({ codexFeatures, connection }) {
     const current = scheduler.current;
     if (!current.active || current.activeId === null) return;
     setUpdateState("stopping");
+    if (current.action === "restyle") setRestyleState((previous) => ({ ...previous, status: "stopping" }));
     window.dispatchEvent(new CustomEvent(RECIPE_STOP_EVENT, { detail: { id: current.activeId } }));
   }, []);
 
@@ -558,6 +614,15 @@ function ExperienceShell({ codexFeatures, connection }) {
 
   React.useEffect(() => {
     const onChunks = (event) => {
+      const current = scheduler.current;
+      if (current.invalidatedRestyleIds.has(event.detail?.runId)) return;
+      if (event.detail?.runId === current.activeId && current.action === "restyle" && !articleRestyleResultIsCurrent({
+        runId: event.detail.runId,
+        activeId: current.activeId,
+        requestedLook: current.restyleLook,
+        currentLook: appearanceRef.current.look,
+        invalidated: current.restyleInvalidated,
+      })) return;
       const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
       appendCachedChunks(browserStorage(), incoming);
       const acceptedIds = new Set(getCachedStream(browserStorage()).chunks.map(({ id }) => id));
@@ -575,6 +640,19 @@ function ExperienceShell({ codexFeatures, connection }) {
       const current = scheduler.current;
       if (event.detail?.id !== current.activeId) return;
       const nextState = event.detail?.state;
+      if (current.action === "restyle") {
+        const restyleState = current.restyleInvalidated ? "look-changed" : nextState;
+        setRestyleState((previous) => ({ ...previous, status: restyleState }));
+        setUpdateState(nextState);
+        if (nextState === "complete" && !current.restyleInvalidated) record("article-restyle-complete", event.detail.id, event.detail.durationMs ?? 0, "fresh-stream");
+        if (["complete", "stopped", "timed-out", "busy", "error"].includes(nextState)) {
+          current.active = false;
+          current.activeId = null;
+          current.action = null;
+          current.restyleLook = null;
+        }
+        return;
+      }
       if (["starting", "submitted", "stopping"].includes(nextState)) {
         setUpdateState(nextState);
         return;
@@ -583,6 +661,7 @@ function ExperienceShell({ codexFeatures, connection }) {
         if (nextState === "complete") record("magazine-update-complete", event.detail.id, event.detail.durationMs ?? 0, "fresh-stream");
         current.active = false;
         current.activeId = null;
+        current.action = null;
         setUpdateState(nextState);
       }
     };
@@ -768,7 +847,14 @@ function ExperienceShell({ codexFeatures, connection }) {
     dispatch({ type: "enter-chat" });
     window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
   }, []);
-  const updateNotice = {
+  const updateNotice = restyleState.status === "look-changed"
+    ? "Rewrite discarded because the website look changed. The original is unchanged."
+    : restyleState.chunkId !== null && restyleState.status === updateState ? {
+    complete: "Styled replacement added. The original remains in your magazine for comparison.",
+    stopped: "Article rewrite stopped. The original is unchanged.",
+    "timed-out": "Article rewrite reached its time limit. The original is unchanged.",
+    error: "The article could not be rewritten. The original is unchanged.",
+  }[updateState] : {
     complete: "Magazine updated. It will stay still until another Chat answer completes or you request an update.",
     stopped: "Magazine update stopped.",
     "timed-out": "Magazine update reached its time limit and stopped.",
@@ -841,11 +927,13 @@ function ExperienceShell({ codexFeatures, connection }) {
                   saved={state.savedChunkIds.includes(chunk.id)}
                   skipped={skipped.has(chunk.id)}
                   shareStatus={shareState.chunkId === chunk.id ? shareState.status : "idle"}
+                  restyleStatus={restyleState.chunkId === chunk.id ? restyleState.status : "idle"}
                   clickToLoad={editorialProfile.clickToLoadMedia}
                   onSave={onSave}
                   onEngage={onEngage}
                   onSkip={onSkip}
                   onShare={onShare}
+                  onRestyle={startRestyle}
                   onChat={enterChat}
                 />
               ))}

@@ -22,7 +22,7 @@ test("only explicit magazine sources produce a public image brief", () => {
   const questionnaire = { ...publicChunk, kind: "questionnaire" };
 
   assert.deepEqual(publicVisualBriefForChunk(publicChunk), {
-    query: "Why city bicycles are getting smaller. Public article about smaller bicycles and their riders.",
+    query: "Why city bicycles are getting smaller",
     orientation: "landscape",
     sourceUrls: [],
   });
@@ -103,4 +103,11 @@ test("a public photo in a private Chat result is resolved without transmitting i
 test("public image search uses the picture subject rather than a literary headline", () => {
   const brief = publicVisualBriefForChunk({source:'fresh-stream',kind:'article',title:'Give one line three different jobs',markdown:'![Ruth Asawa wire sculpture](https://upload.wikimedia.org/photo.jpg)\n[Photograph · Creator](https://commons.wikimedia.org/wiki/File:Artwork.jpg)'});
   assert.equal(brief.query,'Ruth Asawa wire sculpture');
+});
+
+
+test("public image phrases fit providers and never append article prose", () => {
+  const brief = publicVisualBriefForChunk({ source: "fresh-stream", kind: "article", title: "a".repeat(150), markdown: "This prose must stay out of the image query." });
+  assert.equal(brief.query.length, 100);
+  assert.doesNotMatch(brief.query, /prose/);
 });

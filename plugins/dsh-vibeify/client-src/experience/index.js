@@ -21,3 +21,6 @@ export {
   shouldCloseAppearanceSettingsOnClick,
 } from "./appearance-settings.js";
 export { collapseCompletedThinking } from "./vibe-result.js";
+
+export { createVisualCredentials } from "./visual-credentials.js";
+export { VisualSourceCheck } from "./visual-source-check.jsx";

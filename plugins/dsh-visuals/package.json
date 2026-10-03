@@ -1,6 +1,6 @@
 {
   "name": "dsh-visuals",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Optional, provenance-preserving public image search for DSH Vibeify.",
   "type": "module",
   "main": "index.js",
@@ -49,8 +49,8 @@
   },
   "dependencies": {
     "@deepseek-ai/cordis": "4.0.4",
-    "@deepseek-ai/dsh-credentials": "0.1.7-rc.2",
-    "@deepseek-ai/dsh-settings": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-credentials": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.0-rc.2",
     "@deepseek-ai/schemastery": "3.18.4"
   },
   "engines": {

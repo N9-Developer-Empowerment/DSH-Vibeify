@@ -61,6 +61,7 @@ const requiredFiles = [
   "scripts/install-vibeify.sh",
   "scripts/align-profile-versions.mjs",
   "scripts/check-profile-runtime.mjs",
+  "scripts/dsh-web-readiness.mjs",
   "scripts/validate-package-archive.mjs",
 ];
 
@@ -116,6 +117,7 @@ for (const relativePath of [
   "scripts/validate-package-archive.mjs",
   "scripts/align-profile-versions.mjs",
   "scripts/check-profile-runtime.mjs",
+  "scripts/dsh-web-readiness.mjs",
 ]) {
   checkJavaScript(relativePath);
 }

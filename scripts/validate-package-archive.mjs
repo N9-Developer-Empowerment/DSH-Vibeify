@@ -42,11 +42,15 @@ export function missingRelativeModules(files) {
   return missing;
 }
 
-async function archiveFiles(archive) {
-  const { stdout } = await execFileAsync("tar", ["-tzf", archive], { maxBuffer: 20 * 1024 * 1024 });
-  return stdout.split("\n")
+export function packageArchiveEntries(stdout) {
+  return String(stdout).split(/\r?\n/)
     .filter((entry) => entry.startsWith("package/") && !entry.endsWith("/"))
     .map((entry) => entry.slice("package/".length));
+}
+
+async function archiveFiles(archive) {
+  const { stdout } = await execFileAsync("tar", ["-tzf", archive], { maxBuffer: 20 * 1024 * 1024 });
+  return packageArchiveEntries(stdout);
 }
 
 async function archiveText(archive, filename) {

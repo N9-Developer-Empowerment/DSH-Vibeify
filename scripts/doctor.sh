@@ -43,12 +43,15 @@ check "Social Desk package manifest" node -e 'const p=require(process.argv[1]);i
 check "Social Desk host syntax" node --check "$social_plugin_directory/index.js"
 check "Social Desk behavior tests" node --test "$social_plugin_directory"/*.test.js
 check "restart handoff syntax" node --check "$script_directory/dsh-restart.mjs"
+check "authenticated web readiness tests" node --test "$script_directory/dsh-web-readiness.test.mjs"
 check "restart handoff tests" node --test "$script_directory/dsh-restart.test.mjs"
 check "cross-platform DSH starter syntax" node --check "$script_directory/start-dsh.mjs"
 check "installer source check syntax" node --check "$script_directory/installer-self-check.mjs"
 check "privacy-safe support report syntax" node --check "$script_directory/support-report.mjs"
 check "public installer checker syntax" node --check "$script_directory/check-public-mac-installer.mjs"
 check "installer contract tests" node --test "$script_directory/installer-contract.test.mjs"
+check "Windows/Linux live-process installer tests" node --test "$script_directory/installer-live-process.test.mjs"
+check "Windows/Linux source and provider parity tests" node --test "$script_directory/installer-platform-source.test.mjs"
 check "isolated macOS installer flow" node --test "$script_directory/installer-macos-flow.test.mjs"
 check "package closure syntax" node --check "$script_directory/validate-package-archive.mjs"
 check "package closure tests" node --test "$script_directory/validate-package-archive.test.mjs"
@@ -112,10 +115,10 @@ if [[ "$source_only" != true ]]; then
     rm -f "$config_dump"
   fi
 
-  if command -v curl >/dev/null 2>&1 && curl --silent --fail --max-time 2 http://127.0.0.1:3080/ >/dev/null 2>&1; then
-    printf 'OK   DSH Web UI is listening at http://127.0.0.1:3080\n'
+  if node "$repository_root/scripts/dsh-web-readiness.mjs" check "${DSH_PORT:-3080}" "$dsh_home/logs/dsh-web.log" >/dev/null 2>&1; then
+    printf 'OK   authenticated DSH Web UI is reachable on port %s\n' "${DSH_PORT:-3080}"
   else
-    printf 'INFO DSH Web UI is not currently reachable at http://127.0.0.1:3080\n'
+    printf 'INFO DSH Web UI is not currently reachable on port %s\n' "${DSH_PORT:-3080}"
   fi
 fi
 

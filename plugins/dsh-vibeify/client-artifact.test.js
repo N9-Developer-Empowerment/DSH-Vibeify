@@ -29,7 +29,7 @@ test("generated artifact can be loaded by DSH before any browser UI renders", ()
     return {};
   });
   assert.equal(typeof exports.apply, "function");
-  assert.deepEqual([...exports.inject], ["connection", "remote", "remote.session", "sessions", "configForms", "slots"]);
+  assert.deepEqual([...exports.inject], ["connection", "remote", "remote.session", "remote.credentials", "sessions", "configForms", "slots"]);
 });
 
 test("browser artifact contains the creator-first catalogue and self-contained real photography", () => {
@@ -135,8 +135,7 @@ test("optional visual sources expose write-only credential entry and a local fal
   assert.match(client, /credentials\.describe/);
   assert.match(client, /credentials\.set/);
   assert.match(client, /credentials\.unset/);
-  assert.match(client, /credential write rejected/);
-  assert.match(client, /credential removal rejected/);
+  assert.match(client, /Image credential operation failed/);
   assert.match(client, /Keys are write-only/);
   assert.match(client, /The DSH Visuals plugin is not active/);
 });

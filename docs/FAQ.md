@@ -61,7 +61,7 @@ Use the [official Node.js download page](https://nodejs.org/en/download). DSH cu
 
 ## DSH was updated but the page still looks old
 
-An already-running DSH process keeps the bundle it loaded at launch. The installers never silently stop active work. Finish the current Chat task, close DSH, run the installer again if it asked you to, and reopen `http://127.0.0.1:3080/`. A staged update is not the same as an activated update.
+An already-running DSH process keeps the bundle it loaded at launch. The Windows and Linux installers stop before changing global software or profile files while DSH is running. Finish the current Chat task, close DSH, and run the installer again; it will open the verified local page. On macOS, the installer asks you to confirm idle work before stopping DSH and changing files; declining leaves the installation unchanged. After the update it opens the authenticated local page without printing its access token.
 
 ## The page at 127.0.0.1:3080 does not open
 

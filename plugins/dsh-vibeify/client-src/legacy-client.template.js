@@ -145,7 +145,7 @@ window.__ModuleLoader__.load({
 			}
 		}
 
-		function visualSourcesSection(settings, api) {
+		function visualSourcesSection(settings, credentials, connection) {
 			return function VisualSourcesSection() {
 				const snapshot = React.useSyncExternalStore(
 					(listener) => settings.subscribe(listener),
@@ -164,16 +164,15 @@ window.__ModuleLoader__.load({
 					if (snapshot.status !== "ready") return;
 					const refs = [referenceFor("pexels"), referenceFor("pixabay")];
 					try {
-						const response = await api.credentials.describe({ refs });
-						if (!response.result.ok) return;
+						const views = await credentials.describe(refs);
 						setStatus({
-							pexels: response.result.value.credentials[refs[0]] ?? { configured: false, writable: true },
-							pixabay: response.result.value.credentials[refs[1]] ?? { configured: false, writable: true },
+							pexels: views[refs[0]] ?? { configured: false, writable: true },
+							pixabay: views[refs[1]] ?? { configured: false, writable: true },
 						});
 					} catch {
 						setMessage("Image-source status could not be read. No key was changed.");
 					}
-				}, [api, referenceFor, snapshot.status]);
+				}, [credentials, referenceFor, snapshot.status]);
 				React.useEffect(() => { refresh(); }, [refresh]);
 				const save = async (provider) => {
 					const value = drafts[provider].trim();
@@ -181,8 +180,7 @@ window.__ModuleLoader__.load({
 					setPending(provider);
 					setMessage("");
 					try {
-						const response = await api.credentials.set({ ref: referenceFor(provider), value });
-						if (response?.result?.ok !== true) throw new Error("credential write rejected");
+						await credentials.set(referenceFor(provider), value);
 						setDrafts((current) => ({ ...current, [provider]: "" }));
 						setMessage(`${VISUAL_CREDENTIALS[provider].label} key saved securely.`);
 						await refresh();
@@ -196,8 +194,7 @@ window.__ModuleLoader__.load({
 					setPending(provider);
 					setMessage("");
 					try {
-						const response = await api.credentials.unset({ ref: referenceFor(provider) });
-						if (response?.result?.ok !== true) throw new Error("credential removal rejected");
+						await credentials.unset(referenceFor(provider));
 						setMessage(`${VISUAL_CREDENTIALS[provider].label} key removed.`);
 						await refresh();
 					} catch {
@@ -255,6 +252,7 @@ window.__ModuleLoader__.load({
 						React.createElement("strong", null, "Wikimedia Commons · Openverse"),
 					),
 					React.createElement("div", { className: "dsh-vibeify-visual-grid" }, providerRow("pexels"), providerRow("pixabay")),
+					React.createElement(__DshVibeifyExperience.VisualSourceCheck, { connection }),
 					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-visual-message", role: "status" }, message) : null,
 					React.createElement("p", { className: "dsh-vibeify-visual-note" }, "Keys are write-only: this page never reads them back, and shared Vibes never contain them. A blank field keeps the current key."),
 				);
@@ -270,11 +268,11 @@ window.__ModuleLoader__.load({
 		}
 
 		function updateDetail(component, kind) {
-			if (kind === "codex" && component.state === "awaiting-vibeify") {
-				return `Using ${component.current}. Codex ${component.latest} exists, but the current Vibeify release has qualified ${component.installable}; it will not be installed until the compatibility bundle is ready.`;
+			if (component.state === "awaiting-vibeify") {
+				return `Using ${component.current}. ${kind === "codex" ? "Codex" : "DSH"} ${component.latest} exists, but the current Vibeify release has qualified ${component.installable}; it will not be installed until the compatibility bundle is ready.`;
 			}
 			if (component.latest === null) return `Installed ${component.current}. The online version could not be read; nothing was changed.`;
-			if (component.state === "update-available") return `Installed ${component.current} · safe update ${kind === "codex" ? component.installable : component.latest}`;
+			if (component.state === "update-available") return `Installed ${component.current} · safe update ${component.installable || component.latest}`;
 			return `Installed ${component.current} · latest ${component.latest}`;
 		}
 
@@ -344,7 +342,7 @@ window.__ModuleLoader__.load({
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
 			const connection = ctx.get("connection");
-			const { api } = connection;
+			const credentials = __DshVibeifyExperience.createVisualCredentials({ remote: ctx.remote?.credentials, legacy: connection.api?.credentials });
 			const visualSettings = ctx.configForms.get(VISUAL_SETTINGS_NAMESPACE);
 			ctx.effect(() => {
 				const style = document.createElement("style");
@@ -411,7 +409,7 @@ window.__ModuleLoader__.load({
 				id: "vibeify-visual-sources",
 				order: 16,
 				label: "Images",
-			}, visualSourcesSection(visualSettings, api)));
+			}, visualSourcesSection(visualSettings, credentials, connection)));
 
 
 			if (CODEX_FEATURES_ENABLED) {
@@ -922,7 +920,7 @@ window.__ModuleLoader__.load({
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-appearance-heading">
 			    <div id="dsh-vibeify-appearance-heading" class="dsh-vibeify-heading">VIBE magazine appearance</div>
 			    <label>Website look<select id="dsh-vibeify-website-look">${Object.entries(WEBSITE_LOOKS).map(([id, look]) => `<option value="${id}">${look.label}</option>`).join("")}</select></label>
-			    <p class="dsh-vibeify-intro">The look travels with your shared article.</p>
+			    <p class="dsh-vibeify-intro">The look travels with your shared article and sets the writing voice for future Vibe pages. It does not rewrite saved articles or private Chat.</p>
 			    <div class="dsh-vibeify-magazine-palette" role="radiogroup" aria-label="Magazine palette">${Object.entries(MAGAZINE_PALETTES).map(([id, { label, colors }]) => `<button class="dsh-vibeify-magazine-choice" type="button" role="radio" data-magazine-palette="${id}" aria-checked="false"><span class="dsh-vibeify-magazine-swatch" aria-hidden="true" style="--magazine-background:${colors.background};--magazine-accent:${colors.accent};--magazine-border:${colors.border}"></span>${label}</button>`).join("")}</div>
 			    <div class="dsh-vibeify-appearance-controls">
 			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
@@ -1003,7 +1001,7 @@ window.__ModuleLoader__.load({
 				const saveAppearanceImmediately = () => {
 					appearanceProfile = saveAppearanceFromControls();
 					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
-					status.textContent = `Magazine appearance saved: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
+					status.textContent = `Magazine appearance saved: ${WEBSITE_LOOKS[appearanceProfile.look].label} look and future writing voice, ${MAGAZINE_PALETTES[appearanceProfile.palette].label} palette.`;
 				};
 				websiteLook.addEventListener("change", () => {
 					const palette = WEBSITE_LOOKS[websiteLook.value].defaultPalette;
@@ -1098,7 +1096,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["connection", "remote", "remote.session", "sessions", "configForms", "slots"];
+		exports.inject = ["connection", "remote", "remote.session", "remote.credentials", "sessions", "configForms", "slots"];
 		return module.exports;
 	},
 });

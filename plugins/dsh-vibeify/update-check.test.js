@@ -42,6 +42,7 @@ test("checker distinguishes installable updates from an unqualified Codex releas
       if (url.includes("openai")) return { version: "0.150.1" };
       return {
         version: "0.9.1",
+        peerDependencies: { "@deepseek-ai/dsh-agent": "0.1.1-rc.2" },
         dependencies: { "@openai/codex": "0.147.0" },
       };
     },
@@ -69,6 +70,7 @@ test("checker reports a Codex update only when the latest Vibeify bundle qualifi
       if (url.includes("openai")) return { version: "0.150.1" };
       return {
         version: "0.10.0",
+        peerDependencies: { "@deepseek-ai/dsh-agent": "0.1.1-rc.3" },
         dependencies: { "@openai/codex": "0.150.1" },
       };
     },
@@ -115,6 +117,7 @@ test("checks are cached until a user explicitly asks to check again", async () =
       if (url.includes("openai")) return { version: "0.147.0" };
       return {
         version: "0.9.1",
+        peerDependencies: { "@deepseek-ai/dsh-agent": "0.1.1-rc.2" },
         dependencies: { "@openai/codex": "0.147.0" },
       };
     },
@@ -148,7 +151,8 @@ test("provider-neutral Vibeify omits the Codex row without weakening other check
     },
     fetchJson: async (url) => url.includes("deepseek-ai")
       ? { version: "0.1.1-rc.2" }
-      : { version: "0.9.1", dependencies: { "@openai/codex": "0.147.0" } },
+      : { version: "0.9.1", peerDependencies: { "@deepseek-ai/dsh-agent": "0.1.1-rc.2" },
+        dependencies: { "@openai/codex": "0.147.0" } },
   });
 
   const result = await checker.check();
@@ -159,4 +163,9 @@ test("provider-neutral Vibeify omits the Codex row without weakening other check
     state: "not-included",
   });
   assert.equal(result.components.dsh.state, "current");
+});
+
+ test("DSH updates only offer the version qualified by the installable bundle", async () => {
+ const c=createUpdateChecker({current:{dsh:async()=>"0.1.7-rc.2",vibeify:"0.16.3",codex:null},fetchJson:async(url)=>url.includes("registry")?{version:"0.2.1"}:{version:"0.16.4",peerDependencies:{"@deepseek-ai/dsh-agent":"0.1.7-rc.2"}}});
+ const r=await c.check(); assert.equal(r.components.dsh.state,"awaiting-vibeify"); assert.equal(r.components.dsh.installable,"0.1.7-rc.2");
 });

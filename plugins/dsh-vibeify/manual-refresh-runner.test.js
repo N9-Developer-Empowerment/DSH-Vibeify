@@ -63,6 +63,7 @@ function runtime() {
   const listeners = new Set();
   const calls = [];
   let historyEnd = null;
+  const historyPresets = new Map();
   const api = {
     sessions: {
       async create(payload) {
@@ -84,7 +85,7 @@ function runtime() {
       async history(payload) {
         calls.push(["history", payload]);
         const events = historyEnd === null ? [] : [{ event: historyEnd }];
-        return { result: { ok: true, value: { events, hasMore: false } } };
+        return { result: { ok: true, value: { events, hasMore: false, agentPreset: historyPresets.get(payload.sessionId) } } };
       },
     },
   };
@@ -96,6 +97,7 @@ function runtime() {
   };
   return {
     calls,
+    setHistoryPreset(sessionId, agentPreset) { historyPresets.set(sessionId, agentPreset); },
     ctx: {
       get(name) { return name === "connection" ? { api } : sessions; },
       effect(setup) { this.cleanup = setup(); },
@@ -127,6 +129,39 @@ test("one explicit update creates and prompts one dedicated session without open
   assert.deepEqual(host.calls.map(([name]) => name), ["create", "rename", "history", "prompt"]);
   assert.equal(host.calls.find(([name]) => name === "prompt")[1].mode, "queue");
   assert.equal(host.calls.find(([name]) => name === "prompt")[1].content[0].text, recipe.prompt);
+  host.ctx.cleanup();
+  browser.restore();
+});
+
+test("a stored DSH 0.1 magazine session is preserved and replaced with a fresh default-preset session", async () => {
+  const browser = installRunnerBrowser();
+  const host = runtime();
+  browser.window.localStorage.setItem("dsh-vibeify.magazine-session.v1", "retired-magazine");
+  host.setSummary({ id: "retired-magazine", agentPreset: "chatgpt-agent", running: false, blank: false, updatedAt: 2 }, { turnEnd: false });
+  installRecipeRunner(host.ctx);
+  const submitted = waitForState(browser.window, "submitted");
+  browser.window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: recipe }));
+  assert.equal((await submitted).sessionId, "magazine-session");
+  assert.deepEqual(host.calls.find(([name]) => name === "create")[1], { cwd: "/project" });
+  assert.equal(browser.window.localStorage.getItem("dsh-vibeify.magazine-session.v1"), "magazine-session");
+  assert.equal(host.calls.some(([, payload]) => payload?.sessionId === "retired-magazine"), false);
+  host.ctx.cleanup();
+  browser.restore();
+});
+
+test("the opening history header migrates a retired preset when the DSH 0.2 list omits it", async () => {
+  const browser = installRunnerBrowser();
+  const host = runtime();
+  browser.window.localStorage.setItem("dsh-vibeify.magazine-session.v1", "retired-magazine");
+  host.setSummary({ id: "retired-magazine", running: false, blank: false, updatedAt: 2 }, { turnEnd: false });
+  host.setHistoryPreset("retired-magazine", "chatgpt-agent");
+  installRecipeRunner(host.ctx);
+  const submitted = waitForState(browser.window, "submitted");
+  browser.window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: recipe }));
+  assert.equal((await submitted).sessionId, "magazine-session");
+  assert.equal(host.calls.filter(([name]) => name === "create").length, 1);
+  assert.equal(host.calls.find(([name]) => name === "prompt")[1].sessionId, "magazine-session");
+  assert.equal(browser.window.localStorage.getItem("dsh-vibeify.magazine-session.v1"), "magazine-session");
   host.ctx.cleanup();
   browser.restore();
 });

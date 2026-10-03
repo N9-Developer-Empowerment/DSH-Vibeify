@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [switch]$Check,
+  [string]$SourceDirectory = $env:DSH_VIBEIFY_SOURCE_DIRECTORY,
   [ValidateSet("deepseek", "chatgpt", "both", "later")]
   [string]$Provider
 )
@@ -32,11 +33,16 @@ function Assert-Native([string]$Step) {
 }
 
 function Test-LocalDsh {
+  $client = New-Object System.Net.Sockets.TcpClient
   try {
-    $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/" -TimeoutSec 2
-    return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+    $connect = $client.BeginConnect("127.0.0.1", $Port, $null, $null)
+    if (-not $connect.AsyncWaitHandle.WaitOne(500)) { return $false }
+    $client.EndConnect($connect)
+    return $true
   } catch {
     return $false
+  } finally {
+    $client.Close()
   }
 }
 
@@ -95,14 +101,18 @@ try {
   $TemporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("dsh-vibeify-download-" + [guid]::NewGuid().ToString("N"))
   New-Item -ItemType Directory -Path $TemporaryDirectory | Out-Null
   try {
-    $Archive = Join-Path $TemporaryDirectory "dsh-vibeify.zip"
-    Write-Host ""
-    Write-Host "Downloading the latest Vibeify source from the public GitHub project..."
-    Invoke-WebRequest -UseBasicParsing -Uri $RepositoryArchive -OutFile $Archive
-    Expand-Archive -LiteralPath $Archive -DestinationPath $TemporaryDirectory
-    $ProjectDirectory = Join-Path $TemporaryDirectory "DSH-Vibeify-main"
+    if ($SourceDirectory) {
+      $ProjectDirectory = (Resolve-Path -LiteralPath $SourceDirectory).Path
+      Write-Host "Checking the supplied Vibeify source..."
+    } else {
+      $Archive = Join-Path $TemporaryDirectory "dsh-vibeify.zip"
+      Write-Host "Downloading the latest Vibeify source from the public GitHub project..."
+      Invoke-WebRequest -UseBasicParsing -Uri $RepositoryArchive -OutFile $Archive
+      Expand-Archive -LiteralPath $Archive -DestinationPath $TemporaryDirectory
+      $ProjectDirectory = Join-Path $TemporaryDirectory "DSH-Vibeify-main"
+    }
     if (-not (Test-Path -LiteralPath $ProjectDirectory -PathType Container)) {
-      throw "The downloaded Vibeify archive had an unexpected layout."
+      throw "The Vibeify source had an unexpected layout."
     }
 
     $SelfCheck = Join-Path $ProjectDirectory "scripts\installer-self-check.mjs"
@@ -139,15 +149,60 @@ try {
       exit 0
     }
 
+    # Do not replace the global runtime or profile files while a DSH task may
+    # be using them. Defer the complete update until the user closes DSH.
+    if (Test-LocalDsh) {
+      throw "DSH is already open, so this installer will not interrupt it or change software/profile files. Finish active work, close DSH, then run this installer again to install the update."
+    }
+
+    # DSH plugin installation relies on pnpm overrides and build-script
+    # policy. Pin a compatible user-local pnpm before invoking any DSH plugin
+    # command, without changing a machine-wide npm prefix or approving scripts.
+    $QualifiedPnpmVersion = "10.34.6"
+    $GlobalNpmPrefix = (& npm prefix --global | Out-String).Trim()
+    Assert-Native "Reading the current-user npm prefix"
+    $UserProfilePath = [System.IO.Path]::GetFullPath($env:USERPROFILE).TrimEnd('\') + '\'
+    $NpmPrefixPath = [System.IO.Path]::GetFullPath($GlobalNpmPrefix).TrimEnd('\') + '\'
+    if (-not $NpmPrefixPath.StartsWith($UserProfilePath, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "The current npm prefix is not inside this Windows user profile. Set npm's prefix to a user-local directory, then rerun; this installer will not modify a machine-wide package location."
+    }
+    $PnpmCommand = Join-Path $GlobalNpmPrefix "pnpm.cmd"
+    $InstalledPnpmVersion = $null
+    if (Test-Path -LiteralPath $PnpmCommand) {
+      $InstalledPnpmVersion = (& $PnpmCommand --version | Out-String).Trim()
+      Assert-Native "Checking pnpm"
+    }
+    if ($InstalledPnpmVersion -ne $QualifiedPnpmVersion) {
+      Write-Host "Installing the qualified pnpm version in this Windows user profile..."
+      & npm install --global "pnpm@$QualifiedPnpmVersion"
+      Assert-Native "Installing qualified pnpm"
+      $InstalledPnpmVersion = (& $PnpmCommand --version | Out-String).Trim()
+      Assert-Native "Verifying qualified pnpm"
+      if ($InstalledPnpmVersion -ne $QualifiedPnpmVersion) {
+        throw "pnpm version verification failed: expected $QualifiedPnpmVersion, found $InstalledPnpmVersion."
+      }
+    }
+    $env:PATH = "$GlobalNpmPrefix;$env:PATH"
+
+    $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
+    $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
+    $ProfilePackage = Join-Path $ProfileDirectory "package.json"
     if (-not $Provider) {
+      $defaultChoice = "1"
+      if (Test-Path -LiteralPath $ProfilePackage) {
+        $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
+        if ($existingProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify") {
+          $defaultChoice = "2"
+        }
+      }
       Write-Host ""
       Write-Host "Choose how you want the AI side to work:"
       Write-Host "  1. DeepSeek only - connect DeepSeek inside DSH"
       Write-Host "  2. ChatGPT only - sign in with ChatGPT now"
       Write-Host "  3. Both - Codex leads; DeepSeek handles suitable work"
       Write-Host "  4. Install first and connect an account later"
-      $choice = Read-Host "Choice [1]"
-      if (-not $choice) { $choice = "1" }
+      $choice = Read-Host "Choice [$defaultChoice]"
+      if (-not $choice) { $choice = $defaultChoice }
       $Provider = switch ($choice) {
         "2" { "chatgpt" }
         "3" { "both" }
@@ -171,7 +226,8 @@ try {
       }
     }
 
-    $TargetVersion = "0.1.7-rc.2" # Qualified with this Vibeify compatibility bundle
+    $TargetVersion = (& node -p "require(process.argv[1]).peerDependencies['@deepseek-ai/dsh-agent']" (Join-Path $ProjectDirectory "plugins\dsh-vibeify\package.json") | Out-String).Trim()
+    Assert-Native "Reading the qualified DSH version"
     if (-not $TargetVersion) { throw "The official npm registry did not return a DSH version." }
     $CurrentVersion = $null
     if (Get-Command dsh -ErrorAction SilentlyContinue) {
@@ -188,9 +244,6 @@ try {
       throw "DSH version verification failed: expected $TargetVersion, found $InstalledVersion."
     }
 
-    $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
-    $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
-    $ProfilePackage = Join-Path $ProfileDirectory "package.json"
     $RuntimeAnchor = Join-Path ((& npm root --global).Trim()) "@deepseek-ai\dsh\package.json"
     & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Aligning legacy DSH profile versions"
@@ -220,7 +273,7 @@ try {
     Assert-Native "Aligning the profile runtime"
     & dsh plugin --profile $ProfileName install
     Assert-Native "Installing the aligned runtime"
-    & node (Join-Path $ProjectDirectory "scripts\check-profile-runtime.mjs") $ProfilePackage
+    & node (Join-Path $ProjectDirectory "scripts\check-profile-runtime.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Checking runtime scope identity"
     $ConfigDump = (& dsh --profile $ProfileName --dump-config | Out-String)
     Assert-Native "Checking the composed DSH profile"
@@ -242,23 +295,25 @@ try {
       throw "DeepSeek mode was requested but the Codex provider still owns the profile."
     }
 
-    if (Test-LocalDsh) {
-      Write-Host ""
-      Write-Host "Vibeify is staged. DSH is already open, so this installer will not interrupt it. Finish active work, close DSH, then run this installer again to activate the update."
-    } else {
-      & node (Join-Path $ProjectDirectory "scripts\start-dsh.mjs") --profile $ProfileName --host 127.0.0.1 --port $Port
-      Assert-Native "Starting DSH"
-      foreach ($attempt in 1..40) {
-        if (Test-LocalDsh) { break }
-        Start-Sleep -Seconds 1
-      }
-      if (-not (Test-LocalDsh)) {
-        throw "DSH was installed but did not become ready. Use the privacy-safe support report in the FAQ; do not share the whole log."
-      }
-      Start-Process "http://127.0.0.1:$Port/"
-      Write-Host ""
-      Write-Host "DSH Vibeify is ready at http://127.0.0.1:$Port/."
+    & node (Join-Path $ProjectDirectory "scripts\start-dsh.mjs") --profile $ProfileName --host 127.0.0.1 --port $Port
+    Assert-Native "Starting DSH"
+    $ServerLog = Join-Path $DshHome "logs\dsh-web.log"
+    $ReadinessScript = Join-Path $ProjectDirectory "scripts\dsh-web-readiness.mjs"
+    $Ready = $false
+    foreach ($attempt in 1..40) {
+      & node $ReadinessScript check $Port $ServerLog
+      if ($LASTEXITCODE -eq 0) { $Ready = $true; break }
+      Start-Sleep -Seconds 1
     }
+    if (-not $Ready) {
+      throw "DSH was installed but did not become ready. Use the privacy-safe support report in the FAQ; do not share the whole log."
+    }
+    $AuthenticatedUrl = (& node $ReadinessScript url $Port $ServerLog | Out-String).Trim()
+    Assert-Native "Reading the local DSH page address"
+    if (-not $AuthenticatedUrl) { throw "The local DSH page address could not be read." }
+    Start-Process $AuthenticatedUrl
+    Write-Host ""
+    Write-Host "DSH Vibeify is ready at http://127.0.0.1:$Port/."
 
     if ($Provider -in @("deepseek", "both")) {
       Write-Host "In DSH, open Settings > Models to connect DeepSeek."

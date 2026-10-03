@@ -48,3 +48,9 @@ test("prompt establishes the provider boundary and closed envelope contract", ()
   assert.doesNotMatch(prompt, /questionnaire/i);
   assert.match(buildBackgroundReservePrompt({ runId: "reserve-abc", profile, signals, learning, codexFeatures: false }), /Do not claim Codex or independent verification/);
 });
+
+test("background pages use the writing voice selected by the website look", () => {
+  const prompt = buildBackgroundReservePrompt({ runId: "reserve-news", profile, signals, learning: { preferredKinds: [], preferredTribes: [] }, codexFeatures: true, websiteLook: "bbc-news" });
+  assert.match(prompt, /restrained British broadcast-news parody/i);
+  assert.match(prompt, /Do not rewrite or remove existing articles or private Chat content/i);
+});

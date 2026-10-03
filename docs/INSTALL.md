@@ -27,7 +27,7 @@ The helper checks Node.js, downloads the public GitHub repository, installs or u
 
 If a supported Node.js is missing, the helper opens the official Node.js download page and stops. DSH currently requires Node.js 22.19 or later in the 22.x line, or Node.js 24 or later. Install Node, then run it again.
 
-If DSH is already running, the helper stages the update and asks you to confirm that current work has finished before a canary-checked detached restart. It never interrupts an active task silently.
+If DSH is already running, the helper asks you to confirm that active work is finished before stopping the verified DSH process. Declining leaves software and profile files unchanged; after confirmation, it installs the update and opens the verified local page. The installer does not print the local access token.
 
 ## Friendly Windows preview
 
@@ -35,7 +35,7 @@ If DSH is already running, the helper stages the update and asks you to confirm 
 2. Extract it. Double-click **Install DSH Vibeify Windows.cmd**. Its execution-policy override applies only to that one process; it does not weaken the machine-wide PowerShell policy.
 3. Choose DeepSeek, ChatGPT, both, or connect later.
 
-The PowerShell implementation downloads a fresh public repository copy, runs a cross-platform source check, installs the official npm DSH package, creates and validates an immutable Vibeify package, composes the selected profile, and opens the loopback page. If DSH is already open it leaves the update staged instead of stopping the process. This implementation must not be described as verified until the workflow has passed on a real Windows x64 or arm64 machine.
+The PowerShell implementation downloads a fresh public repository copy, runs a cross-platform source check, installs the official npm DSH package, creates and validates an immutable Vibeify package, composes the selected profile, and opens the loopback page. If DSH is already open, it stops before changing global software or profile files and asks you to finish active work, close DSH, and rerun the installer. This implementation must not be described as verified until the workflow has passed on a real Windows x64 or arm64 machine.
 
 ## Friendly Linux preview
 
@@ -43,7 +43,7 @@ The PowerShell implementation downloads a fresh public repository copy, runs a c
 2. Extract it, then make only the installer executable: `chmod +x ./install-dsh-vibeify-linux.sh`.
 3. Run `./install-dsh-vibeify-linux.sh` and choose DeepSeek, ChatGPT, both, or connect later.
 
-Do not run it with `sudo`. The installer downloads a fresh public repository copy, uses the existing immutable package installer and doctor, starts DSH only when port 3080 is free, and never silently stops a live process. Linux remains preview until the complete path passes on representative Debian/Ubuntu and Fedora-family machines.
+Do not run it with `sudo`. The installer downloads a fresh public repository copy, uses the existing immutable package installer and doctor, starts DSH only when its local port is free, and stops before changing global software or profile files if DSH is already open. Finish active work, close DSH, then rerun the installer. Linux remains preview until the complete path passes on representative Debian/Ubuntu and Fedora-family machines.
 
 ## Choose a provider mode
 
@@ -137,6 +137,8 @@ dsh plugin --profile web add --workspace-root ./plugins/dsh-visuals
 
 If `dsh-visuals` is absent or every source is unavailable, Vibeify keeps its built-in unique cover method and remains fully readable.
 
+Use **Check image sources** on the Images page to test a short public sample search. It reports which providers responded and shows a decoded, credited photograph when one is suitable. **Configured** means a key is stored; the source check verifies that its provider responds. The check never changes keys or starts AI image generation.
+
 ## Manual link sharing
 
 The relaunch requires no social account setup. Copy a public link or use the device’s share action, and make the final post yourself. A private article still requires preview and **Publish public link** before its URL becomes public.
@@ -167,7 +169,7 @@ Open **Settings → Updates** in DSH to check three independent versions:
 
 The check is read-only, uses fixed public release URLs, caches successful results for six hours, and changes nothing. A newer Codex release is shown as **compatibility check pending** until a Vibeify release pins it; this prevents an untested agent upgrade being presented as safe.
 
-Choose the platform-appropriate updater or download and run the current friendly installer again. The macOS helper updates DSH and the latest Vibeify compatibility bundle, runs non-billing checks, asks the user to confirm that active work is finished, and delegates replacement to the detached restart supervisor. Windows and Linux preview installers deliberately leave an already-running DSH process untouched and tell the user how to activate the staged update after work is finished. Developers can run:
+Choose the platform-appropriate updater or download and run the current friendly installer again. The macOS helper asks for idle confirmation before changing the global DSH runtime or profile. After confirmation it stops only the verified DSH web process, installs and checks the update, then opens the authenticated local page. Windows and Linux preview installers stop before changing software or profile files while DSH is running; finish active work, close DSH, and rerun the installer. Developers can run:
 
 ```bash
 git pull --ff-only

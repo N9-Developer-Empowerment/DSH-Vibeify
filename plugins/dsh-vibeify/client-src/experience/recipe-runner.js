@@ -1,7 +1,7 @@
 import { freshStreamChunksFromEvents, openLiveChunkStream } from "./live-stream-collector.js";
 import { readUpdateSessionId, writeUpdateSessionId } from "./update-session.js";
 import { VIBE_STREAM_CHUNKS_EVENT } from "./vibe-result.js";
-import { createSessionApi } from "./session-api.js";
+import { createSessionApi, sessionNeedsDefaultPresetMigration } from "./session-api.js";
 
 export const RECIPE_RUN_EVENT = "dsh-vibeify:run-recipe";
 export const RECIPE_STATUS_EVENT = "dsh-vibeify:recipe-status";
@@ -73,7 +73,6 @@ function currentSessionDefaults(sessions) {
   const current = snapshot.current === undefined ? null : snapshot.byId?.[snapshot.current];
   return current === null || current === undefined ? {} : {
     ...(typeof current.cwd === "string" ? { cwd: current.cwd } : {}),
-    ...(typeof current.agentPreset === "string" ? { agentPreset: current.agentPreset } : {}),
   };
 }
 
@@ -104,6 +103,7 @@ async function historyState(sessionApi, sessionId, runId = null) {
     return Object.freeze({
       end: latestTurnEnd(events),
       chunks: runId === null ? Object.freeze([]) : freshStreamChunksFromEvents(events, runId),
+      agentPreset: typeof response.result.value.agentPreset === "string" ? response.result.value.agentPreset : undefined,
     });
   } catch {
     return null;
@@ -213,6 +213,7 @@ export function installRecipeRunner(ctx) {
       status({ state: "starting", id: recipe.id, title: recipe.title });
       let sessionId = storedSessionId();
       const snapshot = sessions.list.getSnapshot();
+      if (sessionId !== null && sessionNeedsDefaultPresetMigration(snapshot.byId?.[sessionId])) sessionId = null;
       if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
         clearActive();
         status({ state: "busy", id: recipe.id, title: recipe.title, sessionId });
@@ -231,8 +232,21 @@ export function installRecipeRunner(ctx) {
         await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
         if (thisGeneration !== generation || active === null) return;
       }
+      let baseline = await historyState(sessionApi, sessionId);
+      if (sessionNeedsDefaultPresetMigration({ agentPreset: baseline?.agentPreset })) {
+        const created = await sessionApi.create(currentSessionDefaults(sessions));
+        if (thisGeneration !== generation || active === null || !created?.result?.ok) {
+          clearActive();
+          status({ state: "error", id: recipe.id, title: recipe.title, message: "A compatible magazine update session could not be created." });
+          return;
+        }
+        sessionId = created.result.value.sessionId;
+        saveSessionId(sessionId);
+        await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
+        baseline = await historyState(sessionApi, sessionId);
+      }
       active.sessionId = sessionId;
-      active.baselineEndSeq = (await historyState(sessionApi, sessionId))?.end?.seq ?? -1;
+      active.baselineEndSeq = baseline?.end?.seq ?? -1;
       if (thisGeneration !== generation || active === null) return;
       const candidate = active;
       candidate.liveStream = openLiveChunkStream({

@@ -62,7 +62,7 @@ export function createSessionApi(ctx, { historyOpenTimeoutMs = SESSION_HISTORY_O
       history: ({ sessionId, maxMessages = 50, beforeSeq, throughSeq }) => call(async () => {
         if (throughSeq === undefined) {
           const opening = await openingSnapshot(remote, sessionId, maxMessages, historyOpenTimeoutMs);
-          return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor } };
+          return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor, agentPreset: opening.header?.agentPreset } };
         }
         const page = await remote.page({ address: { kind: "session", sessionId }, throughSeq, ...(beforeSeq === undefined ? {} : { beforeSeq }), maxMessages }, signal());
         if (!page?.ok) return page;

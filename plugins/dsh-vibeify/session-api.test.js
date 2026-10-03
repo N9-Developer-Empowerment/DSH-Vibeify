@@ -42,7 +42,7 @@ test("history closes after the follow snapshot, then pages against its fixed cur
     async *follow(request, signal) {
       calls.push(["follow", request, signal]);
       try {
-        yield { type: "snapshot", cursor: 7, records: [{ type: "event", event: { seq: 6, type: "turn/end" } }], hasMore: true };
+        yield { type: "snapshot", header: { agentPreset: "chatgpt-agent" }, cursor: 7, records: [{ type: "event", event: { seq: 6, type: "turn/end" } }], hasMore: true };
         calls.push(["resumed"]);
       } finally { calls.push(["closed"]); }
     },
@@ -51,6 +51,7 @@ test("history closes after the follow snapshot, then pages against its fixed cur
   const first = await api.history({ sessionId: "reader", maxMessages: 50 });
   assert.equal(first.result.value.throughSeq, 7);
   assert.equal(first.result.value.events[0].event.seq, 6);
+  assert.equal(first.result.value.agentPreset, "chatgpt-agent");
   assert.equal(calls.some(([name]) => name === "resumed"), false);
   assert.equal(calls.some(([name]) => name === "closed"), true);
   const older = await api.history({ sessionId: "reader", maxMessages: 50, throughSeq: 7, beforeSeq: 6 });

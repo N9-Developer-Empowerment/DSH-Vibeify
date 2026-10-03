@@ -2172,7 +2172,7 @@ window.__ModuleLoader__.load({
 			      history: ({ sessionId, maxMessages = 50, beforeSeq, throughSeq }) => call(async () => {
 			        if (throughSeq === void 0) {
 			          const opening = await openingSnapshot(remote, sessionId, maxMessages, historyOpenTimeoutMs);
-			          return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor } };
+			          return { ok: true, value: { events: opening.records, hasMore: opening.hasMore, throughSeq: opening.cursor, agentPreset: opening.header?.agentPreset } };
 			        }
 			        const page = await remote.page({ address: { kind: "session", sessionId }, throughSeq, ...beforeSeq === void 0 ? {} : { beforeSeq }, maxMessages }, signal());
 			        if (!page?.ok) return page;
@@ -2258,7 +2258,8 @@ window.__ModuleLoader__.load({
 			    const events = response.result.value.events;
 			    return Object.freeze({
 			      end: latestTurnEnd(events),
-			      chunks: runId === null ? Object.freeze([]) : freshStreamChunksFromEvents(events, runId)
+			      chunks: runId === null ? Object.freeze([]) : freshStreamChunksFromEvents(events, runId),
+			      agentPreset: typeof response.result.value.agentPreset === "string" ? response.result.value.agentPreset : void 0
 			    });
 			  } catch {
 			    return null;
@@ -2381,8 +2382,21 @@ window.__ModuleLoader__.load({
 			        await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
 			        if (thisGeneration !== generation || active === null) return;
 			      }
+			      let baseline = await historyState(sessionApi, sessionId);
+			      if (sessionNeedsDefaultPresetMigration({ agentPreset: baseline?.agentPreset })) {
+			        const created = await sessionApi.create(currentSessionDefaults(sessions));
+			        if (thisGeneration !== generation || active === null || !created?.result?.ok) {
+			          clearActive();
+			          status({ state: "error", id: recipe.id, title: recipe.title, message: "A compatible magazine update session could not be created." });
+			          return;
+			        }
+			        sessionId = created.result.value.sessionId;
+			        saveSessionId(sessionId);
+			        await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
+			        baseline = await historyState(sessionApi, sessionId);
+			      }
 			      active.sessionId = sessionId;
-			      active.baselineEndSeq = (await historyState(sessionApi, sessionId))?.end?.seq ?? -1;
+			      active.baselineEndSeq = baseline?.end?.seq ?? -1;
 			      if (thisGeneration !== generation || active === null) return;
 			      const candidate = active;
 			      candidate.liveStream = openLiveChunkStream({
@@ -3082,7 +3096,11 @@ window.__ModuleLoader__.load({
 			    const response = await sessionApi.history({ sessionId, maxMessages: 50 });
 			    if (!response?.result?.ok) return null;
 			    const events = response.result.value.events;
-			    return { end: latestTurnEnd2(events), chunks: runId === null ? [] : freshStreamChunksFromEvents(events, runId) };
+			    return {
+			      end: latestTurnEnd2(events),
+			      chunks: runId === null ? [] : freshStreamChunksFromEvents(events, runId),
+			      agentPreset: typeof response.result.value.agentPreset === "string" ? response.result.value.agentPreset : void 0
+			    };
 			  } catch {
 			    return null;
 			  }
@@ -3160,7 +3178,20 @@ window.__ModuleLoader__.load({
 			        writeBackgroundSessionId(store, sessionId);
 			        await sessionApi.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
 			      }
-			      const baselineSeq = (await history(sessionApi, sessionId))?.end?.seq ?? -1;
+			      let baseline = await history(sessionApi, sessionId);
+			      if (sessionNeedsDefaultPresetMigration({ agentPreset: baseline?.agentPreset })) {
+			        const created = await sessionApi.create(currentSessionDefaults2(sessions));
+			        if (!created?.result?.ok || stopped) {
+			          announce({ state: "error" });
+			          schedule();
+			          return;
+			        }
+			        sessionId = created.result.value.sessionId;
+			        writeBackgroundSessionId(store, sessionId);
+			        await sessionApi.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
+			        baseline = await history(sessionApi, sessionId);
+			      }
+			      const baselineSeq = baseline?.end?.seq ?? -1;
 			      if (!reserveBackgroundRun(store, profile.dailyBudgetUsd, runId)) {
 			        announce({ state: "budget" });
 			        schedule();

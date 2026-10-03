@@ -103,6 +103,7 @@ async function historyState(sessionApi, sessionId, runId = null) {
     return Object.freeze({
       end: latestTurnEnd(events),
       chunks: runId === null ? Object.freeze([]) : freshStreamChunksFromEvents(events, runId),
+      agentPreset: typeof response.result.value.agentPreset === "string" ? response.result.value.agentPreset : undefined,
     });
   } catch {
     return null;
@@ -231,8 +232,21 @@ export function installRecipeRunner(ctx) {
         await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
         if (thisGeneration !== generation || active === null) return;
       }
+      let baseline = await historyState(sessionApi, sessionId);
+      if (sessionNeedsDefaultPresetMigration({ agentPreset: baseline?.agentPreset })) {
+        const created = await sessionApi.create(currentSessionDefaults(sessions));
+        if (thisGeneration !== generation || active === null || !created?.result?.ok) {
+          clearActive();
+          status({ state: "error", id: recipe.id, title: recipe.title, message: "A compatible magazine update session could not be created." });
+          return;
+        }
+        sessionId = created.result.value.sessionId;
+        saveSessionId(sessionId);
+        await sessionApi.rename({ sessionId, title: "VIBE magazine updates" });
+        baseline = await historyState(sessionApi, sessionId);
+      }
       active.sessionId = sessionId;
-      active.baselineEndSeq = (await historyState(sessionApi, sessionId))?.end?.seq ?? -1;
+      active.baselineEndSeq = baseline?.end?.seq ?? -1;
       if (thisGeneration !== generation || active === null) return;
       const candidate = active;
       candidate.liveStream = openLiveChunkStream({

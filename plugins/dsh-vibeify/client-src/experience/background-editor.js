@@ -141,7 +141,11 @@ async function history(sessionApi, sessionId, runId = null) {
     const response = await sessionApi.history({ sessionId, maxMessages: 50 });
     if (!response?.result?.ok) return null;
     const events = response.result.value.events;
-    return { end: latestTurnEnd(events), chunks: runId === null ? [] : freshStreamChunksFromEvents(events, runId) };
+    return {
+      end: latestTurnEnd(events),
+      chunks: runId === null ? [] : freshStreamChunksFromEvents(events, runId),
+      agentPreset: typeof response.result.value.agentPreset === "string" ? response.result.value.agentPreset : undefined,
+    };
   } catch { return null; }
 }
 
@@ -215,7 +219,16 @@ export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
         writeBackgroundSessionId(store, sessionId);
         await sessionApi.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
       }
-      const baselineSeq = (await history(sessionApi, sessionId))?.end?.seq ?? -1;
+      let baseline = await history(sessionApi, sessionId);
+      if (sessionNeedsDefaultPresetMigration({ agentPreset: baseline?.agentPreset })) {
+        const created = await sessionApi.create(currentSessionDefaults(sessions));
+        if (!created?.result?.ok || stopped) { announce({ state: "error" }); schedule(); return; }
+        sessionId = created.result.value.sessionId;
+        writeBackgroundSessionId(store, sessionId);
+        await sessionApi.rename({ sessionId, title: BACKGROUND_SESSION_TITLE });
+        baseline = await history(sessionApi, sessionId);
+      }
+      const baselineSeq = baseline?.end?.seq ?? -1;
       if (!reserveBackgroundRun(store, profile.dailyBudgetUsd, runId)) { announce({ state: "budget" }); schedule(); return; }
       const learning = summarizeEditorialLearning(getLearningEvents(store));
       const prompt = buildBackgroundReservePrompt({ runId, profile, signals: reserve.signals, learning, codexFeatures, websiteLook });

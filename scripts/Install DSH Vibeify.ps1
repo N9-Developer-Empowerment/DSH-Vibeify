@@ -23,7 +23,7 @@ function Stop-WithHelp([string]$Message) {
   $safeMessage = $Message
   if ($env:USERPROFILE) { $safeMessage = $safeMessage.Replace($env:USERPROFILE, "<home>") }
   Write-Host ""
-  Write-Error "Installation stopped: $safeMessage"
+  Write-Host "Installation stopped: $safeMessage" -ForegroundColor Red
   Show-HelpLinks
   exit 1
 }
@@ -44,6 +44,130 @@ function Test-LocalDsh {
   } finally {
     $client.Close()
   }
+}
+
+# Enumerate actual listening PIDs rather than stopping every process named node.
+function Get-LocalListenerIds {
+  @(Get-NetTCPConnection -State Listen -ErrorAction Stop |
+    Where-Object { $_.LocalPort -eq $Port } |
+    Select-Object -ExpandProperty OwningProcess -Unique | Sort-Object)
+}
+
+function Get-CurrentUserSid {
+  [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+}
+
+function Get-DshListenerIdentity([int]$ListenerId) {
+  $process = Get-CimInstance -ClassName Win32_Process -Filter "ProcessId = $ListenerId" -ErrorAction Stop
+  if (-not $process -or -not $process.CommandLine -or -not $process.ExecutablePath -or -not $process.CreationDate) {
+    throw "The listener on port $Port could not be identified. Close it yourself before updating; nothing was installed."
+  }
+  $owner = Invoke-CimMethod -InputObject $process -MethodName GetOwnerSid -ErrorAction Stop
+  if ($owner.ReturnValue -ne 0 -or $owner.Sid -ne (Get-CurrentUserSid)) {
+    throw "The listener on port $Port belongs to another or unknown Windows user. This helper will not stop it."
+  }
+  if ([System.IO.Path]::GetFileName($process.ExecutablePath) -ine "node.exe") {
+    throw "The listener on port $Port is not a recognized DSH Node process. This helper will not stop it."
+  }
+  $command = [regex]::Match($process.CommandLine, '^\s*(?:"(?<node>[^"\r\n]+)"|(?<node>[^\s"]+))\s+(?:"(?<entry>[^"\r\n]+)"|(?<entry>[^\s"]+))(?<args>.*)$')
+  if (-not $command.Success) { throw "The DSH command could not be safely identified. Close DSH yourself before updating." }
+  $nodePath = [System.IO.Path]::GetFullPath($command.Groups['node'].Value)
+  $entryPath = [System.IO.Path]::GetFullPath($command.Groups['entry'].Value)
+  $userRoot = [System.IO.Path]::GetFullPath($env:USERPROFILE).TrimEnd('\') + '\'
+  if ($nodePath -ine $process.ExecutablePath -or
+      -not $entryPath.StartsWith($userRoot, [System.StringComparison]::OrdinalIgnoreCase) -or
+      $entryPath -notmatch '(?i)[\\/]node_modules[\\/]@deepseek-ai[\\/]dsh[\\/]lib[\\/]bin\.js$') {
+    throw "The listener is not a recognized user-local DSH launcher. Close it yourself before updating."
+  }
+  $packagePath = Join-Path (Split-Path (Split-Path $entryPath -Parent) -Parent) "package.json"
+  $runtime = Get-Content -Raw -LiteralPath $packagePath | ConvertFrom-Json
+  if ($runtime.name -cne "@deepseek-ai/dsh" -or $runtime.bin.dsh -cne "lib/bin.js") {
+    throw "The listener's launcher is not the DSH runtime package. This helper will not stop it."
+  }
+  # Accept only the launch forms emitted by this installer; unknown overlays or
+  # arguments require the owner to close the process manually.
+  $arguments = $command.Groups['args'].Value.Trim()
+  if ($arguments -match '["\r\n]') { throw "The DSH launch arguments are unrecognized. Close it yourself before updating." }
+  $tokens = @($arguments -split '\s+' | Where-Object { $_ })
+  $runningProfile = "web"
+  $runningPort = 3080
+  $seen = @{}
+  $start = 0
+  if ($tokens.Count -gt 0 -and -not $tokens[0].StartsWith('--')) {
+    $runningProfile = $tokens[0]
+    $start = 1
+    $seen['--profile'] = $true
+  }
+  for ($index = $start; $index -lt $tokens.Count; $index++) {
+    $flag = $tokens[$index]
+    if ($seen.ContainsKey($flag)) { throw "The DSH launch arguments are ambiguous. Close it yourself before updating." }
+    $seen[$flag] = $true
+    switch -CaseSensitive ($flag) {
+      '--no-open' { }
+      '--profile' {
+        if (++$index -ge $tokens.Count) { throw "The DSH profile argument is missing." }
+        $runningProfile = $tokens[$index]
+      }
+      '--port' {
+        if (++$index -ge $tokens.Count -or $tokens[$index] -notmatch '^\d{1,5}$') { throw "The DSH port argument is unrecognized." }
+        $runningPort = [int]$tokens[$index]
+      }
+      '--host' {
+        if (++$index -ge $tokens.Count -or $tokens[$index] -notin @('127.0.0.1', 'localhost')) { throw "The DSH host argument is unrecognized." }
+      }
+      default { throw "The DSH launch arguments are unrecognized. Close it yourself before updating." }
+    }
+  }
+  if ($runningProfile -cne $ProfileName -or $runningPort -ne $Port) {
+    throw "The listener uses a different DSH profile or port. This helper will not stop it."
+  }
+  [pscustomobject]@{
+    ProcessId = $ListenerId
+    CreationDate = $process.CreationDate
+    CommandLine = $process.CommandLine
+    ExecutablePath = $process.ExecutablePath
+    OwnerSid = $owner.Sid
+  }
+}
+
+function Confirm-IdleDshUpdate {
+  $listenerIds = @(Get-LocalListenerIds)
+  if ($listenerIds.Count -eq 0) {
+    if (Test-LocalDsh) { throw "A local listener could not be identified. Close it yourself before updating." }
+    return $true
+  }
+  $identities = @($listenerIds | ForEach-Object { Get-DshListenerIdentity $_ })
+  Write-Host ""
+  Write-Host "DSH is open on port $Port (profile $ProfileName). Finish active tasks first."
+  Write-Host "This helper can close the recognized DSH process before updating. It cannot tell whether your tasks are idle."
+  $answer = Read-Host "When DSH is idle, type YES to stop it and continue the update"
+  if ($answer -cne "YES") { return $false }
+  $confirmedIds = @(Get-LocalListenerIds)
+  if (($confirmedIds -join ',') -cne ($listenerIds -join ',')) {
+    throw "The local listener changed while confirmation was pending. No process was stopped; run this helper again."
+  }
+  # Revalidate every listener before stopping any, then revalidate each PID again
+  # immediately before its stop to refuse a reused PID or changed command.
+  foreach ($identity in $identities) {
+    $fresh = Get-DshListenerIdentity $identity.ProcessId
+    if ($fresh.CreationDate -ne $identity.CreationDate -or $fresh.CommandLine -cne $identity.CommandLine -or
+        $fresh.ExecutablePath -ine $identity.ExecutablePath -or $fresh.OwnerSid -ne $identity.OwnerSid) {
+      throw "The DSH process changed while confirmation was pending. No process was stopped; run this helper again."
+    }
+  }
+  foreach ($identity in $identities) {
+    $fresh = Get-DshListenerIdentity $identity.ProcessId
+    if ($fresh.CreationDate -ne $identity.CreationDate -or $fresh.CommandLine -cne $identity.CommandLine -or
+        $fresh.ExecutablePath -ine $identity.ExecutablePath -or $fresh.OwnerSid -ne $identity.OwnerSid) {
+      throw "The DSH process changed before shutdown. No software or profile changes were made."
+    }
+    Stop-Process -Id $identity.ProcessId -ErrorAction Stop
+  }
+  for ($attempt = 0; $attempt -lt 25; $attempt++) {
+    if (@(Get-LocalListenerIds).Count -eq 0 -and -not (Test-LocalDsh)) { return $true }
+    Start-Sleep -Milliseconds 200
+  }
+  throw "The DSH port is still occupied. No software or profile changes were made."
 }
 
 function Install-ImmutableDshPlugin(
@@ -149,10 +273,10 @@ try {
       exit 0
     }
 
-    # Do not replace the global runtime or profile files while a DSH task may
-    # be using them. Defer the complete update until the user closes DSH.
-    if (Test-LocalDsh) {
-      throw "DSH is already open, so this installer will not interrupt it or change software/profile files. Finish active work, close DSH, then run this installer again to install the update."
+    # Confirm idle shutdown before login, global installs, or profile mutations.
+    if (-not (Confirm-IdleDshUpdate)) {
+      Write-Host "No software or profile changes were made. Run this helper again when DSH is idle."
+      exit 0
     }
 
     # DSH plugin installation relies on pnpm overrides and build-script

@@ -22,7 +22,7 @@ test("macOS and Linux installers provide a non-installing download check", async
   }
 });
 
-test("Windows preview packages an immutable plugin and never stops live DSH", async () => {
+test("Windows preview packages immutable plugins and requires explicit idle shutdown confirmation", async () => {
   const source = await read("scripts/Install DSH Vibeify.ps1");
   assert.match(source, /\[switch\]\$Check/);
   assert.match(source, /Get-FileHash -Algorithm SHA256/);
@@ -30,8 +30,10 @@ test("Windows preview packages an immutable plugin and never stops live DSH", as
   assert.match(source, /dsh-visuals/);
   assert.match(source, /dsh-social-desk/);
   assert.match(source, /Settings > Images/);
-  assert.match(source, /DSH is already open, so this installer will not interrupt it/);
-  assert.doesNotMatch(source, /Stop-Process|taskkill|TerminateProcess/);
+  assert.match(source, /Finish active tasks first/);
+  assert.match(source, /\$answer -cne "YES"/);
+  assert.match(source, /Stop-Process -Id \$identity\.ProcessId -ErrorAction Stop/);
+  assert.doesNotMatch(source, /Stop-Process[^\r\n]+-Name|taskkill|TerminateProcess/);
 });
 
 test("support report is deliberately metadata-only", async () => {

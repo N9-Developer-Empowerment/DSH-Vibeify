@@ -6004,12 +6004,12 @@ window.__ModuleLoader__.load({
 					error.length > 0 ? React.createElement("p", { className: "dsh-vibeify-updates-error", role: "alert" }, error) : null,
 					React.createElement("div", { className: "dsh-vibeify-update-actions" },
 						React.createElement("button", { type: "button", disabled: checking, onClick: () => check(true) }, checking ? "Checking…" : "Check again"),
-						report === null ? null : React.createElement("a", {
+						React.createElement("a", {
 							className: "dsh-vibeify-update-download",
-							href: report.updater.url,
+							href: report?.updater?.url || "https://dsh-vibeify.ezzye.chatgpt.site/#update",
 							target: "_blank",
 							rel: "noreferrer",
-						}, report.updater.label || "Open updater guide"),
+						}, report?.updater?.label || "Open update guide"),
 					),
 					React.createElement("p", { className: "dsh-vibeify-updates-note" }, report?.updater?.note || "Finish active tasks before activating an update."),
 				);

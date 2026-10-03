@@ -121,7 +121,7 @@ test("new presentation retains the existing DSH safety controls", () => {
   assert.match(client, /Model and thinking effort/);
   assert.match(client, /Updates/);
   assert.match(client, /Check again/);
-  assert.match(client, /report\.updater\.label/);
+  assert.match(client, /report\?\.updater\?\.label/);
   assert.match(client, /Finish active tasks before activating an update/);
   assert.match(client, /\/vibeify-updates/);
   assert.match(client, /Queue/);

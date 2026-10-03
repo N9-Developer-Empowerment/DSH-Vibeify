@@ -1,14 +1,11 @@
 import { registerLocalRpc } from "./local-rpc.js";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const execFileAsync = promisify(execFile);
+import { readFile, realpath } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 12_000;
 const UPDATE_CHANNEL = "/vibeify-updates";
-const INSTALLER_GUIDE_URL = "https://github.com/N9-Developer-Empowerment/DSH-Vibeify/blob/main/docs/FAQ.md";
-const MAC_INSTALLER_URL = "https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip";
+const INSTALLER_GUIDE_URL = "https://dsh-vibeify.ezzye.chatgpt.site/#update";
 const SOURCES = Object.freeze({
   dsh: "https://registry.npmjs.org/@deepseek-ai%2Fdsh/latest",
   codex: "https://registry.npmjs.org/@openai%2Fcodex/latest",
@@ -95,38 +92,15 @@ function qualifiedComponent(current, latest, installable) {
 }
 
 export function updaterForPlatform(platform = process.platform) {
-  if (platform === "darwin") {
-    return {
-      url: MAC_INSTALLER_URL,
-      label: "Download verified macOS updater",
-      note: "The Mac updater checks the public source again, installs immutable packages, and asks before stopping an idle DSH, then opens the authenticated page. Finish active tasks first.",
-      status: "verified",
-      restartRequiresIdleConfirmation: true,
-    };
-  }
-  if (platform === "win32") {
-    return {
-      url: INSTALLER_GUIDE_URL,
-      label: "Open Windows installer preview",
-      note: "The Windows downloader is still a preview. It checks the public source and installs immutable packages after you close DSH. It stops before changing files while DSH is running.",
-      status: "preview",
-      restartRequiresIdleConfirmation: true,
-    };
-  }
-  if (platform === "linux") {
-    return {
-      url: INSTALLER_GUIDE_URL,
-      label: "Open Linux installer preview",
-      note: "The Linux downloader is still a preview. It checks the public source and installs immutable packages after you close DSH. It stops before changing files while DSH is running.",
-      status: "preview",
-      restartRequiresIdleConfirmation: true,
-    };
-  }
+  const names = { darwin: "macOS", win32: "Windows", linux: "Linux" };
+  const name = Object.hasOwn(names, platform) ? names[platform] : undefined;
   return {
     url: INSTALLER_GUIDE_URL,
-    label: "Open platform installation guide",
-    note: "No friendly installer has been qualified for this platform. The guide keeps unsupported systems clearly separated from verified downloads.",
-    status: "unsupported",
+    label: name === undefined ? "Open platform update guide" : `Open ${name} update guide`,
+    note: name === undefined
+      ? "The public guide explains supported platforms and their terminal update routes. Finish active tasks first and close DSH before updating."
+      : `The public guide explains the ${name} terminal update route. Finish active tasks first and close DSH before updating.`,
+    status: name === undefined ? "unsupported" : "guide",
     restartRequiresIdleConfirmation: true,
   };
 }
@@ -145,17 +119,35 @@ async function networkJson(url, signal) {
   return value;
 }
 
-export async function installedDshVersion() {
-  const { stdout } = await execFileAsync("dsh", ["--version"], {
-    encoding: "utf8",
-    timeout: REQUEST_TIMEOUT_MS,
-  });
-  const candidates = stdout.trim().split(/\s+/).reverse();
-  for (const candidate of candidates) {
-    const version = exactVersion(candidate);
-    if (version !== undefined) return version;
+export async function installedDshVersion({ entrypoint = process.argv[1] } = {}) {
+  // Resolve the running launcher's physical package, not whichever `dsh` happens
+  // to be on PATH. npm's Windows launcher is a .cmd file; it need not be executed
+  // to discover the version of the DSH process already serving this plugin.
+  let directory;
+  try {
+    directory = dirname(await realpath(entrypoint));
+  } catch {
+    throw new Error("Could not identify the running DSH package");
   }
-  throw new Error("DSH did not report a semantic version");
+  while (true) {
+    let manifest;
+    try {
+      manifest = JSON.parse(await readFile(join(directory, "package.json"), "utf8"));
+    } catch (error) {
+      if (error.code !== "ENOENT" && error.code !== "ENOTDIR") {
+        throw new Error("Could not read the running DSH package", { cause: error });
+      }
+    }
+    if (manifest?.name === "@deepseek-ai/dsh") {
+      const version = exactVersion(manifest.version);
+      if (version === undefined) throw new Error("The running DSH package has no semantic version");
+      return version;
+    }
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  throw new Error("Could not identify the running DSH package");
 }
 
 async function settledValue(promise, select) {

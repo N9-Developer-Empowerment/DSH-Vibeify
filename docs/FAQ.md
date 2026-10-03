@@ -34,15 +34,21 @@ On Linux:
 ./install-dsh-vibeify-linux.sh --check
 ```
 
-## The Mac says it cannot open the installer
+## The Mac says it cannot verify the installer
 
-The community installer is readable source code, but it is not Apple-notarized. First verify that it came from the [DSH Vibeify information site](https://dsh-vibeify.ezzye.chatgpt.site/) or the [public GitHub project](https://github.com/N9-Developer-Empowerment/DSH-Vibeify). In Finder, Control-click **Install DSH Vibeify.command**, choose **Open**, read the warning, and choose **Open** only if the source is correct.
+The downloaded community `.command` file is unsigned and not Apple-notarized. Package/source checks do not make it Apple-trusted. Use the [update page](https://dsh-vibeify.ezzye.chatgpt.site/#update): choose macOS, copy the displayed command, open Terminal and paste it. The command downloads the published installer, verifies its SHA-256 before running it with Bash, and asks you to confirm idle work before stopping DSH. It does not remove quarantine or disable Gatekeeper.
 
-Do not disable macOS security globally.
+If you prefer the downloaded file, verify its source and follow [Apple's instructions](https://support.apple.com/102445) in **System Settings → Privacy & Security** for that specific file. Only approve it after reviewing the named installer. If the warning says malware was detected, stop and contact support.
 
-## Windows blocks the PowerShell file
+## Windows blocks the installer
 
-The preview installer is not code-signed. Verify the download against the published SHA-256 file before opening it. Extract the ZIP, right-click **Install DSH Vibeify.ps1**, choose **Properties**, select **Unblock** when that option is present, then run it from PowerShell. Do not change the machine-wide execution policy and do not paste an internet command directly into an administrator terminal.
+Use the [update page](https://dsh-vibeify.ezzye.chatgpt.site/#update): choose Windows, copy its command into a normal PowerShell window, and read the prompts. It downloads and checks the published ZIP before opening the existing installer launcher. It uses the current user's installation rather than requesting an administrator account. Windows or a managed device can still require approval of an unsigned download; no automatic updater can promise to overrule an organisation's policy.
+
+The existing CMD launcher starts a separate PowerShell process with its installer-only execution policy. It does not change the machine-wide policy or disable SmartScreen/Defender. If a Windows security warning appears, review the named file and the public source before choosing whether to allow it. Do not disable machine-wide protection. Managed devices may require your administrator's approval.
+
+## Windows says updates could not be checked
+
+Vibeify 0.16.4/0.16.5 tried to run `dsh --version` as a subprocess. Windows command wrappers and launcher-specific PATHs can make that fail even while DSH works. Vibeify 0.16.6 reads the running DSH package instead. Use the public update page once to install the fix; thereafter **Settings → Updates → Check again** works without launching a command wrapper. The update guide remains available even if a check fails.
 
 ## Linux says “permission denied”
 
@@ -61,7 +67,7 @@ Use the [official Node.js download page](https://nodejs.org/en/download). DSH cu
 
 ## DSH was updated but the page still looks old
 
-An already-running DSH process keeps the bundle it loaded at launch. The Windows and Linux installers stop before changing global software or profile files while DSH is running. Finish the current Chat task, close DSH, and run the installer again; it will open the verified local page. On macOS, the installer asks you to confirm idle work before stopping DSH and changing files; declining leaves the installation unchanged. After the update it opens the authenticated local page without printing its access token.
+An already-running DSH process keeps the bundle it loaded at launch. On Windows and macOS, the installer asks you to confirm idle work before stopping an identified DSH process and changing files; declining leaves the installation unchanged. Finish the current Chat task before confirming. Linux requires you to close DSH before updating. After the update it opens the authenticated local page without printing its access token.
 
 ## The page at 127.0.0.1:3080 does not open
 

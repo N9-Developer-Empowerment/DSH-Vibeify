@@ -6,10 +6,10 @@ import test from "node:test";
 const root = path.resolve(import.meta.dirname, "..");
 const read = (relativePath) => readFile(path.join(root, relativePath), "utf8");
 
-test("Windows installer defers before login, global install, or profile edits when DSH is listening", async () => {
+test("Windows installer confirms idle shutdown before login, global install, or profile edits", async () => {
   const source = await read("scripts/Install DSH Vibeify.ps1");
   const check = source.indexOf("if ($Check)");
-  const guard = source.indexOf("if (Test-LocalDsh)", check);
+  const guard = source.indexOf("if (-not (Confirm-IdleDshUpdate))", check);
   const providerPrompt = source.indexOf("if (-not $Provider)", guard);
   const login = source.indexOf("codex login", providerPrompt);
   const firstGlobalMutation = source.indexOf("npm install --global", providerPrompt);
@@ -21,7 +21,8 @@ test("Windows installer defers before login, global install, or profile edits wh
   assert.ok(firstGlobalMutation > guard);
   assert.ok(firstProfileMutation > guard);
   assert.match(source, /TcpClient/);
-  assert.match(source, /change software\/profile files/);
+  assert.match(source, /type YES/i);
+  assert.match(source, /No software or profile changes were made/);
 });
 
 test("Linux installer defers before provider setup or runtime/profile changes when DSH is listening", async () => {
@@ -54,4 +55,25 @@ test("Windows and Linux open the token-aware local DSH URL only after its readin
   assert.match(linux, /dsh-web-readiness\.mjs" url/);
   assert.match(linux, /xdg-open "\$authenticated_url"/);
   assert.doesNotMatch(linux, /xdg-open "http:\/\/127\.0\.0\.1:/);
+});
+
+
+test("Windows shutdown guard validates listener identity and rechecks it after explicit confirmation", async () => {
+  const source = await read("scripts/Install DSH Vibeify.ps1");
+  const guard = source.slice(source.indexOf("function Confirm-IdleDshUpdate"), source.indexOf("function Install-ImmutableDshPlugin"));
+  assert.match(source, /Get-NetTCPConnection -State Listen/);
+  assert.match(source, /Win32_Process/);
+  assert.match(source, /GetOwnerSid/);
+  assert.match(source, /@deepseek-ai[\\/]+dsh/);
+  assert.match(source, /node\.exe/);
+  assert.match(source, /CreationDate/);
+  assert.match(source, /ProfileName/);
+  assert.match(source, /LocalPort -eq \$Port/);
+  const confirm = guard.indexOf('Read-Host');
+  const decline = guard.indexOf('$answer -cne "YES"', confirm);
+  const recheck = guard.indexOf('Get-LocalListenerIds', decline);
+  const identityRecheck = guard.indexOf('Get-DshListenerIdentity', recheck);
+  const stop = guard.indexOf('Stop-Process -Id', identityRecheck);
+  assert.ok(confirm > 0 && decline > confirm && recheck > decline && identityRecheck > recheck && stop > identityRecheck);
+  assert.doesNotMatch(source, /Stop-Process[^\r\n]+-Name|taskkill|ExecutionPolicy.*Bypass/i);
 });

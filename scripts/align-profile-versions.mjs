@@ -69,8 +69,14 @@ if (Array.isArray(bundles) && bundles.includes("@deepseek-ai/dsh-web-app")) {
     // Use the upstream manifests as the single list of loader-visible runtime
     // entries. With pnpm, transitive dependencies alone are not root entries:
     // an absent entry falls back to the CLI copy even when bundles are local.
-    for (const bundle of ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]) {
-      const manifest = JSON.parse(await readFile(require.resolve(`${bundle}/package.json`), "utf8"));
+    // Walk qualified DSH dependencies and peers transitively because a package
+    // such as dsh-agent may itself expose loader-visible scope peers.
+    const visitedRuntimePackages = new Set();
+    const alignRuntimePackage = async (packageName) => {
+      if (visitedRuntimePackages.has(packageName)) return;
+      visitedRuntimePackages.add(packageName);
+      const manifestPath = require.resolve(`${packageName}/package.json`);
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
       for (const [name, version] of Object.entries({ ...manifest.dependencies, ...manifest.peerDependencies })) {
         if (!name.startsWith("@deepseek-ai/dsh-") || version !== qualified) continue;
         const existing = profile.dependencies[name];
@@ -81,7 +87,15 @@ if (Array.isArray(bundles) && bundles.includes("@deepseek-ai/dsh-web-app")) {
           profile.dependencies[name] = version;
           changes += 1;
         }
+        await alignRuntimePackage(name);
       }
+    };
+    for (const packageName of [
+      "@deepseek-ai/dsh-base",
+      "@deepseek-ai/dsh-web-app",
+      "@deepseek-ai/dsh-agent-preset-registry",
+    ]) {
+      await alignRuntimePackage(packageName);
     }
   }
 }

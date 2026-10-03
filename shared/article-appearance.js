@@ -1,9 +1,24 @@
 /** Fixed presentation catalogue. No CSS, URLs or editorial settings from a reader. */
 // A null note keeps the surface's default subtitle; an empty note omits it.
 export const WEBSITE_LOOKS = Object.freeze({
-  vibe: Object.freeze({ label: "VIBE magazine", note: null, defaultPalette: "midnight" }),
-  "bbc-news": Object.freeze({ label: "BBC News inspired", note: "", defaultPalette: "news" }),
+  vibe: Object.freeze({
+    label: "VIBE magazine",
+    note: null,
+    defaultPalette: "midnight",
+    writingVoice: "Write like a playful, sharp gossip magazine: warm, witty and conversational, with human detail, lively headlines and sourced public gossip where it adds texture. Keep factual claims and allegations clearly attributed; never invent scandal, motives, quotes or private relationships.",
+  }),
+  "bbc-news": Object.freeze({
+    label: "BBC News inspired",
+    note: "",
+    defaultPalette: "news",
+    writingVoice: "Write as restrained British broadcast-news parody: clear, measured and economical, with neutral headlines, facts before colour, careful attribution and dry understatement used sparingly. Avoid breathless gossip language, clickbait and invented BBC branding or endorsement.",
+  }),
 });
+
+export function publicationWritingVoice(look) {
+  const id = Object.hasOwn(WEBSITE_LOOKS, look) ? look : "vibe";
+  return Object.freeze({ id, label: WEBSITE_LOOKS[id].label, direction: WEBSITE_LOOKS[id].writingVoice });
+}
 
 export const MAGAZINE_PALETTES = Object.freeze({
   midnight: Object.freeze({ label: "Midnight", scheme: "dark", colors: Object.freeze({ background: "#080609", surface: "#19121b", ink: "#fffafc", muted: "#c7bac4", accent: "#ff9aba", border: "#58424f" }) }),

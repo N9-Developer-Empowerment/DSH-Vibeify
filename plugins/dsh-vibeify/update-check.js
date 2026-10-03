@@ -75,7 +75,7 @@ function component(current, latest) {
   };
 }
 
-function codexComponent(current, latest, installable) {
+function qualifiedComponent(current, latest, installable) {
   if (current === null) {
     return { current: null, latest: null, installable: null, state: "not-included" };
   }
@@ -99,7 +99,7 @@ export function updaterForPlatform(platform = process.platform) {
     return {
       url: MAC_INSTALLER_URL,
       label: "Download verified macOS updater",
-      note: "The Mac updater checks the public source again, installs immutable packages, and asks before a detached restart. Finish active tasks first.",
+      note: "The Mac updater checks the public source again, installs immutable packages, and asks before stopping an idle DSH, then opens the authenticated page. Finish active tasks first.",
       status: "verified",
       restartRequiresIdleConfirmation: true,
     };
@@ -108,7 +108,7 @@ export function updaterForPlatform(platform = process.platform) {
     return {
       url: INSTALLER_GUIDE_URL,
       label: "Open Windows installer preview",
-      note: "The Windows downloader is still a preview. It checks the public source and stages an immutable update, but never stops an open DSH process.",
+      note: "The Windows downloader is still a preview. It checks the public source and installs immutable packages after you close DSH. It stops before changing files while DSH is running.",
       status: "preview",
       restartRequiresIdleConfirmation: true,
     };
@@ -117,7 +117,7 @@ export function updaterForPlatform(platform = process.platform) {
     return {
       url: INSTALLER_GUIDE_URL,
       label: "Open Linux installer preview",
-      note: "The Linux downloader is still a preview. It checks the public source and stages an immutable update, but never stops an open DSH process.",
+      note: "The Linux downloader is still a preview. It checks the public source and installs immutable packages after you close DSH. It stops before changing files while DSH is running.",
       status: "preview",
       restartRequiresIdleConfirmation: true,
     };
@@ -193,16 +193,17 @@ export function createUpdateChecker({
         ? Promise.resolve({})
         : fetchJson(SOURCES.codex, signal);
       const vibeifyRequest = fetchJson(SOURCES.vibeify, signal);
-      const [dshLatest, codexLatest, vibeifyLatest, installableCodex] = await Promise.all([
+      const [dshLatest, codexLatest, vibeifyLatest, installableCodex, installableDsh] = await Promise.all([
         settledValue(dshRequest, (value) => value.version),
         settledValue(codexRequest, (value) => value.version),
         settledValue(vibeifyRequest, (value) => value.version),
         settledValue(vibeifyRequest, (value) => value.dependencies?.["@openai/codex"]),
+        settledValue(vibeifyRequest, (value) => value.peerDependencies?.["@deepseek-ai/dsh-agent"]),
       ]);
       const components = {
-        dsh: component(dshCurrent, dshLatest),
+        dsh: qualifiedComponent(dshCurrent, dshLatest, installableDsh),
         vibeify: component(current.vibeify, vibeifyLatest),
-        codex: codexComponent(current.codex, codexLatest, installableCodex),
+        codex: qualifiedComponent(current.codex, codexLatest, installableCodex),
       };
       cached = {
         checkedAt: checkedAt.toISOString(),

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildContinuousStreamPrompt } from "./client-src/experience/stream-recipe.js";
+import { buildArticleRestylePrompt, buildContinuousStreamPrompt } from "./client-src/experience/stream-recipe.js";
 
 test("the generated edition requires complete copy or a useful verified link in every panel", () => {
   const prompt = buildContinuousStreamPrompt({ runId: "refill-links" });
@@ -54,4 +54,34 @@ test("a magazine update follows the editor's direction with sourced human storie
   assert.match(prompt, /Rework or omit generic explainers/);
   assert.match(prompt, /Focus on railway workers/);
   assert.match(prompt, /Keep exact custom wording with the Codex lead/i);
+});
+
+test("website look selects the writing voice for future generated pages", () => {
+  const vibe = buildContinuousStreamPrompt({ runId: "refill-vibe-voice" });
+  const news = buildContinuousStreamPrompt({ runId: "refill-news-voice", websiteLook: "bbc-news" });
+  assert.match(vibe, /playful, sharp gossip magazine/i);
+  assert.match(vibe, /sourced public gossip/i);
+  assert.match(news, /restrained British broadcast-news parody/i);
+  assert.match(news, /facts before colour/i);
+  assert.match(news, /does not authorise rewriting.*existing article or private Chat content/i);
+});
+
+test("an explicit public-article rewrite preserves provenance and uses the selected look voice", () => {
+  const prompt = buildArticleRestylePrompt({
+    runId: "restyle-public",
+    websiteLook: "bbc-news",
+    chunk: {
+      source: "fresh-stream",
+      kind: "article",
+      title: "A lively headline",
+      markdown: "![Subject](https://upload.wikimedia.org/example.jpg)\n[Photograph · Example · CC BY 4.0](https://commons.wikimedia.org/example)\n\nA sourced fact. [Read more](https://example.com/story).",
+    },
+  });
+  assert.ok(prompt.length >= 1800);
+  assert.match(prompt, /restrained British broadcast-news parody/i);
+  assert.match(prompt, /Keep the original article untouched/i);
+  assert.match(prompt, /Retain every useful content destination, public image URL, creator\/source link, licence label and media link/i);
+  assert.match(prompt, /https:\/\/commons\.wikimedia\.org\/example/);
+  assert.match(prompt, /<vibe-chunk id="restyle-public-styled"/);
+  assert.throws(() => buildArticleRestylePrompt({ runId: "private", chunk: { source: "chat-directed", kind: "article", title: "Private", markdown: "Do not send" } }), /only public Vibe articles/i);
 });

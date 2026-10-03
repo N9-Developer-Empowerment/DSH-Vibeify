@@ -47,6 +47,18 @@ test("changed editor direction hides and purges stale or untagged reserve pages"
   assert.doesNotMatch(local.getItem("dsh-vibeify.reserve.v1"), /People behind/);
 });
 
+test("changed website voice hides pages prepared for the previous look", () => {
+  const local = storage();
+  const profile = createEditorialProfile({ tribes: ["global-curious"] });
+  appendReservePages(local, [
+    { id: "vibe-copy", kind: "article", title: "Playful", markdown: "Magazine copy", profileKey: editorialProfileKey(profile, "vibe") },
+    { id: "news-copy", kind: "article", title: "Measured", markdown: "News copy", profileKey: editorialProfileKey(profile, "bbc-news") },
+  ], "approved", NOW);
+  assert.deepEqual(getEditorialReserve(local, NOW, profile, "bbc-news").approved.map(({ id }) => id), ["news-copy"]);
+  assert.deepEqual(consumeApprovedPages(local, 4, NOW, profile, "bbc-news").map(({ id }) => id), ["news-copy"]);
+  assert.equal(getEditorialReserve(local, NOW).approved.length, 0);
+});
+
 test("the hidden reserve rejects preference questionnaires but keeps ordinary question-led articles", () => {
   const local = storage();
   const appended = appendReservePages(local, [

@@ -32,11 +32,16 @@ function Assert-Native([string]$Step) {
 }
 
 function Test-LocalDsh {
+  $client = New-Object System.Net.Sockets.TcpClient
   try {
-    $response = Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$Port/" -TimeoutSec 2
-    return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+    $connect = $client.BeginConnect("127.0.0.1", $Port, $null, $null)
+    if (-not $connect.AsyncWaitHandle.WaitOne(500)) { return $false }
+    $client.EndConnect($connect)
+    return $true
   } catch {
     return $false
+  } finally {
+    $client.Close()
   }
 }
 
@@ -139,6 +144,12 @@ try {
       exit 0
     }
 
+    # Do not replace the global runtime or profile files while a DSH task may
+    # be using them. Defer the complete update until the user closes DSH.
+    if (Test-LocalDsh) {
+      throw "DSH is already open, so this installer will not interrupt it or change software/profile files. Finish active work, close DSH, then run this installer again to install the update."
+    }
+
     if (-not $Provider) {
       Write-Host ""
       Write-Host "Choose how you want the AI side to work:"
@@ -220,7 +231,7 @@ try {
     Assert-Native "Aligning the profile runtime"
     & dsh plugin --profile $ProfileName install
     Assert-Native "Installing the aligned runtime"
-    & node (Join-Path $ProjectDirectory "scripts\check-profile-runtime.mjs") $ProfilePackage
+    & node (Join-Path $ProjectDirectory "scripts\check-profile-runtime.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Checking runtime scope identity"
     $ConfigDump = (& dsh --profile $ProfileName --dump-config | Out-String)
     Assert-Native "Checking the composed DSH profile"
@@ -242,23 +253,25 @@ try {
       throw "DeepSeek mode was requested but the Codex provider still owns the profile."
     }
 
-    if (Test-LocalDsh) {
-      Write-Host ""
-      Write-Host "Vibeify is staged. DSH is already open, so this installer will not interrupt it. Finish active work, close DSH, then run this installer again to activate the update."
-    } else {
-      & node (Join-Path $ProjectDirectory "scripts\start-dsh.mjs") --profile $ProfileName --host 127.0.0.1 --port $Port
-      Assert-Native "Starting DSH"
-      foreach ($attempt in 1..40) {
-        if (Test-LocalDsh) { break }
-        Start-Sleep -Seconds 1
-      }
-      if (-not (Test-LocalDsh)) {
-        throw "DSH was installed but did not become ready. Use the privacy-safe support report in the FAQ; do not share the whole log."
-      }
-      Start-Process "http://127.0.0.1:$Port/"
-      Write-Host ""
-      Write-Host "DSH Vibeify is ready at http://127.0.0.1:$Port/."
+    & node (Join-Path $ProjectDirectory "scripts\start-dsh.mjs") --profile $ProfileName --host 127.0.0.1 --port $Port
+    Assert-Native "Starting DSH"
+    $ServerLog = Join-Path $DshHome "logs\dsh-web.log"
+    $ReadinessScript = Join-Path $ProjectDirectory "scripts\dsh-web-readiness.mjs"
+    $Ready = $false
+    foreach ($attempt in 1..40) {
+      & node $ReadinessScript check $Port $ServerLog
+      if ($LASTEXITCODE -eq 0) { $Ready = $true; break }
+      Start-Sleep -Seconds 1
     }
+    if (-not $Ready) {
+      throw "DSH was installed but did not become ready. Use the privacy-safe support report in the FAQ; do not share the whole log."
+    }
+    $AuthenticatedUrl = (& node $ReadinessScript url $Port $ServerLog | Out-String).Trim()
+    Assert-Native "Reading the local DSH page address"
+    if (-not $AuthenticatedUrl) { throw "The local DSH page address could not be read." }
+    Start-Process $AuthenticatedUrl
+    Write-Host ""
+    Write-Host "DSH Vibeify is ready at http://127.0.0.1:$Port/."
 
     if ($Provider -in @("deepseek", "both")) {
       Write-Host "In DSH, open Settings > Models to connect DeepSeek."

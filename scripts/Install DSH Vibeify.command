@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPOSITORY_ARCHIVE="https://github.com/N9-Developer-Empowerment/DSH-Vibeify/archive/refs/heads/main.zip"
 FAQ_URL="https://github.com/N9-Developer-Empowerment/DSH-Vibeify/blob/main/docs/FAQ.md"
-PROFILE="web"
+PROFILE="${DSH_PROFILE:-web}"
 PORT="${DSH_PORT:-3080}"
 check_only=false
 if [[ "${1:-}" == "--check" ]]; then
@@ -28,7 +28,50 @@ fail() {
   pause_before_close
   exit 1
 }
-
+list_listener_pids() {
+  lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | awk 'NF && !seen[$0]++'
+}
+validate_dsh_listener() {
+  local pid process_command
+  local -a listener_pids=()
+  while IFS= read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && listener_pids+=("$pid")
+  done < <(list_listener_pids)
+  if (( ${#listener_pids[@]} == 0 )); then return 0; fi
+  if (( ${#listener_pids[@]} != 1 )); then
+    fail "More than one process is listening on port $PORT. Nothing was changed; close DSH and try again."
+  fi
+  pid="${listener_pids[0]}"
+  process_command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  if [[ ! "$process_command" =~ (^|[[:space:]/])dsh([[:space:]]|$) ]] \
+    || [[ ! "$process_command" =~ (--profile[=[:space:]]|[[:space:]])$PROFILE([[:space:]]|$) && ! "$process_command" =~ [[:space:]]web([[:space:]]|$) ]]; then
+    fail "The listener on port $PORT is not the expected DSH web process. Nothing was changed."
+  fi
+  printf '%s\n' "$pid"
+}
+stop_confirmed_dsh() {
+  local expected_pid="$1"
+  local pid process_command
+  local -a listener_pids=()
+  while IFS= read -r pid; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && listener_pids+=("$pid")
+  done < <(list_listener_pids)
+  if (( ${#listener_pids[@]} != 1 )) || [[ "${listener_pids[0]:-}" != "$expected_pid" ]]; then
+    fail "The DSH listener changed after confirmation. Nothing was stopped or installed."
+  fi
+  pid="$expected_pid"
+  process_command="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+  if [[ ! "$process_command" =~ (^|[[:space:]/])dsh([[:space:]]|$) ]] \
+    || [[ ! "$process_command" =~ (--profile[=[:space:]]|[[:space:]])$PROFILE([[:space:]]|$) && ! "$process_command" =~ [[:space:]]web([[:space:]]|$) ]]; then
+    fail "The DSH process changed after confirmation. Nothing was stopped or installed."
+  fi
+  /bin/kill -TERM "$pid" 2>/dev/null || fail "The confirmed DSH process could not be stopped safely."
+  for _ in $(seq 1 60); do
+    if ! kill -0 "$pid" 2>/dev/null; then return 0; fi
+    sleep 0.25
+  done
+  fail "The confirmed DSH process did not stop after SIGTERM. No update was installed."
+}
 clear
 printf '╭──────────────────────────────────────────────╮\n'
 printf '│          Install or update DSH Vibeify       │\n'
@@ -81,13 +124,37 @@ if [[ "$check_only" == true ]]; then
   exit 0
 fi
 
+if ! command -v lsof >/dev/null 2>&1; then
+  fail "lsof is needed to check whether DSH is running safely. Nothing was installed."
+fi
+if [[ ! "$PROFILE" =~ ^[A-Za-z0-9._-]+$ || ! "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
+  fail "The DSH profile or port setting is invalid. Nothing was installed."
+fi
+active_listener="$(list_listener_pids || true)"
+if [[ -n "$active_listener" ]]; then
+  active_pid="$(validate_dsh_listener)"
+  printf '\nDSH is already open. Finish any active task before continuing.\n'
+  read -r -p "When DSH is idle, type YES to stop it before installing the update: " restart_answer
+  if [[ "$restart_answer" != "YES" ]]; then
+    say "No software or profile changes were made. Run this helper again when DSH is idle."
+    pause_before_close
+    exit 0
+  fi
+  stop_confirmed_dsh "$active_pid"
+fi
+
+profile_directory="${DSH_HOME:-$HOME/.dsh}/profiles/$PROFILE"
+existing_provider="$(node -e 'const fs=require("node:fs");try{const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(p.dependencies?.["dsh-vibeify"])process.stdout.write("chatgpt");else if(p.dependencies?.["dsh-vibeify-experience"])process.stdout.write("deepseek")}catch{}' "$profile_directory/package.json")"
+default_choice="1"
+if [[ "$existing_provider" == "chatgpt" ]]; then default_choice="2"; fi
+
 printf '\nChoose how you want the AI side to work:\n'
 printf '  1. DeepSeek only — connect a DeepSeek account inside DSH\n'
 printf '  2. ChatGPT only — sign in with ChatGPT now\n'
 printf '  3. Both — Codex leads; DeepSeek handles suitable work\n'
 printf '  4. Install first and connect an account later\n'
-read -r -p "Choice [1]: " account_choice
-account_choice="${account_choice:-1}"
+read -r -p "Choice [$default_choice]: " account_choice
+account_choice="${account_choice:-$default_choice}"
 
 provider_mode="deepseek"
 if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
@@ -111,36 +178,19 @@ say "Installing or updating Vibeify..."
 say "Checking the installation without making a paid model call..."
 "$project_directory/scripts/doctor.sh" || fail "The installation completed but did not pass its non-billing checks."
 
-if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-  printf '\nDSH is already open. Finish any active task before continuing.\n'
-  read -r -p "When DSH is idle, type YES to restart it safely: " restart_answer
-  if [[ "$restart_answer" != "YES" ]]; then
-    say "The update is installed but not activated. Re-run this helper when DSH is idle."
-    pause_before_close
-    exit 0
-  fi
-  node "$project_directory/scripts/dsh-restart.mjs" queue --confirmed-idle --delay-ms 1000 --profile "$PROFILE" --port "$PORT" >/dev/null
-  for _ in $(seq 1 40); do
-    sleep 1
-    restart_state="$(node "$project_directory/scripts/dsh-restart.mjs" status 2>/dev/null || true)"
-    if [[ "$restart_state" == *'"state": "succeeded"'* ]]; then break; fi
-    if [[ "$restart_state" == *'"state": "failed"'* ]]; then fail "The safe restart check failed. Run the helper again or use the GitHub support guide."; fi
-  done
-else
-  mkdir -p "$HOME/.dsh/logs"
-  nohup env -u OPENAI_API_KEY -u OPENAI_API_KEY_PATH dsh --profile "$PROFILE" --no-open --host 127.0.0.1 --port "$PORT" \
-    </dev/null >>"$HOME/.dsh/logs/dsh-web.log" 2>&1 &
-  for _ in $(seq 1 40); do
-    if curl --silent --fail --max-time 2 "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then break; fi
-    sleep 1
-  done
+node "$project_directory/scripts/start-dsh.mjs" --profile "$PROFILE" --host 127.0.0.1 --port "$PORT" || fail "DSH could not be started."
+server_log="${DSH_HOME:-$HOME/.dsh}/logs/dsh-web.log"
+for _ in $(seq 1 40); do
+  if node "$project_directory/scripts/dsh-web-readiness.mjs" check "$PORT" "$server_log"; then break; fi
+  sleep 1
+done
+
+if ! node "$project_directory/scripts/dsh-web-readiness.mjs" check "$PORT" "$server_log"; then
+  fail "DSH was installed but did not become ready. The log is at $server_log."
 fi
 
-if ! curl --silent --fail --max-time 2 "http://127.0.0.1:$PORT/" >/dev/null 2>&1; then
-  fail "DSH was installed but did not become ready. The log is at $HOME/.dsh/logs/dsh-web.log."
-fi
-
-open "http://127.0.0.1:$PORT/"
+authenticated_url="$(node "$project_directory/scripts/dsh-web-readiness.mjs" url "$PORT" "$server_log")" || fail "The local DSH page address could not be read."
+open "$authenticated_url"
 say "DSH Vibeify is ready."
 if [[ "$account_choice" == "1" || "$account_choice" == "3" ]]; then
   printf 'In DSH, open Settings → Models to connect DeepSeek.\n'

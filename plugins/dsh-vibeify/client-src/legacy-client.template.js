@@ -268,11 +268,11 @@ window.__ModuleLoader__.load({
 		}
 
 		function updateDetail(component, kind) {
-			if (kind === "codex" && component.state === "awaiting-vibeify") {
-				return `Using ${component.current}. Codex ${component.latest} exists, but the current Vibeify release has qualified ${component.installable}; it will not be installed until the compatibility bundle is ready.`;
+			if (component.state === "awaiting-vibeify") {
+				return `Using ${component.current}. ${kind === "codex" ? "Codex" : "DSH"} ${component.latest} exists, but the current Vibeify release has qualified ${component.installable}; it will not be installed until the compatibility bundle is ready.`;
 			}
 			if (component.latest === null) return `Installed ${component.current}. The online version could not be read; nothing was changed.`;
-			if (component.state === "update-available") return `Installed ${component.current} · safe update ${kind === "codex" ? component.installable : component.latest}`;
+			if (component.state === "update-available") return `Installed ${component.current} · safe update ${component.installable || component.latest}`;
 			return `Installed ${component.current} · latest ${component.latest}`;
 		}
 
@@ -920,7 +920,7 @@ window.__ModuleLoader__.load({
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-appearance-heading">
 			    <div id="dsh-vibeify-appearance-heading" class="dsh-vibeify-heading">VIBE magazine appearance</div>
 			    <label>Website look<select id="dsh-vibeify-website-look">${Object.entries(WEBSITE_LOOKS).map(([id, look]) => `<option value="${id}">${look.label}</option>`).join("")}</select></label>
-			    <p class="dsh-vibeify-intro">The look travels with your shared article.</p>
+			    <p class="dsh-vibeify-intro">The look travels with your shared article and sets the writing voice for future Vibe pages. It does not rewrite saved articles or private Chat.</p>
 			    <div class="dsh-vibeify-magazine-palette" role="radiogroup" aria-label="Magazine palette">${Object.entries(MAGAZINE_PALETTES).map(([id, { label, colors }]) => `<button class="dsh-vibeify-magazine-choice" type="button" role="radio" data-magazine-palette="${id}" aria-checked="false"><span class="dsh-vibeify-magazine-swatch" aria-hidden="true" style="--magazine-background:${colors.background};--magazine-accent:${colors.accent};--magazine-border:${colors.border}"></span>${label}</button>`).join("")}</div>
 			    <div class="dsh-vibeify-appearance-controls">
 			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
@@ -1001,7 +1001,7 @@ window.__ModuleLoader__.load({
 				const saveAppearanceImmediately = () => {
 					appearanceProfile = saveAppearanceFromControls();
 					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
-					status.textContent = `Magazine appearance saved: ${MAGAZINE_PALETTES[appearanceProfile.palette].label}.`;
+					status.textContent = `Magazine appearance saved: ${WEBSITE_LOOKS[appearanceProfile.look].label} look and future writing voice, ${MAGAZINE_PALETTES[appearanceProfile.palette].label} palette.`;
 				};
 				websiteLook.addEventListener("change", () => {
 					const palette = WEBSITE_LOOKS[websiteLook.value].defaultPalette;

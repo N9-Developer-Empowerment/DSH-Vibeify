@@ -22,4 +22,4 @@ These instructions apply to every agent working in this repository.
 - Add characterization tests before changing authentication, approval, request/response, image, model-routing, or profile-migration behavior.
 - Run `npm test`, `npm run check`, the Codex plugin validator, the skill validator, `npm pack --dry-run`, and a DSH composed-config smoke test before release.
 - Do not claim connected-app, browser, or desktop-host parity from configuration alone. Verify the relevant read path and require user approval before a real external write.
-- Keep VIBEs presentation-only. Theme changes must never affect model, permission, routing, prompt, or billing state.
+- VIBE website looks pair presentation with their publication writing voice for explicit magazine generation and reviewed article rewrites. Changing a look makes no model call; private Chat, model selection, permissions, routing and billing settings remain unchanged.

@@ -13,30 +13,30 @@ test("web profiles own both runtime bundles so agent scopes cannot fall back to 
   t.after(async () => (await import("node:fs/promises")).rm(directory, { recursive: true, force: true }));
   const path = join(directory, "package.json");
   const original = {
-    dependencies: { "@deepseek-ai/dsh-tools": "0.1.7-rc.2" },
+    dependencies: { "@deepseek-ai/dsh-tools": "0.2.0-rc.2" },
     dsh: { profile: { bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-vibeify"] } },
   };
   await writeFile(path, JSON.stringify(original));
   const runtime = join(directory, "runtime");
   await mkdir(runtime, { recursive: true });
   const anchor = join(runtime, "package.json");
-  await writeFile(anchor, '{"name":"@deepseek-ai/dsh","version":"0.1.7-rc.2"}');
-  for (const bundle of ["dsh-base", "dsh-web-app"]) {
+  await writeFile(anchor, '{"name":"@deepseek-ai/dsh","version":"0.2.0-rc.2"}');
+  for (const bundle of ["dsh-base", "dsh-web-app", "dsh-app-boot"]) {
     const folder = join(runtime, "node_modules", "@deepseek-ai", bundle);
     await mkdir(folder, { recursive: true });
     await writeFile(join(folder, "package.json"), JSON.stringify({ dependencies: {
-      "@deepseek-ai/dsh-agent-preset-registry": "0.1.7-rc.2", "@other/package": "1.0.0",
+      "@deepseek-ai/dsh-agent-preset": "0.2.0-rc.2", "@other/package": "1.0.0",
     } }));
   }
   execFileSync(process.execPath, [script, path, anchor]);
   const updated = JSON.parse(await readFile(path, "utf8"));
   for (const name of ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]) {
-    assert.equal(updated.dependencies[name], "0.1.7-rc.2");
+    assert.equal(updated.dependencies[name], "0.2.0-rc.2");
   }
   assert.equal(updated.pnpm.overrides["@deepseek-ai/cordis"], "4.0.4");
   assert.equal(updated.pnpm.overrides["@deepseek-ai/schemastery"], "3.18.4");
   assert.deepEqual(updated.dsh, original.dsh);
-  assert.equal(updated.dependencies["@deepseek-ai/dsh-agent-preset-registry"], "0.1.7-rc.2");
+  assert.equal(updated.dependencies["@deepseek-ai/dsh-agent-preset"], "0.2.0-rc.2");
   assert.equal(updated.dependencies["@other/package"], undefined);
   const once = await readFile(path, "utf8");
   execFileSync(process.execPath, [script, path, anchor]);
@@ -68,13 +68,13 @@ test("legacy profile pins are aligned and backed up without changing unrelated e
   execFileSync(process.execPath, [script, path]);
   const updated = JSON.parse(await readFile(path, "utf8"));
   assert.equal(updated.dependencies["@deepseek-ai/dsh-code-runtime"], undefined);
-  assert.equal(updated.dependencies["@deepseek-ai/dsh-subagent-codex"], "0.1.7-rc.2");
-  assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-session"], "0.1.7-rc.2");
-  assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-settings"], "0.1.7-rc.2");
+  assert.equal(updated.dependencies["@deepseek-ai/dsh-subagent-codex"], "0.2.0-rc.2");
+  assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-session"], "0.2.0-rc.2");
+  assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-settings"], "0.2.0-rc.2");
   assert.equal(updated.pnpm.overrides["@deepseek-ai/cordis"], "4.0.4");
   assert.equal(updated.pnpm.overrides["@deepseek-ai/schemastery"], "3.18.4");
   assert.equal(updated.pnpm.overrides["@other/package"], "0.1.5-rc.3");
-  assert.deepEqual(JSON.parse(await readFile(`${path}.vibeify-pre-dsh-0.1.7-backup`, "utf8")), original);
+  assert.deepEqual(JSON.parse(await readFile(`${path}.vibeify-pre-dsh-0.2.0-rc.2-backup`, "utf8")), original);
   const once = await readFile(path, "utf8");
   execFileSync(process.execPath, [script, path]);
   assert.equal(await readFile(path, "utf8"), once);

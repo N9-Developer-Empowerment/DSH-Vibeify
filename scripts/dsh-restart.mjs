@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { dshReadiness } from "./dsh-web-readiness.mjs";
 import { randomUUID } from "node:crypto";
 import { execFile, spawn } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
@@ -106,21 +107,14 @@ async function freePort() {
   });
 }
 
-async function httpReady(port, timeoutMs) {
+async function httpReady(port, timeoutMs, logSource) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const ready = await new Promise((resolve) => {
-      const request = http.get({ host: "127.0.0.1", path: "/", port, timeout: 750 }, (response) => {
-        response.resume();
-        resolve(response.statusCode >= 200 && response.statusCode < 500);
-      });
-      request.once("error", () => resolve(false));
-      request.once("timeout", () => {
-        request.destroy();
-        resolve(false);
-      });
-    });
-    if (ready) return true;
+    const log = typeof logSource === "function" ? logSource() : logSource;
+    const result = typeof logSource === "function"
+      ? await dshReadiness(port, undefined, log)
+      : await dshReadiness(port, log);
+    if (result.ready) return result.status;
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   return false;
@@ -156,12 +150,12 @@ async function canary(profile, environment) {
     child.once("spawn", resolve);
     child.once("error", reject);
   });
-  const ready = await httpReady(port, 15_000);
+  const ready = await httpReady(port, 15_000, () => output.join(""));
   if (child.pid) child.kill("SIGTERM");
   const exited = await waitForExit(child);
   if (!exited) throw new Error(`Canary DSH on port ${port} did not stop after SIGTERM.`);
   if (!ready) {
-    const detail = output.join("").trim().slice(-2_000);
+    const detail = output.join("").replace(/token=[^\s]+/g, "token=[redacted]").trim().slice(-2_000);
     throw new Error(`Canary DSH boot failed before the live listener was touched.${detail ? `\n${detail}` : ""}`);
   }
   return port;
@@ -262,12 +256,13 @@ async function worker(options) {
   server.unref();
   closeSync(serverFd);
   await writeStatus({ ...previous, serverLog, serverPid: server.pid, startedAt: new Date().toISOString(), state: "starting" });
-  if (!await httpReady(options.port, 30_000)) {
+  const httpStatus = await httpReady(options.port, 30_000, serverLog);
+  if (!httpStatus) {
     throw new Error(`Replacement DSH did not become healthy on port ${options.port}.`);
   }
   await writeStatus({
     ...previous,
-    httpStatus: 200,
+    httpStatus,
     serverLog,
     serverPid: server.pid,
     state: "succeeded",

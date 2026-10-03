@@ -36,6 +36,7 @@ test("prepared-page fingerprint changes with the editor direction without contai
   assert.notEqual(editorialProfileKey(first), editorialProfileKey(second));
   assert.notEqual(editorialProfileKey(first), editorialProfileKey(createEditorialProfile({ tribes: ["culture-arts"], customDirection: first.customDirection })));
   assert.equal(editorialProfileKey(first).includes("local musicians"), false);
+  assert.notEqual(editorialProfileKey(first, "vibe"), editorialProfileKey(first, "bbc-news"));
 });
 
 test("multiple explicit tribes and editor note remain local bounded configuration", () => {

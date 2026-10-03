@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   APPEARANCE_STORAGE_KEY,
   MAGAZINE_PALETTES,
+  WEBSITE_LOOKS,
   createAppearanceProfile,
   loadAppearanceProfile,
   saveAppearanceProfile,
@@ -53,4 +54,6 @@ test("old profiles migrate and website looks persist without touching editorial 
   const profile = saveAppearanceProfile(storage, { look: "bbc-news" });
   assert.equal(profile.palette, "news");
   assert.deepEqual(loadAppearanceProfile(storage), profile);
+  assert.match(WEBSITE_LOOKS.vibe.writingVoice, /playful, sharp gossip magazine/i);
+  assert.match(WEBSITE_LOOKS["bbc-news"].writingVoice, /restrained British broadcast-news parody/i);
 });

@@ -1,6 +1,6 @@
 {
   "name": "dsh-social-desk",
-  "version": "0.1.0",
+  "version": "0.2.1+codex.20261003",
   "description": "Local, reviewed social publishing queue for DSH Vibeify.",
   "author": {
     "name": "Errol Elliott and Daniela Elliott",
@@ -14,7 +14,12 @@
     "developerName": "Errol Elliott & Daniela Elliott",
     "websiteURL": "https://dsh-vibeify.ezzye.chatgpt.site",
     "category": "Productivity",
-    "capabilities": ["Social drafts", "Reviewed scheduling", "Official API publishing", "Manual community queue"],
+    "capabilities": [
+      "Social drafts",
+      "Reviewed scheduling",
+      "Official API publishing",
+      "Manual community queue"
+    ],
     "defaultPrompt": [
       "Open my Vibe Social Desk.",
       "Prepare social posts from this Vibe article.",
@@ -23,4 +28,3 @@
     "brandColor": "#FF759F"
   }
 }
-

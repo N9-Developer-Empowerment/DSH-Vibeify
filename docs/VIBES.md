@@ -28,7 +28,9 @@ Select **Chat**, choose **VIBE settings** near the bottom-right of the conventio
 
 ## Editorial direction
 
-Open **Look & feel** directly from the magazine header. Its **VIBE magazine appearance** section offers the independent VIBE magazine look and a BBC News inspired parody look, plus Midnight, Paper, Forest, Ocean and Newsroom palettes, standard or large text, and standard or roomy spacing. Newsroom is the default palette for the BBC News inspired look. The article masthead remains VIBE, with no explanatory subtitle. Look, palette, text size and spacing are independent settings; applying them changes only browser-local presentation and never starts editorial work. Chat retains its separate colour control.
+Open **Look & feel** directly from the magazine header. Its **VIBE magazine appearance** section offers the VIBE magazine look and a BBC News inspired parody look, plus Midnight, Paper, Forest, Ocean and Newsroom palettes, standard or large text, and standard or roomy spacing. Newsroom is the default palette for the BBC News inspired look. The article masthead remains VIBE, with no explanatory subtitle. The website look also selects the publication voice for future requested Vibe updates and hidden-reserve writing: VIBE is playful, witty magazine gossip, while BBC News inspired is restrained, carefully attributed British news parody. It never rewrites saved articles or private Chat content. Palette, text size and spacing remain presentation-only; applying appearance settings never starts editorial work. Chat retains its separate colour control.
+
+For an existing public Vibe page, choose **Rewrite in this style** on its card. That explicit action sends only the selected public article through the existing bounded magazine-update session and adds one reviewable replacement in the current website look's voice. The original remains available for comparison. The rewrite must retain the article's facts, qualifications, public links, image provenance and media; the action is unavailable on completed private Chat cards and never runs merely because a reader changes the look or opens **Preview and share**.
 
 The same settings panel controls the editor's future subject mix and voice. It is about audiences and perspective rather than a fixed list of topics. Select any combination of **Global & curious**, **Gen Z**, **Creators & influencers**, **Builders & nerds**, **Entrepreneurs**, **Self-development**, **Parents & families**, **Life-experienced**, **Culture & arts**, **Music communities**, **Gamers**, **Sports communities**, **Sustainability**, **Politics & society**, and **Local life**. Global & curious is the neutral default. A useful-surprise slider lets some worthwhile material arrive from outside the selected lenses, and the free-text editor note refines the brief.
 
@@ -62,10 +64,10 @@ VIBEs do not change:
 - reasoning effort;
 - permissions or approvals;
 - network or app access;
-- model prompts, routing, data transfer, or billing when changing colour themes;
+- model prompts, routing, data transfer, or billing when changing colour palettes, text size or spacing;
 - another user's browser.
 
-Editorial direction is the one content-setting exception in this panel: it intentionally changes the next explicit magazine-update prompt, but never model selection, reasoning level, permissions, routing, approvals or billing.
+Editorial direction and the website look's fixed publication voice are the content-setting exceptions in this panel: they intentionally shape future magazine writing, but never model selection, reasoning level, permissions, routing, approvals or billing.
 
 ## Add a palette
 

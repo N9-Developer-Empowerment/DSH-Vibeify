@@ -8,6 +8,7 @@ const MAX_CUSTOM_DIRECTION = 360;
 const DEFAULT_SERENDIPITY = 0.2;
 
 import { HUMAN_EDITORIAL_CONTRACT } from "../../editorial-contract.js";
+import { publicationWritingVoice } from "../../../../shared/article-appearance.js";
 export { HUMAN_EDITORIAL_CONTRACT };
 
 export const EDITORIAL_TRIBES = Object.freeze({
@@ -101,9 +102,10 @@ export function createEditorialProfile(presetOrOptions = "open", customDirection
 
 // This opaque browser-local fingerprint lets prepared pages follow the direction
 // that produced them without copying the reader's note into each saved page.
-export function editorialProfileKey(profile) {
+export function editorialProfileKey(profile, websiteLook = "vibe") {
   const normalized = createEditorialProfile(profile ?? "open");
-  const input = JSON.stringify([EDITORIAL_SETTINGS_VERSION, 2, normalized.tribes, normalized.customDirection, normalized.serendipity]);
+  const voice = publicationWritingVoice(websiteLook).id;
+  const input = JSON.stringify([EDITORIAL_SETTINGS_VERSION, 3, voice, normalized.tribes, normalized.customDirection, normalized.serendipity]);
   let left = 2166136261;
   let right = 3339675911;
   for (let index = 0; index < input.length; index += 1) {

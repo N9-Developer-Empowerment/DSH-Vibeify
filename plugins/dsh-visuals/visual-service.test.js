@@ -266,3 +266,12 @@ for (const failing of [false, true]) test(`exact Commons lookup ${failing ? "fai
   assert.deepEqual(result.candidates,[]);
   assert.deepEqual(result.failedProviders,failing ? ["wikimedia"] : []);
 });
+
+
+test("Pixabay receives a provider-valid query even from an older long-brief client", async () => {
+  const service = createVisualService({ getConfig: () => ({ wikimedia: false, openverse: false, pexels: false }), resolveCredential: async () => "synthetic-test-key", fetchJson: async url => {
+    assert.equal(new URL(url).searchParams.get("q").length, 100);
+    return { hits: [] };
+  } });
+  assert.deepEqual((await service.search({ query: "a".repeat(150) })).failedProviders, []);
+});

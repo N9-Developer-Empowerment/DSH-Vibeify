@@ -47,9 +47,11 @@ window.__ModuleLoader__.load({
 			  EDITORIAL_TRIBES: () => EDITORIAL_TRIBES,
 			  MAGAZINE_PALETTES: () => MAGAZINE_PALETTES,
 			  MAGAZINE_UPDATE_EVENT: () => MAGAZINE_UPDATE_EVENT,
+			  VisualSourceCheck: () => VisualSourceCheck,
 			  WEBSITE_LOOKS: () => WEBSITE_LOOKS,
 			  collapseCompletedThinking: () => collapseCompletedThinking,
 			  createAppearanceProfile: () => createAppearanceProfile,
+			  createVisualCredentials: () => createVisualCredentials,
 			  loadAppearanceProfile: () => loadAppearanceProfile,
 			  loadEditorialProfile: () => loadEditorialProfile,
 			  registerCodexModelSettings: () => registerCodexModelSettings,
@@ -3726,8 +3728,7 @@ window.__ModuleLoader__.load({
 			    return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
 			  }
 			  const imageAlt = parsed.firstImageAlt;
-			  const publicBody = typeof chunk.markdown === "string" ? chunk.markdown.replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[[^\]]*\]\([^)]*\)/g, " ").replace(/[#*_`>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 220) : "";
-			  const query = cleanText5(imageAlt ?? `${chunk.title ?? ""}. ${publicBody}`, 180);
+			  const query = cleanText5(imageAlt ?? chunk.title, 100);
 			  if (query === null || query.length < 3) return null;
 			  return Object.freeze({ query, orientation: "landscape", sourceUrls: parsed.sourceUrls });
 			}
@@ -5398,6 +5399,69 @@ window.__ModuleLoader__.load({
 			    label: "Codex"
 			  }, () => /* @__PURE__ */ import_react2.default.createElement(CodexModelSettings, { connection })));
 			}
+
+			// client-src/experience/visual-credentials.js
+			function createVisualCredentials({ remote, legacy } = {}) {
+			  function accepted(response) {
+			    if (response?.ok !== true) throw new Error("Image credential operation failed.");
+			    return response.value;
+			  }
+			  return Object.freeze({
+			    async describe(refs) {
+			      if (remote) return accepted(await remote.describe(refs));
+			      const response = await legacy.describe({ refs });
+			      return accepted(response?.result)?.credentials ?? {};
+			    },
+			    async set(ref, value) {
+			      if (remote) accepted(await remote.set(ref, value));
+			      else accepted((await legacy.set({ ref, value }))?.result);
+			    },
+			    async unset(ref) {
+			      if (remote) accepted(await remote.unset(ref));
+			      else accepted((await legacy.unset({ ref }))?.result);
+			    }
+			  });
+			}
+
+			// client-src/experience/visual-source-check.jsx
+			var import_react3 = __toESM(require("react"), 1);
+
+			// client-src/experience/visual-source-check.js
+			var VISUAL_SOURCE_LABELS = { wikimedia: "Wikimedia Commons", openverse: "Openverse", pexels: "Pexels", pixabay: "Pixabay" };
+			async function checkVisualSources(connection, imageLoads = visualImageLoads) {
+			  const response = await connection.rpc.call(VISUAL_RPC_CHANNEL, "search", { query: "red bicycle", orientation: "landscape", limit: 4 });
+			  if (response?.ok !== true) throw new Error("Image sources could not be checked.");
+			  const value = response.value;
+			  const providers = (value?.providers ?? []).filter((provider) => Object.hasOwn(VISUAL_SOURCE_LABELS, provider));
+			  const failed2 = providers.filter((provider) => value.failedProviders?.includes(provider));
+			  let image = null;
+			  for (const candidate of cleanVisualSearchResult(value)) {
+			    if (await imageLoads(candidate.imageUrl)) {
+			      image = candidate;
+			      break;
+			    }
+			  }
+			  return { ready: providers.filter((provider) => !failed2.includes(provider)), failed: failed2, image };
+			}
+
+			// client-src/experience/visual-source-check.jsx
+			function VisualSourceCheck({ connection }) {
+			  const [pending, setPending] = import_react3.default.useState(false);
+			  const [result, setResult] = import_react3.default.useState(null);
+			  const [error, setError] = import_react3.default.useState("");
+			  const check = async () => {
+			    setPending(true);
+			    setError("");
+			    try {
+			      setResult(await checkVisualSources(connection));
+			    } catch {
+			      setError("Image sources could not be checked. Try again shortly.");
+			    } finally {
+			      setPending(false);
+			    }
+			  };
+			  return /* @__PURE__ */ import_react3.default.createElement("section", { style: { marginTop: 18 } }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "dsh-vibeify-visual-actions" }, /* @__PURE__ */ import_react3.default.createElement("button", { onClick: check, disabled: pending }, pending ? "Checking image sources\u2026" : "Check image sources")), /* @__PURE__ */ import_react3.default.createElement("p", { className: "dsh-vibeify-visual-note" }, "Checks a public \u201Cred bicycle\u201D search and displays a credited sample."), /* @__PURE__ */ import_react3.default.createElement("p", { role: "status" }, error || (result ? `${result.ready.map((provider) => VISUAL_SOURCE_LABELS[provider]).join(" \xB7 ") || "No sources"} responded.${result.failed.length ? ` Could not reach: ${result.failed.map((provider) => VISUAL_SOURCE_LABELS[provider]).join(" \xB7 ")}.` : ""}` : "")), result?.image && /* @__PURE__ */ import_react3.default.createElement("figure", { style: { maxWidth: 520, margin: "12px 0" } }, /* @__PURE__ */ import_react3.default.createElement("img", { src: result.image.imageUrl, alt: result.image.alt, referrerPolicy: "no-referrer", style: { width: "100%", maxHeight: 220, objectFit: "cover" } }), /* @__PURE__ */ import_react3.default.createElement("figcaption", null, /* @__PURE__ */ import_react3.default.createElement("a", { href: result.image.sourceUrl, target: "_blank", rel: "noreferrer" }, result.image.credit))), result && !result.image && /* @__PURE__ */ import_react3.default.createElement("p", null, "No suitable sample loaded. VIBE keeps its local cover when this happens."));
+			}
 			return module.exports;
 		})();
 		const CODEX_FEATURES_ENABLED = true;
@@ -5540,7 +5604,7 @@ window.__ModuleLoader__.load({
 			}
 		}
 
-		function visualSourcesSection(settings, api) {
+		function visualSourcesSection(settings, credentials, connection) {
 			return function VisualSourcesSection() {
 				const snapshot = React.useSyncExternalStore(
 					(listener) => settings.subscribe(listener),
@@ -5559,16 +5623,15 @@ window.__ModuleLoader__.load({
 					if (snapshot.status !== "ready") return;
 					const refs = [referenceFor("pexels"), referenceFor("pixabay")];
 					try {
-						const response = await api.credentials.describe({ refs });
-						if (!response.result.ok) return;
+						const views = await credentials.describe(refs);
 						setStatus({
-							pexels: response.result.value.credentials[refs[0]] ?? { configured: false, writable: true },
-							pixabay: response.result.value.credentials[refs[1]] ?? { configured: false, writable: true },
+							pexels: views[refs[0]] ?? { configured: false, writable: true },
+							pixabay: views[refs[1]] ?? { configured: false, writable: true },
 						});
 					} catch {
 						setMessage("Image-source status could not be read. No key was changed.");
 					}
-				}, [api, referenceFor, snapshot.status]);
+				}, [credentials, referenceFor, snapshot.status]);
 				React.useEffect(() => { refresh(); }, [refresh]);
 				const save = async (provider) => {
 					const value = drafts[provider].trim();
@@ -5576,8 +5639,7 @@ window.__ModuleLoader__.load({
 					setPending(provider);
 					setMessage("");
 					try {
-						const response = await api.credentials.set({ ref: referenceFor(provider), value });
-						if (response?.result?.ok !== true) throw new Error("credential write rejected");
+						await credentials.set(referenceFor(provider), value);
 						setDrafts((current) => ({ ...current, [provider]: "" }));
 						setMessage(`${VISUAL_CREDENTIALS[provider].label} key saved securely.`);
 						await refresh();
@@ -5591,8 +5653,7 @@ window.__ModuleLoader__.load({
 					setPending(provider);
 					setMessage("");
 					try {
-						const response = await api.credentials.unset({ ref: referenceFor(provider) });
-						if (response?.result?.ok !== true) throw new Error("credential removal rejected");
+						await credentials.unset(referenceFor(provider));
 						setMessage(`${VISUAL_CREDENTIALS[provider].label} key removed.`);
 						await refresh();
 					} catch {
@@ -5650,6 +5711,7 @@ window.__ModuleLoader__.load({
 						React.createElement("strong", null, "Wikimedia Commons · Openverse"),
 					),
 					React.createElement("div", { className: "dsh-vibeify-visual-grid" }, providerRow("pexels"), providerRow("pixabay")),
+					React.createElement(__DshVibeifyExperience.VisualSourceCheck, { connection }),
 					message.length > 0 ? React.createElement("p", { className: "dsh-vibeify-visual-message", role: "status" }, message) : null,
 					React.createElement("p", { className: "dsh-vibeify-visual-note" }, "Keys are write-only: this page never reads them back, and shared Vibes never contain them. A blank field keeps the current key."),
 				);
@@ -5739,7 +5801,7 @@ window.__ModuleLoader__.load({
 		function apply(ctx) {
 			__DshVibeifyExperience.registerExperienceShell(ctx, { codexFeatures: CODEX_FEATURES_ENABLED });
 			const connection = ctx.get("connection");
-			const { api } = connection;
+			const credentials = __DshVibeifyExperience.createVisualCredentials({ remote: ctx.remote?.credentials, legacy: connection.api?.credentials });
 			const visualSettings = ctx.configForms.get(VISUAL_SETTINGS_NAMESPACE);
 			ctx.effect(() => {
 				const style = document.createElement("style");
@@ -5806,7 +5868,7 @@ window.__ModuleLoader__.load({
 				id: "vibeify-visual-sources",
 				order: 16,
 				label: "Images",
-			}, visualSourcesSection(visualSettings, api)));
+			}, visualSourcesSection(visualSettings, credentials, connection)));
 
 
 			if (CODEX_FEATURES_ENABLED) {
@@ -6493,7 +6555,7 @@ window.__ModuleLoader__.load({
 		}
 
 		exports.apply = apply;
-		exports.inject = ["connection", "remote", "remote.session", "sessions", "configForms", "slots"];
+		exports.inject = ["connection", "remote", "remote.session", "remote.credentials", "sessions", "configForms", "slots"];
 		return module.exports;
 	},
 });

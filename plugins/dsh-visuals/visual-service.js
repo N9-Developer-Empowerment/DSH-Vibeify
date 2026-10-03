@@ -249,7 +249,7 @@ function providerPlans(input, config, credentials, fetchJson, signal) {
   if (config.pixabay !== false && credentials.pixabay !== undefined) {
     const url = new URL("https://pixabay.com/api/");
     url.searchParams.set("key", credentials.pixabay);
-    url.searchParams.set("q", input.query);
+    url.searchParams.set("q", input.query.slice(0, 100));
     url.searchParams.set("image_type", "photo");
     url.searchParams.set("orientation", input.orientation === "square" ? "all" : input.orientation === "portrait" ? "vertical" : "horizontal");
     url.searchParams.set("safesearch", "true");

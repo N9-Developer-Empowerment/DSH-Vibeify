@@ -137,6 +137,8 @@ dsh plugin --profile web add --workspace-root ./plugins/dsh-visuals
 
 If `dsh-visuals` is absent or every source is unavailable, Vibeify keeps its built-in unique cover method and remains fully readable.
 
+Use **Check image sources** on the Images page to test a short public sample search. It reports which providers responded and shows a decoded, credited photograph when one is suitable. **Configured** means a key is stored; the source check verifies that its provider responds. The check never changes keys or starts AI image generation.
+
 ## Manual link sharing
 
 The relaunch requires no social account setup. Copy a public link or use the device’s share action, and make the final post yourself. A private article still requires preview and **Publish public link** before its URL becomes public.

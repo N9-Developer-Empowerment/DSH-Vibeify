@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { installVisualSettings, VISUAL_SETTINGS_NAMESPACE } from "./settings.js";
+import { Config, installVisualSettings, VISUAL_SETTINGS_NAMESPACE } from "./settings.js";
 
 test("visual settings retain composition values until the settings service is available", () => {
   let connect;
@@ -19,4 +19,32 @@ test("visual settings retain composition values until the settings service is av
   const updated = { wikimedia: false };
   hooks.setSource(() => updated);
   assert.equal(read(), updated);
+});
+
+
+test("current DSH exposes editable visual fields and reads live Config references", () => {
+  assert.ok(Object.values(Config.dict).every((field) => field.meta.volatile));
+  const values = { wikimedia: true, openverse: true, pexelsApiKeyEnv: "PEXELS_API_KEY" };
+  const entry = Object.fromEntries(Object.keys(values).map((key) => [key, { get: () => values[key] }]));
+  const fiber = {};
+  let presentation;
+  let disposed = false;
+  const ctx = {
+    fiber,
+    effect(setup) { const cleanup = setup(); assert.equal(typeof cleanup, "function"); cleanup(); },
+    inject(names, setup) {
+      assert.deepEqual(names, ["settings"]);
+      setup({ settings: { configure(policy, owner) {
+        presentation = { policy, owner };
+        return () => { disposed = true; };
+      } } });
+    },
+  };
+  const read = installVisualSettings(ctx, entry);
+  assert.deepEqual(read(), values);
+  values.wikimedia = false;
+  values.pexelsApiKeyEnv = "CUSTOM_PEXELS_KEY";
+  assert.deepEqual(read(), values);
+  assert.deepEqual(presentation, { policy: { auto: false }, owner: fiber });
+  assert.equal(disposed, true);
 });

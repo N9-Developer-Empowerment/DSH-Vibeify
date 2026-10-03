@@ -91,10 +91,7 @@ export function publicVisualBriefForChunk(chunk, parsed = parseArticleImages(chu
     return sourceUrls.length === 0 ? null : Object.freeze({ query: "Editorial photograph", sourceUrls, orientation: "landscape" });
   }
   const imageAlt = parsed.firstImageAlt;
-  const publicBody = typeof chunk.markdown === "string" ? chunk.markdown
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[[^\]]*\]\([^)]*\)/g, " ")
-    .replace(/[#*_`>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 220) : "";
-  const query = cleanText(imageAlt ?? `${chunk.title ?? ""}. ${publicBody}`, 180);
+  const query = cleanText(imageAlt ?? chunk.title, 100);
   if (query === null || query.length < 3) return null;
   return Object.freeze({ query, orientation: "landscape", sourceUrls: parsed.sourceUrls });
 }

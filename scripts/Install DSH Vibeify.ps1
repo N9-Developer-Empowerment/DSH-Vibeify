@@ -155,6 +155,35 @@ try {
       throw "DSH is already open, so this installer will not interrupt it or change software/profile files. Finish active work, close DSH, then run this installer again to install the update."
     }
 
+    # DSH plugin installation relies on pnpm overrides and build-script
+    # policy. Pin a compatible user-local pnpm before invoking any DSH plugin
+    # command, without changing a machine-wide npm prefix or approving scripts.
+    $QualifiedPnpmVersion = "10.34.6"
+    $GlobalNpmPrefix = (& npm prefix --global | Out-String).Trim()
+    Assert-Native "Reading the current-user npm prefix"
+    $UserProfilePath = [System.IO.Path]::GetFullPath($env:USERPROFILE).TrimEnd('\') + '\'
+    $NpmPrefixPath = [System.IO.Path]::GetFullPath($GlobalNpmPrefix).TrimEnd('\') + '\'
+    if (-not $NpmPrefixPath.StartsWith($UserProfilePath, [System.StringComparison]::OrdinalIgnoreCase)) {
+      throw "The current npm prefix is not inside this Windows user profile. Set npm's prefix to a user-local directory, then rerun; this installer will not modify a machine-wide package location."
+    }
+    $PnpmCommand = Join-Path $GlobalNpmPrefix "pnpm.cmd"
+    $InstalledPnpmVersion = $null
+    if (Test-Path -LiteralPath $PnpmCommand) {
+      $InstalledPnpmVersion = (& $PnpmCommand --version | Out-String).Trim()
+      Assert-Native "Checking pnpm"
+    }
+    if ($InstalledPnpmVersion -ne $QualifiedPnpmVersion) {
+      Write-Host "Installing the qualified pnpm version in this Windows user profile..."
+      & npm install --global "pnpm@$QualifiedPnpmVersion"
+      Assert-Native "Installing qualified pnpm"
+      $InstalledPnpmVersion = (& $PnpmCommand --version | Out-String).Trim()
+      Assert-Native "Verifying qualified pnpm"
+      if ($InstalledPnpmVersion -ne $QualifiedPnpmVersion) {
+        throw "pnpm version verification failed: expected $QualifiedPnpmVersion, found $InstalledPnpmVersion."
+      }
+    }
+    $env:PATH = "$GlobalNpmPrefix;$env:PATH"
+
     $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
     $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
     $ProfilePackage = Join-Path $ProfileDirectory "package.json"

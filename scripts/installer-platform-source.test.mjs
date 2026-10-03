@@ -45,3 +45,21 @@ test("Windows and Linux keep the existing interactive provider mode by default",
   assert.match(linux, /dependencies\?\.\["dsh-vibeify"\]/);
   assert.match(linux, /Choice \[\$default_choice\]/);
 });
+
+
+test("Windows qualifies pnpm in the user npm prefix before DSH plugin mutations", async () => {
+  const windows = await read("scripts/Install DSH Vibeify.ps1");
+  const liveGuard = windows.indexOf("if (Test-LocalDsh)");
+  const pnpmPin = windows.indexOf('$QualifiedPnpmVersion = "10.34.6"');
+  const prefixGuard = windows.indexOf("StartsWith($UserProfilePath");
+  const pathPrepend = windows.indexOf('$env:PATH = "$GlobalNpmPrefix;$env:PATH"');
+  const firstPluginMutation = windows.indexOf("Install-ImmutableDshPlugin $ProjectDirectory");
+  const profileInstall = windows.indexOf("& dsh plugin --profile $ProfileName install");
+
+  assert.ok(liveGuard >= 0 && pnpmPin > liveGuard);
+  assert.ok(prefixGuard > pnpmPin && pathPrepend > prefixGuard);
+  assert.ok(firstPluginMutation > pathPrepend && profileInstall > pathPrepend);
+  assert.match(windows, /npm install --global "pnpm@\$QualifiedPnpmVersion"/);
+  assert.match(windows, /InstalledPnpmVersion -ne \$QualifiedPnpmVersion/);
+  assert.doesNotMatch(windows, /approve-builds|--allow-builds|ignore-scripts=false/i);
+});

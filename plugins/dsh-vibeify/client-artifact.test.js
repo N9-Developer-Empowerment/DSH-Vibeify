@@ -48,7 +48,9 @@ test("browser artifact contains the creator-first catalogue and self-contained r
   assert.match(client, /Open source means the exit is visible/);
   assert.match(client, /Ask Chat to make a Vibe/);
   assert.match(client, /Update my magazine/);
-  assert.match(client, /all completed chats/);
+  assert.match(client, /vibe-magazine-v1/);
+  assert.match(client, /vibe-news-v1/);
+  assert.match(client, /Publication masthead/);
   assert.match(client, /VIBE magazine update/);
   assert.match(client, /Pull to update/);
   assert.match(client, /Stop update/);

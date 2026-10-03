@@ -1,4 +1,5 @@
-import { cleanArticleAppearance, WEBSITE_LOOKS } from "../../../shared/article-appearance.js";
+import { renderPublicationMasthead } from "../../../shared/publication-masthead.js";
+import { cleanArticleAppearance } from "../../../shared/article-appearance.js";
 import { mediaEmbedSource } from "./media.mjs";
 import { APP_SCRIPT_PATH } from "./app-source.mjs";
 import { SHARE_STYLES } from "./styles.mjs";
@@ -68,14 +69,13 @@ const VIBEIFY_CTA = `<aside class="try-vibe"><div><span class="kind">Open source
 
 function pageShell({ title, description, body, imageUrl = null, imageAlt = null, canonical = null, extraHead = "", nonce = "", appearance = null }) {
   const presentation = cleanArticleAppearance(appearance);
-  const lookNote = WEBSITE_LOOKS[presentation.look].note ?? "shared from a private local magazine";
-  const appearanceAttributes = appearance === null ? "" : ` data-look="${presentation.look}" data-palette="${presentation.palette}" data-text-size="${presentation.textSize}" data-spacing="${presentation.spacing}"`;
+  const appearanceAttributes = ` data-look="${presentation.look}" data-palette="${presentation.palette}" data-text-size="${presentation.textSize}" data-spacing="${presentation.spacing}"`;
   const safeTitle = escapeHtml(title);
   const safeDescription = escapeHtml(description);
   const safeCanonical = canonical === null ? null : escapeHtml(canonical);
   const canonicalMeta = safeCanonical === null ? "" : `<link rel="canonical" href="${safeCanonical}"><meta property="og:url" content="${safeCanonical}">`;
   const imageMeta = imageUrl === null ? "" : `<meta property="og:image" content="${escapeHtml(imageUrl)}"><meta property="og:image:secure_url" content="${escapeHtml(imageUrl)}"><meta property="og:image:alt" content="${escapeHtml(imageAlt ?? title)}"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:site" content="@ezzye"><meta name="twitter:creator" content="@ezzye"><meta name="twitter:title" content="${safeTitle}"><meta name="twitter:description" content="${safeDescription}"><meta name="twitter:image" content="${escapeHtml(imageUrl)}"><meta name="twitter:image:alt" content="${escapeHtml(imageAlt ?? title)}">`;
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><meta name="description" content="${safeDescription}"><meta property="og:type" content="article"><meta property="og:site_name" content="Vibeify"><meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">${canonicalMeta}${imageMeta}${extraHead}<meta name="vibe-interactive-nonce" content="${escapeHtml(nonce)}"><style>${SHARE_STYLES}</style></head><body${appearanceAttributes}><header><a href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer"><span class="brand">VIBE${lookNote ? `<small class="look-note">${escapeHtml(lookNote)}</small>` : ""}</span></a><span class="share-note">Coding for Justice</span></header>${body}${VIBEIFY_CTA}</body></html>`;
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><meta name="description" content="${safeDescription}"><meta property="og:type" content="article"><meta property="og:site_name" content="Vibeify"><meta property="og:title" content="${safeTitle}"><meta property="og:description" content="${safeDescription}">${canonicalMeta}${imageMeta}${extraHead}<meta name="vibe-interactive-nonce" content="${escapeHtml(nonce)}"><style>${SHARE_STYLES}</style></head><body${appearanceAttributes}><header class="share-utility"><span class="share-note">Coding for Justice</span><a href="https://dsh-vibeify.ezzye.chatgpt.site/" target="_blank" rel="noopener noreferrer">Download DSH + Vibeify</a></header><div class="publication-banner" id="publication-banner">${renderPublicationMasthead(presentation.look)}</div>${body}${VIBEIFY_CTA}</body></html>`;
 }
 
 export function articleMarkup(snapshot, { includeTitle = true, nonce = "" } = {}) {

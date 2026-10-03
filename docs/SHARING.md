@@ -107,3 +107,7 @@ The page renderer takes `APP_SCRIPT_PATH` from the same module that builds `APP_
 Images have a distinct layout role from interactive apps. Lead photographs preserve their complete natural aspect ratio inside a centered frame capped at 1040px wide and the smaller of 75% of the viewport height or 720px. Portraits are never forced into a landscape crop; gallery images use containment too. Games retain the full article content width.
 
 Fixed-provider media players appear directly in private preview and publication, load lazily and never autoplay. `services/vibe-share/src/media.mjs` owns the single player URL policy, used by server markup and serialized into the browser client. The transfer still accepts only the cleaned provider link, never supplied iframe markup or code. YouTube uses its privacy-enhanced player; the external provider link remains available if embedding is restricted.
+
+### Publication branding
+
+The saved website look selects a stable VIBE masthead from `shared/publication-masthead.js`. The local magazine, private preview and public article use the same identity and responsive styles. Shared pages derive the brand from the cleaned look enum; no reader HTML, custom CSS, local settings or editorial preferences are sent. Older articles with no look use the VIBE magazine identity.

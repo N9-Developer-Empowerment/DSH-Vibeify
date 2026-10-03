@@ -1,4 +1,4 @@
-import { WEBSITE_LOOKS } from "../../../../shared/article-appearance.js";
+import { renderPublicationMasthead } from "../../../../shared/publication-masthead.js";
 import { MAGAZINE_APPEARANCE_STYLES } from "./appearance-styles.js";
 import React from "react";
 import { APPEARANCE_OPEN_EVENT, APPEARANCE_SETTINGS_EVENT, MAGAZINE_UPDATE_EVENT, createAppearanceProfile, loadAppearanceProfile } from "./appearance-settings.js";
@@ -244,7 +244,7 @@ function Header({ appearance, editorialLabel, updateState, libraryOpen, onChat, 
   return (
     <header className="vfx-header">
       <button type="button" className="vfx-wordmark" aria-label="VIBE home and newest content" onClick={onHome}>
-        <span>VIBE</span><small>{WEBSITE_LOOKS[appearance.look].note ?? "one magazine · all completed chats"}</small>
+        <span>Magazine</span>
       </button>
       <span className="vfx-edition">{editorialLabel} · {CATALOG.editorial.label}</span>
       <button type="button" className="vfx-find" aria-pressed={libraryOpen} onClick={onFind}><Icon name="search" /> Find Vibes</button>
@@ -884,6 +884,9 @@ function ExperienceShell({ codexFeatures, connection }) {
             onChat={enterChat}
           />
           <>
+            <div className="vfx-publication-banner" role="banner" aria-label="Publication masthead">
+              <button type="button" className="vfx-masthead-home" aria-label="VIBE magazine home" onClick={goHome} dangerouslySetInnerHTML={{ __html: renderPublicationMasthead(appearance.look) }} />
+            </div>
             <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
               <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>
             </div>

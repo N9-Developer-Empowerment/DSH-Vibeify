@@ -155,15 +155,25 @@ try {
       throw "DSH is already open, so this installer will not interrupt it or change software/profile files. Finish active work, close DSH, then run this installer again to install the update."
     }
 
+    $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
+    $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
+    $ProfilePackage = Join-Path $ProfileDirectory "package.json"
     if (-not $Provider) {
+      $defaultChoice = "1"
+      if (Test-Path -LiteralPath $ProfilePackage) {
+        $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
+        if ($existingProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify") {
+          $defaultChoice = "2"
+        }
+      }
       Write-Host ""
       Write-Host "Choose how you want the AI side to work:"
       Write-Host "  1. DeepSeek only - connect DeepSeek inside DSH"
       Write-Host "  2. ChatGPT only - sign in with ChatGPT now"
       Write-Host "  3. Both - Codex leads; DeepSeek handles suitable work"
       Write-Host "  4. Install first and connect an account later"
-      $choice = Read-Host "Choice [1]"
-      if (-not $choice) { $choice = "1" }
+      $choice = Read-Host "Choice [$defaultChoice]"
+      if (-not $choice) { $choice = $defaultChoice }
       $Provider = switch ($choice) {
         "2" { "chatgpt" }
         "3" { "both" }
@@ -205,9 +215,6 @@ try {
       throw "DSH version verification failed: expected $TargetVersion, found $InstalledVersion."
     }
 
-    $DshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE ".dsh" }
-    $ProfileDirectory = Join-Path $DshHome "profiles\$ProfileName"
-    $ProfilePackage = Join-Path $ProfileDirectory "package.json"
     $RuntimeAnchor = Join-Path ((& npm root --global).Trim()) "@deepseek-ai\dsh\package.json"
     & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Aligning legacy DSH profile versions"

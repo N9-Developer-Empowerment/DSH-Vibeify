@@ -51,6 +51,7 @@ check "privacy-safe support report syntax" node --check "$script_directory/suppo
 check "public installer checker syntax" node --check "$script_directory/check-public-mac-installer.mjs"
 check "installer contract tests" node --test "$script_directory/installer-contract.test.mjs"
 check "Windows/Linux live-process installer tests" node --test "$script_directory/installer-live-process.test.mjs"
+check "Windows/Linux source and provider parity tests" node --test "$script_directory/installer-platform-source.test.mjs"
 check "isolated macOS installer flow" node --test "$script_directory/installer-macos-flow.test.mjs"
 check "package closure syntax" node --check "$script_directory/validate-package-archive.mjs"
 check "package closure tests" node --test "$script_directory/validate-package-archive.test.mjs"

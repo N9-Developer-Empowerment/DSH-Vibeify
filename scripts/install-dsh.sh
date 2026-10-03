@@ -2,7 +2,7 @@
 set -euo pipefail
 
 script_directory="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-tested_version="$(node -p "require('$script_directory/../plugins/dsh-vibeify/package.json').peerDependencies['@deepseek-ai/dsh-agent']")"
+tested_version="$(node -p "require(process.argv[1]).peerDependencies['@deepseek-ai/dsh-agent']" "$script_directory/../plugins/dsh-vibeify/package.json")"
 target_version="${DSH_VERSION:-$tested_version}"
 replace=false
 use_latest=false

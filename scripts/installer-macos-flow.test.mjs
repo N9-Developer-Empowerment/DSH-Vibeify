@@ -50,12 +50,33 @@ test("macOS installer completes against the current checkout with all mutations 
   const runtimeRoot = path.join(npmRoot, "@deepseek-ai", "dsh");
   await mkdir(runtimeRoot, { recursive: true });
   await writeFile(path.join(runtimeRoot, "package.json"), JSON.stringify({ name: "@deepseek-ai/dsh", version: qualifiedDshVersion }));
-  for (const bundle of ["dsh-base", "dsh-web-app"]) {
-    const folder = path.join(runtimeRoot, "node_modules", "@deepseek-ai", bundle);
+  const upstreamManifests = {
+    "dsh-base": { dependencies: ["dsh-agent", "dsh-agent-preset-registry", "dsh-tools", "dsh-subagent", "dsh-tool-subagent", "dsh-app-boot"] },
+    "dsh-web-app": { dependencies: ["dsh-agent", "dsh-agent-preset-registry", "dsh-tools", "dsh-subagent", "dsh-tool-subagent", "dsh-app-boot"] },
+    "dsh-agent-preset-registry": { peerDependencies: ["dsh-agent-preset"] },
+    "dsh-agent": { peerDependencies: ["dsh-scope", "dsh-session"] },
+    "dsh-tools": { dependencies: ["dsh-scope"] },
+    "dsh-subagent": { peerDependencies: ["dsh-scope"] },
+    "dsh-tool-subagent": { peerDependencies: ["dsh-scope"] },
+    "dsh-scope": { dependencies: ["dsh-session"] },
+    "dsh-agent-preset": {},
+    "dsh-session": {},
+  };
+  for (const [name, { dependencies = [], peerDependencies = [] }] of Object.entries(upstreamManifests)) {
+    const folder = path.join(runtimeRoot, "node_modules", "@deepseek-ai", name);
     await mkdir(folder, { recursive: true });
-    await writeFile(path.join(folder, "package.json"), JSON.stringify({ dependencies: Object.fromEntries(
-      ["dsh-agent", "dsh-agent-preset-registry", "dsh-tools", "dsh-subagent", "dsh-tool-subagent", "dsh-app-boot"].map((name) => [`@deepseek-ai/${name}`, qualifiedDshVersion]),
-    ) }));
+    const manifest = {
+      name: `@deepseek-ai/${name}`,
+      version: qualifiedDshVersion,
+      dependencies: Object.fromEntries(dependencies.map((dependency) => [`@deepseek-ai/${dependency}`, qualifiedDshVersion])),
+      peerDependencies: Object.fromEntries(peerDependencies.map((dependency) => [`@deepseek-ai/${dependency}`, qualifiedDshVersion])),
+    };
+    await writeFile(path.join(folder, "package.json"), JSON.stringify(manifest));
+  }
+  for (const name of ["dsh-app-boot"]) {
+    const folder = path.join(runtimeRoot, "node_modules", "@deepseek-ai", name);
+    await mkdir(folder, { recursive: true });
+    await writeFile(path.join(folder, "package.json"), JSON.stringify({ name: `@deepseek-ai/${name}`, version: qualifiedDshVersion }));
   }
   const bootPackage = path.join(runtimeRoot, "node_modules", "@deepseek-ai", "dsh-app-boot");
   await mkdir(bootPackage, { recursive: true });

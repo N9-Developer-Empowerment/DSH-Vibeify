@@ -77,6 +77,28 @@ if local_dsh_responds; then
   fail "DSH is already open. No software or profile files were changed. Finish active work, close DSH, then run this installer again to install the update."
 fi
 
+# DSH's plugin installation depends on pnpm overrides and build-script policy.
+# Keep the qualified pnpm isolated under this user's DSH home rather than
+# changing the system or global npm installation.
+qualified_pnpm_version="10.34.6"
+dsh_home="${DSH_HOME:-$HOME/.dsh}"
+pnpm_directory="$dsh_home/tools/pnpm"
+pnpm_command="$pnpm_directory/node_modules/.bin/pnpm"
+installed_pnpm_version=""
+if [[ -x "$pnpm_command" ]]; then
+  installed_pnpm_version="$("$pnpm_command" --version)" || fail "The existing user-local pnpm could not be checked."
+fi
+if [[ "$installed_pnpm_version" != "$qualified_pnpm_version" ]]; then
+  say "Installing the qualified pnpm version in the DSH user directory..."
+  mkdir -p "$pnpm_directory" || fail "The DSH user tools directory could not be created."
+  npm install --prefix "$pnpm_directory" --no-save "pnpm@$qualified_pnpm_version" || fail "The qualified pnpm version could not be installed in the DSH user directory."
+  installed_pnpm_version="$("$pnpm_command" --version)" || fail "The qualified pnpm installation could not be verified."
+  if [[ "$installed_pnpm_version" != "$qualified_pnpm_version" ]]; then
+    fail "pnpm version verification failed: expected $qualified_pnpm_version, found $installed_pnpm_version."
+  fi
+fi
+export PATH="$pnpm_directory/node_modules/.bin:$PATH"
+
 printf '\nChoose how you want the AI side to work:\n'
 printf '  1. DeepSeek only — connect a DeepSeek account inside DSH\n'
 printf '  2. ChatGPT only — sign in with ChatGPT now\n'

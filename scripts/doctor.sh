@@ -115,10 +115,10 @@ if [[ "$source_only" != true ]]; then
     rm -f "$config_dump"
   fi
 
-  if command -v curl >/dev/null 2>&1 && curl --silent --fail --max-time 2 http://127.0.0.1:3080/ >/dev/null 2>&1; then
-    printf 'OK   DSH Web UI is listening at http://127.0.0.1:3080\n'
+  if node "$repository_root/scripts/dsh-web-readiness.mjs" check "${DSH_PORT:-3080}" "$dsh_home/logs/dsh-web.log" >/dev/null 2>&1; then
+    printf 'OK   authenticated DSH Web UI is reachable on port %s\n' "${DSH_PORT:-3080}"
   else
-    printf 'INFO DSH Web UI is not currently reachable at http://127.0.0.1:3080\n'
+    printf 'INFO DSH Web UI is not currently reachable on port %s\n' "${DSH_PORT:-3080}"
   fi
 fi
 

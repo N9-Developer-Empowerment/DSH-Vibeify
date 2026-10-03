@@ -49,6 +49,7 @@ test("Windows and Linux keep the existing interactive provider mode by default",
 
 test("Windows qualifies pnpm in the user npm prefix before DSH plugin mutations", async () => {
   const windows = await read("scripts/Install DSH Vibeify.ps1");
+  const linux = await read("scripts/install-dsh-vibeify-linux.sh");
   const liveGuard = windows.indexOf("if (Test-LocalDsh)");
   const pnpmPin = windows.indexOf('$QualifiedPnpmVersion = "10.34.6"');
   const prefixGuard = windows.indexOf("StartsWith($UserProfilePath");
@@ -62,4 +63,15 @@ test("Windows qualifies pnpm in the user npm prefix before DSH plugin mutations"
   assert.match(windows, /npm install --global "pnpm@\$QualifiedPnpmVersion"/);
   assert.match(windows, /InstalledPnpmVersion -ne \$QualifiedPnpmVersion/);
   assert.doesNotMatch(windows, /approve-builds|--allow-builds|ignore-scripts=false/i);
+
+  const linuxGuard = linux.indexOf("if local_dsh_responds; then");
+  const linuxPin = linux.indexOf('qualified_pnpm_version="10.34.6"');
+  const linuxPath = linux.indexOf('export PATH="$pnpm_directory/node_modules/.bin:$PATH"');
+  const linuxInstall = linux.indexOf('"$project_directory/scripts/install-dsh.sh" --replace');
+  assert.ok(linuxGuard >= 0 && linuxPin > linuxGuard);
+  assert.ok(linuxPath > linuxPin && linuxInstall > linuxPath);
+  assert.match(linux, /npm install --prefix "\$pnpm_directory" --no-save "pnpm@\$qualified_pnpm_version"/);
+  assert.match(linux, /pnpm_command="\$pnpm_directory\/node_modules\/\.bin\/pnpm"/);
+  assert.doesNotMatch(linux, /npm install --global "?pnpm|approve-builds|--allow-builds|ignore-scripts=false/i);
+  assert.equal(linux.match(/qualified_pnpm_version="(\d+\.\d+\.\d+)"/)?.[1], /\$QualifiedPnpmVersion = "(\d+\.\d+\.\d+)"/.exec(windows)?.[1]);
 });

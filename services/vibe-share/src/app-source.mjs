@@ -1,3 +1,4 @@
+import { publicationMastheadRuntimeSource } from "../../../shared/publication-masthead.js";
 import { articleAppearanceRuntimeSource } from "../../../shared/article-appearance.js";
 import { mediaEmbedSource } from "./media.mjs";
 import { vibeInteractiveRuntimeSource } from "../../../shared/vibe-interactive.js";
@@ -352,8 +353,8 @@ function renderPlainMarkdown(markdown, title = "") {
 function renderSnapshot(value) {
   const appearance = cleanArticleAppearance(value.appearance);
   for (const [key, selected] of Object.entries(appearance)) document.body.dataset[key] = selected;
-  const lookNote = document.querySelector(".look-note");
-  if (lookNote) lookNote.textContent = WEBSITE_LOOKS[appearance.look].note ?? "shared from a private local magazine";
+  const masthead = document.getElementById("publication-banner");
+  if (masthead) masthead.innerHTML = renderPublicationMasthead(appearance.look);
   preview.replaceChildren();
   const article = document.createElement("article");
   article.className = "article";
@@ -473,7 +474,7 @@ const bundledIllustrations = Object.fromEntries(EDITORIAL_ILLUSTRATIONS.map((dra
   kind: "illustration", illustrationId: drawing.illustrationId,
   sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
 }]));
-export const APP_JS = `${articleAppearanceRuntimeSource()}\n\n${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
+export const APP_JS = `${articleAppearanceRuntimeSource()}\n\n${publicationMastheadRuntimeSource()}\n\n${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
 
 
 /** The HTML must never reuse a cached client from a different build. */

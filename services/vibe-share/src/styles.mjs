@@ -39,25 +39,6 @@ header a {
   text-decoration:none;
 }
 
-.brand {
-  font-weight:900;
-  letter-spacing:.18em;
-  background:linear-gradient(100deg,#fff,#ff88ad 58%,#9f8cff);
-  background-clip:text;
-  color:transparent;
-}
-
-.brand small:empty { display:none; }
-
-.brand small {
-  display:block;
-  margin-top:2px;
-  color:#9f929b;
-  font-size:9px;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-}
-
 .article {
   width:var(--article-width);
   margin:clamp(28px,6vw,76px) auto 48px;

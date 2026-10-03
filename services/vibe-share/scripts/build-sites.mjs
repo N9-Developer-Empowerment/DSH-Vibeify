@@ -21,6 +21,7 @@ render = render.replace(
 );
 render = render.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
 render = render.replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
+render = render.replace('from "../../../shared/publication-masthead.js"', 'from "./publication-masthead.js"');
 let appSource = await readFile(resolve(project, "src/app-source.mjs"), "utf8");
 appSource = appSource.replace(
   'from "../../../shared/vibe-markdown.js"',
@@ -35,8 +36,10 @@ appSource = appSource.replace(
 appSource = appSource.replace('from "../../../shared/vibe-interactive.js"', 'from "./vibe-interactive.js"');
 
 appSource = appSource.replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
-const appearanceStyles = (await readFile(resolve(project, "src/appearance-styles.mjs"), "utf8")).replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
+appSource = appSource.replace('from "../../../shared/publication-masthead.js"', 'from "./publication-masthead.js"');
+const appearanceStyles = (await readFile(resolve(project, "src/appearance-styles.mjs"), "utf8")).replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"').replace('from "../../../shared/publication-masthead.js"', 'from "./publication-masthead.js"');
 await Promise.all([
+  copyFile(resolve(project, "../../shared/publication-masthead.js"), resolve(server, "publication-masthead.js")),
   writeFile(resolve(server, "appearance-styles.mjs"), appearanceStyles),
   copyFile(resolve(project, "../../shared/article-appearance.js"), resolve(server, "article-appearance.js")),
   copyFile(resolve(project, "src/media.mjs"), resolve(server, "media.mjs")),

@@ -28,7 +28,7 @@ import {
   createEditorialProfile,
   loadEditorialProfile,
 } from "./editorial-settings.js";
-import { buildArticleRestylePrompt, buildContinuousStreamPrompt } from "./stream-recipe.js";
+import { articleRestyleEligibility, articleRestyleResultIsCurrent, buildArticleRestylePrompt, buildContinuousStreamPrompt } from "./stream-recipe.js";
 import { appendStreamMetric } from "./stream-metrics.js";
 import {
   loadExperienceState,
@@ -306,6 +306,7 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
   const shareUrl = externalContentLink?.href ?? player?.href ?? null;
   const shareLabel = externalContentLink === null && player !== null ? "Share media link" : "Share link";
   const inlineVisuals = (remoteVisualsForMarkdown(chunk.markdown) ?? []).slice(1, 3);
+  const restyleEligibility = articleRestyleEligibility(chunk);
   return (
     <article
       className={`vfx-chunk${isHero ? " is-hero" : ""}`}
@@ -385,9 +386,16 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
                 <Icon name="share" />
                 {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
               </button>
-              {isChatResult || isWelcome || !["bundle", "fresh-stream", "radar-reserve"].includes(chunk.source) ? null : (
-                <button type="button" className="vfx-share" disabled={["starting", "submitted", "stopping"].includes(restyleStatus)} onClick={() => onRestyle(chunk)}>
-                  {{ starting: "Preparing rewrite…", submitted: "Rewriting…", stopping: "Stopping…", complete: "Rewrite ready", busy: "Editor busy", error: "Try rewrite again", "timed-out": "Try rewrite again", stopped: "Rewrite stopped" }[restyleStatus] ?? "Rewrite in this style"}
+              {restyleEligibility.reason === "private" || ["empty", "title"].includes(restyleEligibility.reason) ? null : (
+                <button
+                  type="button"
+                  className="vfx-share"
+                  disabled={!restyleEligibility.eligible || ["starting", "submitted", "stopping"].includes(restyleStatus)}
+                  title={restyleEligibility.reason === "too-long" ? "Rewrite unavailable: this article is longer than the 16,000-character rewrite limit." : undefined}
+                  onClick={() => onRestyle(chunk)}
+                >
+                  {restyleEligibility.reason === "too-long" ? "Rewrite unavailable · article too long" :
+                  ({ starting: "Preparing rewrite…", submitted: "Rewriting…", stopping: "Stopping…", complete: "Rewrite ready", busy: "Editor busy", error: "Try rewrite again", "timed-out": "Try rewrite again", stopped: "Rewrite stopped", "look-changed": "Rewrite cancelled · look changed" }[restyleStatus] ?? "Rewrite in this style")}
                 </button>
               )}
               {isChatResult || isWelcome ? null : <button type="button" className="vfx-skip" aria-pressed={skipped} disabled={skipped} onClick={() => onSkip(chunk)}>{skipped ? "Noted" : "Not for me"}</button>}
@@ -422,7 +430,7 @@ function ExperienceShell({ codexFeatures, connection }) {
   const stateRef = React.useRef(state);
   const editorialProfileRef = React.useRef(editorialProfile);
   const appearanceRef = React.useRef(appearance);
-  const scheduler = React.useRef({ active: false, activeId: null, action: null, consumed: 0, runsStarted: 0, scrollFrame: null });
+  const scheduler = React.useRef({ active: false, activeId: null, action: null, restyleLook: null, restyleInvalidated: false, invalidatedRestyleIds: new Set(), consumed: 0, runsStarted: 0, scrollFrame: null });
   const touchPull = React.useRef(createPullRefreshState());
   const trackpadPull = React.useRef(createTrackpadPullRefreshState());
   const trackpadSettleTimer = React.useRef(null);
@@ -443,6 +451,8 @@ function ExperienceShell({ codexFeatures, connection }) {
     current.runsStarted += 1;
     current.active = true;
     current.action = "update";
+    current.restyleLook = null;
+    current.restyleInvalidated = false;
     setRestyleState({ chunkId: null, status: "idle" });
     const runId = `refill-${Date.now().toString(36)}-${current.runsStarted}`;
     current.activeId = runId;
@@ -499,29 +509,46 @@ function ExperienceShell({ codexFeatures, connection }) {
 
   const startRestyle = React.useCallback((chunk) => {
     const current = scheduler.current;
-    if (stateRef.current.view !== "home" || current.active || !["bundle", "fresh-stream", "radar-reserve"].includes(chunk?.source)) return;
+    if (stateRef.current.view !== "home" || current.active || !articleRestyleEligibility(chunk).eligible) return;
     current.runsStarted += 1;
     current.active = true;
     current.action = "restyle";
+    current.restyleLook = appearanceRef.current.look;
+    current.restyleInvalidated = false;
     const runId = `restyle-${Date.now().toString(36)}-${current.runsStarted}`;
     current.activeId = runId;
     setRestyleState({ chunkId: chunk.id, status: "starting" });
     setUpdateState("starting");
-    const prompt = buildArticleRestylePrompt({ runId, chunk, websiteLook: appearanceRef.current.look });
+    const prompt = buildArticleRestylePrompt({ runId, chunk, websiteLook: current.restyleLook });
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: 4 });
     record("article-restyle-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
   }, [record]);
 
   React.useEffect(() => {
-    const onAppearance = (event) => setAppearance(createAppearanceProfile(event.detail));
+    const onAppearance = (event) => {
+      const profile = createAppearanceProfile(event.detail);
+      appearanceRef.current = profile;
+      setAppearance(profile);
+      const current = scheduler.current;
+      if (current.active && current.action === "restyle" && current.restyleLook !== profile.look) {
+        current.restyleInvalidated = true;
+        current.invalidatedRestyleIds.add(current.activeId);
+        setRestyleState((previous) => ({ ...previous, status: "look-changed" }));
+        setUpdateState("stopping");
+        window.dispatchEvent(new CustomEvent(RECIPE_STOP_EVENT, { detail: { id: current.activeId } }));
+      }
+    };
     const onUpdate = () => {
       stateRef.current = { ...stateRef.current, view: "home" };
       dispatch({ type: "home" });
       setLibraryOpen(false);
       startRun();
     };
-    const onStorageAppearance = (event) => { if (event.key === "dsh-vibeify.appearance.v1" || event.key === null) setAppearance(loadAppearanceProfile(browserStorage())); };
+    const onStorageAppearance = (event) => {
+      if (event.key !== "dsh-vibeify.appearance.v1" && event.key !== null) return;
+      onAppearance({ detail: loadAppearanceProfile(browserStorage()) });
+    };
     window.addEventListener(APPEARANCE_SETTINGS_EVENT, onAppearance);
     window.addEventListener(MAGAZINE_UPDATE_EVENT, onUpdate);
     window.addEventListener("storage", onStorageAppearance);
@@ -587,6 +614,15 @@ function ExperienceShell({ codexFeatures, connection }) {
 
   React.useEffect(() => {
     const onChunks = (event) => {
+      const current = scheduler.current;
+      if (current.invalidatedRestyleIds.has(event.detail?.runId)) return;
+      if (event.detail?.runId === current.activeId && current.action === "restyle" && !articleRestyleResultIsCurrent({
+        runId: event.detail.runId,
+        activeId: current.activeId,
+        requestedLook: current.restyleLook,
+        currentLook: appearanceRef.current.look,
+        invalidated: current.restyleInvalidated,
+      })) return;
       const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
       appendCachedChunks(browserStorage(), incoming);
       const acceptedIds = new Set(getCachedStream(browserStorage()).chunks.map(({ id }) => id));
@@ -605,13 +641,15 @@ function ExperienceShell({ codexFeatures, connection }) {
       if (event.detail?.id !== current.activeId) return;
       const nextState = event.detail?.state;
       if (current.action === "restyle") {
-        setRestyleState((previous) => ({ ...previous, status: nextState }));
+        const restyleState = current.restyleInvalidated ? "look-changed" : nextState;
+        setRestyleState((previous) => ({ ...previous, status: restyleState }));
         setUpdateState(nextState);
-        if (nextState === "complete") record("article-restyle-complete", event.detail.id, event.detail.durationMs ?? 0, "fresh-stream");
+        if (nextState === "complete" && !current.restyleInvalidated) record("article-restyle-complete", event.detail.id, event.detail.durationMs ?? 0, "fresh-stream");
         if (["complete", "stopped", "timed-out", "busy", "error"].includes(nextState)) {
           current.active = false;
           current.activeId = null;
           current.action = null;
+          current.restyleLook = null;
         }
         return;
       }
@@ -809,7 +847,9 @@ function ExperienceShell({ codexFeatures, connection }) {
     dispatch({ type: "enter-chat" });
     window.dispatchEvent(new CustomEvent(VIBE_CHAT_EVENT));
   }, []);
-  const updateNotice = restyleState.chunkId !== null && restyleState.status === updateState ? {
+  const updateNotice = restyleState.status === "look-changed"
+    ? "Rewrite discarded because the website look changed. The original is unchanged."
+    : restyleState.chunkId !== null && restyleState.status === updateState ? {
     complete: "Styled replacement added. The original remains in your magazine for comparison.",
     stopped: "Article rewrite stopped. The original is unchanged.",
     "timed-out": "Article rewrite reached its time limit. The original is unchanged.",

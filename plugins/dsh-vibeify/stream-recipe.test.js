@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildArticleRestylePrompt, buildContinuousStreamPrompt } from "./client-src/experience/stream-recipe.js";
+import { articleRestyleEligibility, articleRestyleResultIsCurrent, buildArticleRestylePrompt, buildContinuousStreamPrompt } from "./client-src/experience/stream-recipe.js";
 
 test("the generated edition requires complete copy or a useful verified link in every panel", () => {
   const prompt = buildContinuousStreamPrompt({ runId: "refill-links" });
@@ -84,4 +84,14 @@ test("an explicit public-article rewrite preserves provenance and uses the selec
   assert.match(prompt, /https:\/\/commons\.wikimedia\.org\/example/);
   assert.match(prompt, /<vibe-chunk id="restyle-public-styled"/);
   assert.throws(() => buildArticleRestylePrompt({ runId: "private", chunk: { source: "chat-directed", kind: "article", title: "Private", markdown: "Do not send" } }), /only public Vibe articles/i);
+});
+
+test("article rewrite eligibility matches the UI limit and rejects stale-look results", () => {
+  const article = { source: "fresh-stream", kind: "article", title: "Public", markdown: "x" };
+  assert.deepEqual(articleRestyleEligibility(article), { eligible: true, reason: null });
+  assert.deepEqual(articleRestyleEligibility({ ...article, markdown: "x".repeat(16_001) }), { eligible: false, reason: "too-long" });
+  assert.deepEqual(articleRestyleEligibility({ ...article, source: "chat-directed" }), { eligible: false, reason: "private" });
+  assert.equal(articleRestyleResultIsCurrent({ runId: "restyle-one", activeId: "restyle-one", requestedLook: "bbc-news", currentLook: "bbc-news" }), true);
+  assert.equal(articleRestyleResultIsCurrent({ runId: "restyle-one", activeId: "restyle-one", requestedLook: "bbc-news", currentLook: "vibe" }), false);
+  assert.equal(articleRestyleResultIsCurrent({ runId: "restyle-one", activeId: "restyle-one", requestedLook: "vibe", currentLook: "vibe", invalidated: true }), false);
 });

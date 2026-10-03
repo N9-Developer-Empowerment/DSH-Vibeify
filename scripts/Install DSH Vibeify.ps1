@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
   [switch]$Check,
+  [string]$SourceDirectory = $env:DSH_VIBEIFY_SOURCE_DIRECTORY,
   [ValidateSet("deepseek", "chatgpt", "both", "later")]
   [string]$Provider
 )
@@ -100,14 +101,18 @@ try {
   $TemporaryDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("dsh-vibeify-download-" + [guid]::NewGuid().ToString("N"))
   New-Item -ItemType Directory -Path $TemporaryDirectory | Out-Null
   try {
-    $Archive = Join-Path $TemporaryDirectory "dsh-vibeify.zip"
-    Write-Host ""
-    Write-Host "Downloading the latest Vibeify source from the public GitHub project..."
-    Invoke-WebRequest -UseBasicParsing -Uri $RepositoryArchive -OutFile $Archive
-    Expand-Archive -LiteralPath $Archive -DestinationPath $TemporaryDirectory
-    $ProjectDirectory = Join-Path $TemporaryDirectory "DSH-Vibeify-main"
+    if ($SourceDirectory) {
+      $ProjectDirectory = (Resolve-Path -LiteralPath $SourceDirectory).Path
+      Write-Host "Checking the supplied Vibeify source..."
+    } else {
+      $Archive = Join-Path $TemporaryDirectory "dsh-vibeify.zip"
+      Write-Host "Downloading the latest Vibeify source from the public GitHub project..."
+      Invoke-WebRequest -UseBasicParsing -Uri $RepositoryArchive -OutFile $Archive
+      Expand-Archive -LiteralPath $Archive -DestinationPath $TemporaryDirectory
+      $ProjectDirectory = Join-Path $TemporaryDirectory "DSH-Vibeify-main"
+    }
     if (-not (Test-Path -LiteralPath $ProjectDirectory -PathType Container)) {
-      throw "The downloaded Vibeify archive had an unexpected layout."
+      throw "The Vibeify source had an unexpected layout."
     }
 
     $SelfCheck = Join-Path $ProjectDirectory "scripts\installer-self-check.mjs"
@@ -182,7 +187,8 @@ try {
       }
     }
 
-    $TargetVersion = "0.1.7-rc.2" # Qualified with this Vibeify compatibility bundle
+    $TargetVersion = (& node -p "require(process.argv[1]).peerDependencies['@deepseek-ai/dsh-agent']" (Join-Path $ProjectDirectory "plugins\dsh-vibeify\package.json") | Out-String).Trim()
+    Assert-Native "Reading the qualified DSH version"
     if (-not $TargetVersion) { throw "The official npm registry did not return a DSH version." }
     $CurrentVersion = $null
     if (Get-Command dsh -ErrorAction SilentlyContinue) {

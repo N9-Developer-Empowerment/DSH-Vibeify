@@ -3,11 +3,24 @@ import { publicationWritingVoice } from "../../../../shared/article-appearance.j
 import { createEditorialProfile } from "./editorial-settings.js";
 
 const RESTYLABLE_SOURCES = new Set(["bundle", "fresh-stream", "radar-reserve"]);
+export const MAX_RESTYLE_ARTICLE_CHARACTERS = 16_000;
+
+export function articleRestyleEligibility(chunk) {
+  if (chunk === null || typeof chunk !== "object" || !RESTYLABLE_SOURCES.has(chunk.source)) return Object.freeze({ eligible: false, reason: "private" });
+  if (typeof chunk.title !== "string" || chunk.title.length === 0 || chunk.title.length > 180) return Object.freeze({ eligible: false, reason: "title" });
+  if (typeof chunk.markdown !== "string" || chunk.markdown.length === 0) return Object.freeze({ eligible: false, reason: "empty" });
+  if (chunk.markdown.length > MAX_RESTYLE_ARTICLE_CHARACTERS) return Object.freeze({ eligible: false, reason: "too-long" });
+  return Object.freeze({ eligible: true, reason: null });
+}
+
+export function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, invalidated = false }) {
+  return invalidated !== true && runId === activeId && publicationWritingVoice(requestedLook).id === publicationWritingVoice(currentLook).id;
+}
 
 export function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe" }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("restyle run id is invalid");
-  if (chunk === null || typeof chunk !== "object" || !RESTYLABLE_SOURCES.has(chunk.source)) throw new TypeError("only public Vibe articles can be restyled");
-  if (typeof chunk.title !== "string" || typeof chunk.markdown !== "string" || chunk.markdown.length === 0 || chunk.markdown.length > 16_000) throw new TypeError("restyle article is invalid");
+  const eligibility = articleRestyleEligibility(chunk);
+  if (!eligibility.eligible) throw new TypeError(eligibility.reason === "private" ? "only public Vibe articles can be restyled" : "restyle article is invalid");
   const publicationVoice = publicationWritingVoice(websiteLook);
   return `# Rewrite one existing public VIBE article
 

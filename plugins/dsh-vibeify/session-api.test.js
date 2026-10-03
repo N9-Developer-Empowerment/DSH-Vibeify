@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createSessionApi } from "./client-src/experience/session-api.js";
+import { createSessionApi, sessionNeedsDefaultPresetMigration } from "./client-src/experience/session-api.js";
+
+test("only the retired DSH 0.1 ChatGPT preset requires a fresh default session", () => {
+  assert.equal(sessionNeedsDefaultPresetMigration({ agentPreset: "chatgpt-agent" }), true);
+  assert.equal(sessionNeedsDefaultPresetMigration({ agentPreset: "codex" }), false);
+  assert.equal(sessionNeedsDefaultPresetMigration({}), false);
+  assert.equal(sessionNeedsDefaultPresetMigration(null), false);
+});
 
 test("current DSH Session Remote accepts create, prompt, cancel and rename with a request id", async () => {
   const calls = [];

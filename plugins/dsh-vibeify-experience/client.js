@@ -2126,6 +2126,10 @@ window.__ModuleLoader__.load({
 			  return new AbortController().signal;
 			}
 			var SESSION_HISTORY_OPEN_TIMEOUT_MS = 1500;
+			var RETIRED_DSH_01_AGENT_PRESETS = Object.freeze(/* @__PURE__ */ new Set(["chatgpt-agent"]));
+			function sessionNeedsDefaultPresetMigration(summary) {
+			  return summary !== null && typeof summary === "object" && typeof summary.agentPreset === "string" && RETIRED_DSH_01_AGENT_PRESETS.has(summary.agentPreset);
+			}
 			async function openingSnapshot(remote, sessionId, maxMessages, timeoutMs) {
 			  const controller = new AbortController();
 			  const iterator = remote.follow({ address: { kind: "session", sessionId }, maxMessages }, controller.signal)[Symbol.asyncIterator]();
@@ -2227,8 +2231,7 @@ window.__ModuleLoader__.load({
 			  const snapshot = sessions.list.getSnapshot();
 			  const current = snapshot.current === void 0 ? null : snapshot.byId?.[snapshot.current];
 			  return current === null || current === void 0 ? {} : {
-			    ...typeof current.cwd === "string" ? { cwd: current.cwd } : {},
-			    ...typeof current.agentPreset === "string" ? { agentPreset: current.agentPreset } : {}
+			    ...typeof current.cwd === "string" ? { cwd: current.cwd } : {}
 			  };
 			}
 			function timeZone() {
@@ -2359,6 +2362,7 @@ window.__ModuleLoader__.load({
 			      status({ state: "starting", id: recipe.id, title: recipe.title });
 			      let sessionId = storedSessionId();
 			      const snapshot = sessions.list.getSnapshot();
+			      if (sessionId !== null && sessionNeedsDefaultPresetMigration(snapshot.byId?.[sessionId])) sessionId = null;
 			      if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
 			        clearActive();
 			        status({ state: "busy", id: recipe.id, title: recipe.title, sessionId });
@@ -3061,8 +3065,7 @@ window.__ModuleLoader__.load({
 			  const snapshot = sessions.list.getSnapshot();
 			  const current = snapshot.current === void 0 ? null : snapshot.byId?.[snapshot.current];
 			  return current === null || current === void 0 ? {} : {
-			    ...typeof current.cwd === "string" ? { cwd: current.cwd } : {},
-			    ...typeof current.agentPreset === "string" ? { agentPreset: current.agentPreset } : {}
+			    ...typeof current.cwd === "string" ? { cwd: current.cwd } : {}
 			  };
 			}
 			function latestTurnEnd2(entries) {
@@ -3140,6 +3143,7 @@ window.__ModuleLoader__.load({
 			      const runId = `reserve-${Date.now().toString(36)}`;
 			      let sessionId = readBackgroundSessionId(store);
 			      const snapshot = sessions.list.getSnapshot();
+			      if (sessionId !== null && sessionNeedsDefaultPresetMigration(snapshot.byId?.[sessionId])) sessionId = null;
 			      if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
 			        announce({ state: "busy" });
 			        schedule();

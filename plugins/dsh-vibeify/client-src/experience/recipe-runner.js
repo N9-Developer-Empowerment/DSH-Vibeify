@@ -1,7 +1,7 @@
 import { freshStreamChunksFromEvents, openLiveChunkStream } from "./live-stream-collector.js";
 import { readUpdateSessionId, writeUpdateSessionId } from "./update-session.js";
 import { VIBE_STREAM_CHUNKS_EVENT } from "./vibe-result.js";
-import { createSessionApi } from "./session-api.js";
+import { createSessionApi, sessionNeedsDefaultPresetMigration } from "./session-api.js";
 
 export const RECIPE_RUN_EVENT = "dsh-vibeify:run-recipe";
 export const RECIPE_STATUS_EVENT = "dsh-vibeify:recipe-status";
@@ -73,7 +73,6 @@ function currentSessionDefaults(sessions) {
   const current = snapshot.current === undefined ? null : snapshot.byId?.[snapshot.current];
   return current === null || current === undefined ? {} : {
     ...(typeof current.cwd === "string" ? { cwd: current.cwd } : {}),
-    ...(typeof current.agentPreset === "string" ? { agentPreset: current.agentPreset } : {}),
   };
 }
 
@@ -213,6 +212,7 @@ export function installRecipeRunner(ctx) {
       status({ state: "starting", id: recipe.id, title: recipe.title });
       let sessionId = storedSessionId();
       const snapshot = sessions.list.getSnapshot();
+      if (sessionId !== null && sessionNeedsDefaultPresetMigration(snapshot.byId?.[sessionId])) sessionId = null;
       if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
         clearActive();
         status({ state: "busy", id: recipe.id, title: recipe.title, sessionId });

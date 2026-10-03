@@ -131,6 +131,22 @@ test("one explicit update creates and prompts one dedicated session without open
   browser.restore();
 });
 
+test("a stored DSH 0.1 magazine session is preserved and replaced with a fresh default-preset session", async () => {
+  const browser = installRunnerBrowser();
+  const host = runtime();
+  browser.window.localStorage.setItem("dsh-vibeify.magazine-session.v1", "retired-magazine");
+  host.setSummary({ id: "retired-magazine", agentPreset: "chatgpt-agent", running: false, blank: false, updatedAt: 2 }, { turnEnd: false });
+  installRecipeRunner(host.ctx);
+  const submitted = waitForState(browser.window, "submitted");
+  browser.window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: recipe }));
+  assert.equal((await submitted).sessionId, "magazine-session");
+  assert.deepEqual(host.calls.find(([name]) => name === "create")[1], { cwd: "/project" });
+  assert.equal(browser.window.localStorage.getItem("dsh-vibeify.magazine-session.v1"), "magazine-session");
+  assert.equal(host.calls.some(([, payload]) => payload?.sessionId === "retired-magazine"), false);
+  host.ctx.cleanup();
+  browser.restore();
+});
+
 test("a second update is refused until the first completed turn becomes idle", async () => {
   const browser = installRunnerBrowser();
   const host = runtime();

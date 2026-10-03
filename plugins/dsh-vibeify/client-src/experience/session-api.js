@@ -16,6 +16,14 @@ async function call(operation) {
 function signal() { return new AbortController().signal; }
 
 export const SESSION_HISTORY_OPEN_TIMEOUT_MS = 1_500;
+export const RETIRED_DSH_01_AGENT_PRESETS = Object.freeze(new Set(["chatgpt-agent"]));
+
+export function sessionNeedsDefaultPresetMigration(summary) {
+  return summary !== null
+    && typeof summary === "object"
+    && typeof summary.agentPreset === "string"
+    && RETIRED_DSH_01_AGENT_PRESETS.has(summary.agentPreset);
+}
 
 async function openingSnapshot(remote, sessionId, maxMessages, timeoutMs) {
   const controller = new AbortController();

@@ -8,7 +8,7 @@ import {
 } from "./reserve-store.js";
 import { HUMAN_EDITORIAL_CONTRACT, editorialProfileKey, loadEditorialProfile } from "./editorial-settings.js";
 import { loadAppearanceProfile } from "./appearance-settings.js";
-import { createSessionApi } from "./session-api.js";
+import { createSessionApi, sessionNeedsDefaultPresetMigration } from "./session-api.js";
 import { publicationWritingVoice } from "../../../../shared/article-appearance.js";
 import {
   BACKGROUND_SESSION_TITLE,
@@ -123,7 +123,6 @@ function currentSessionDefaults(sessions) {
   const current = snapshot.current === undefined ? null : snapshot.byId?.[snapshot.current];
   return current === null || current === undefined ? {} : {
     ...(typeof current.cwd === "string" ? { cwd: current.cwd } : {}),
-    ...(typeof current.agentPreset === "string" ? { agentPreset: current.agentPreset } : {}),
   };
 }
 
@@ -205,6 +204,7 @@ export function installBackgroundEditor(ctx, { codexFeatures = true } = {}) {
       const runId = `reserve-${Date.now().toString(36)}`;
       let sessionId = readBackgroundSessionId(store);
       const snapshot = sessions.list.getSnapshot();
+      if (sessionId !== null && sessionNeedsDefaultPresetMigration(snapshot.byId?.[sessionId])) sessionId = null;
       if (sessionId !== null && snapshot.byId?.[sessionId]?.running === true) {
         announce({ state: "busy" }); schedule(); return;
       }

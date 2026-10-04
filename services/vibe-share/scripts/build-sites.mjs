@@ -38,7 +38,9 @@ appSource = appSource.replace('from "../../../shared/vibe-interactive.js"', 'fro
 appSource = appSource.replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
 appSource = appSource.replace('from "../../../shared/publication-masthead.js"', 'from "./publication-masthead.js"');
 const appearanceStyles = (await readFile(resolve(project, "src/appearance-styles.mjs"), "utf8")).replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"').replace('from "../../../shared/publication-masthead.js"', 'from "./publication-masthead.js"');
+const favicon = (await readFile(resolve(project, "src/favicon.mjs"), "utf8")).replace('from "../../../shared/article-appearance.js"', 'from "./article-appearance.js"');
 await Promise.all([
+  writeFile(resolve(server, "favicon.mjs"), favicon),
   copyFile(resolve(project, "../../shared/publication-masthead.js"), resolve(server, "publication-masthead.js")),
   writeFile(resolve(server, "appearance-styles.mjs"), appearanceStyles),
   copyFile(resolve(project, "../../shared/article-appearance.js"), resolve(server, "article-appearance.js")),

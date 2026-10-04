@@ -1,3 +1,4 @@
+import { faviconPath } from "./favicon.mjs";
 import { publicationMastheadRuntimeSource } from "../../../shared/publication-masthead.js";
 import { articleAppearanceRuntimeSource } from "../../../shared/article-appearance.js";
 import { mediaEmbedSource } from "./media.mjs";
@@ -353,6 +354,8 @@ function renderPlainMarkdown(markdown, title = "") {
 function renderSnapshot(value) {
   const appearance = cleanArticleAppearance(value.appearance);
   for (const [key, selected] of Object.entries(appearance)) document.body.dataset[key] = selected;
+  const icon = document.getElementById("vibe-favicon");
+  if (icon) icon.setAttribute("href", faviconPath(appearance));
   const masthead = document.getElementById("publication-banner");
   if (masthead) masthead.innerHTML = renderPublicationMasthead(appearance.look, appearance.mood);
   preview.replaceChildren();
@@ -474,7 +477,7 @@ const bundledIllustrations = Object.fromEntries(EDITORIAL_ILLUSTRATIONS.map((dra
   kind: "illustration", illustrationId: drawing.illustrationId,
   sourceUrl: drawing.href, alt: drawing.alt, credit: drawing.label,
 }]));
-export const APP_JS = `${articleAppearanceRuntimeSource()}\n\n${publicationMastheadRuntimeSource()}\n\n${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
+export const APP_JS = `${articleAppearanceRuntimeSource()}\n\n${publicationMastheadRuntimeSource()}\n\n${faviconPath.toString()}\n\n${mediaEmbedSource.toString()}\n\n${vibeInteractiveRuntimeSource()}\n\n${vibeMarkdownRuntimeSource()}\n\n${storyCoverRuntimeSource()}\n\nconst BUNDLED_ILLUSTRATIONS = ${JSON.stringify(bundledIllustrations)};\n\n${APP_BODY}`;
 
 
 /** The HTML must never reuse a cached client from a different build. */

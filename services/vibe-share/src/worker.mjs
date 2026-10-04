@@ -1,3 +1,4 @@
+import { faviconSvg } from "./favicon.mjs";
 import { cleanShareSnapshot, hasShareVisual } from "../../../shared/vibe-share-contract.js";
 import { illustrationById } from "../../../shared/editorial-illustrations.js";
 import { renderNewPage, renderNotFound, renderPublicArticle } from "./render.mjs";
@@ -228,6 +229,13 @@ async function deleteArticle(request, env, slug) {
 
 export async function handleRequest(request, env = {}) {
   const url = new URL(request.url);
+  if ((request.method === "GET" || request.method === "HEAD") && url.pathname === "/favicon.svg") {
+    const svg = faviconSvg(Object.fromEntries(url.searchParams));
+    return new Response(request.method === "HEAD" ? null : svg, {headers:{
+      "content-type":"image/svg+xml; charset=utf-8", "cache-control":"public, max-age=86400",
+      "x-content-type-options":"nosniff", "content-security-policy":"default-src 'none'; sandbox",
+    }});
+  }
   const drawingPath = /^\/illustrations\/([a-z-]{1,64})\.svg$/.exec(url.pathname);
   if ((request.method === "GET" || request.method === "HEAD") && drawingPath !== null) {
     const drawing = illustrationById(drawingPath[1]);

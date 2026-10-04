@@ -3,7 +3,7 @@ export const APPEARANCE_OPEN_EVENT = "dsh-vibeify:open-appearance-settings";
 export const APPEARANCE_SETTINGS_EVENT = "dsh-vibeify:appearance-settings";
 export const MAGAZINE_UPDATE_EVENT = "dsh-vibeify:update-magazine";
 
-export { MAGAZINE_PALETTES, WEBSITE_LOOKS } from "../../../../shared/article-appearance.js";
+export { MAGAZINE_PALETTES, VIBE_MOODS, WEBSITE_LOOKS } from "../../../../shared/article-appearance.js";
 import { cleanArticleAppearance } from "../../../../shared/article-appearance.js";
 
 export function createAppearanceProfile(value = {}) {

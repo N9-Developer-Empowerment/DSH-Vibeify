@@ -14,6 +14,7 @@ export {
   APPEARANCE_STORAGE_KEY,
   MAGAZINE_UPDATE_EVENT,
   MAGAZINE_PALETTES,
+  VIBE_MOODS,
   WEBSITE_LOOKS,
   createAppearanceProfile,
   loadAppearanceProfile,

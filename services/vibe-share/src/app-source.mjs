@@ -354,7 +354,7 @@ function renderSnapshot(value) {
   const appearance = cleanArticleAppearance(value.appearance);
   for (const [key, selected] of Object.entries(appearance)) document.body.dataset[key] = selected;
   const masthead = document.getElementById("publication-banner");
-  if (masthead) masthead.innerHTML = renderPublicationMasthead(appearance.look);
+  if (masthead) masthead.innerHTML = renderPublicationMasthead(appearance.look, appearance.mood);
   preview.replaceChildren();
   const article = document.createElement("article");
   article.className = "article";

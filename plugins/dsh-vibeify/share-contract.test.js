@@ -223,8 +223,17 @@ test("appearance transfers only fixed choices, never arbitrary styles or private
   const candidate = {version: 1, title: "A finished article", kind: "article", markdown: "Complete copy", publishedAt: NOW,
     appearance: {look: "bbc-news", palette: "news", textSize: "large", spacing: "roomy", prompt: "private note", css: "url(evil)", tribes: ["secret"]}};
   const cleaned = cleanShareSnapshot(candidate, NOW);
-  assert.deepEqual(cleaned.appearance, {look: "bbc-news", palette: "news", textSize: "large", spacing: "roomy"});
+  assert.deepEqual(cleaned.appearance, {look: "bbc-news", mood: "lilac-pop", palette: "news", textSize: "large", spacing: "roomy"});
   assert.doesNotMatch(JSON.stringify(cleaned), /private note|url\(evil\)|secret/);
   assert.deepEqual(cleanShareSnapshot({...candidate, appearance: {look: "<script>", palette: "url(evil)"}}, NOW).appearance,
-    {look: "vibe", palette: "midnight", textSize: "standard", spacing: "standard"});
+    {look: "vibe", mood: "lilac-pop", palette: "lilac-pop", textSize: "standard", spacing: "standard"});
+});
+
+test("shared mood appearance accepts only fixed look and mood enums", () => {
+  for (const mood of ["lilac-pop", "cherry-soda", "matcha-break", "after-dark"]) {
+    const cleaned = cleanShareSnapshot({version: 1, title: "A finished article", kind: "article", markdown: "Complete copy", publishedAt: NOW,
+      appearance: {look: "bbc-news", mood, palette: mood, writingVoice: "private", customDirection: "private"}}, NOW);
+    assert.deepEqual(cleaned.appearance, {look: "bbc-news", mood, palette: mood, textSize: "standard", spacing: "standard"});
+    assert.doesNotMatch(JSON.stringify(cleaned), /writingVoice|customDirection|private/);
+  }
 });

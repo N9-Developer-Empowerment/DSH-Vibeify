@@ -461,8 +461,8 @@ function ExperienceShell({ codexFeatures, connection }) {
     const answerLabels = [];
     const recentTitles = chunksRef.current.slice(-20).map(({ title }) => title);
     const instantChunks = createInstantUpdateChunks(CATALOG, runId, recentTitles);
-    const approved = consumeApprovedPages(browserStorage(), 6, Date.now(), editorialProfileRef.current, appearanceRef.current.look);
-    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length), Date.now(), editorialProfileRef.current, appearanceRef.current.look);
+    const approved = consumeApprovedPages(browserStorage(), 6, Date.now(), editorialProfileRef.current, appearanceRef.current.look, appearanceRef.current.mood);
+    const nativeCandidates = codexFeatures ? [] : consumeCandidatePages(browserStorage(), Math.max(0, 6 - approved.length), Date.now(), editorialProfileRef.current, appearanceRef.current.look, appearanceRef.current.mood);
     const reservedChunks = [...approved, ...nativeCandidates].map((page, index) => Object.freeze({
       id: `reserve:${page.id}`,
       kind: page.kind,
@@ -501,6 +501,7 @@ function ExperienceShell({ codexFeatures, connection }) {
       recentMediaUrls,
       editorialProfile: editorialProfileRef.current,
       websiteLook: appearanceRef.current.look,
+      publicationMood: appearanceRef.current.mood,
     });
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: GENERATED_STREAM_BATCH_SIZE, answerLabels });
     record("magazine-update-started", runId, 0, "fresh-stream");
@@ -514,12 +515,13 @@ function ExperienceShell({ codexFeatures, connection }) {
     current.active = true;
     current.action = "restyle";
     current.restyleLook = appearanceRef.current.look;
+    current.restyleMood = appearanceRef.current.mood;
     current.restyleInvalidated = false;
     const runId = `restyle-${Date.now().toString(36)}-${current.runsStarted}`;
     current.activeId = runId;
     setRestyleState({ chunkId: chunk.id, status: "starting" });
     setUpdateState("starting");
-    const prompt = buildArticleRestylePrompt({ runId, chunk, websiteLook: current.restyleLook });
+    const prompt = buildArticleRestylePrompt({ runId, chunk, websiteLook: current.restyleLook, publicationMood: current.restyleMood });
     const envelope = createStreamEnvelope({ id: runId, prompt, batchSize: 4 });
     record("article-restyle-started", runId, 0, "fresh-stream");
     window.dispatchEvent(new CustomEvent(RECIPE_RUN_EVENT, { detail: envelope }));
@@ -531,7 +533,7 @@ function ExperienceShell({ codexFeatures, connection }) {
       appearanceRef.current = profile;
       setAppearance(profile);
       const current = scheduler.current;
-      if (current.active && current.action === "restyle" && current.restyleLook !== profile.look) {
+      if (current.active && current.action === "restyle" && (current.restyleLook !== profile.look || current.restyleMood !== profile.mood)) {
         current.restyleInvalidated = true;
         current.invalidatedRestyleIds.add(current.activeId);
         setRestyleState((previous) => ({ ...previous, status: "look-changed" }));
@@ -621,6 +623,8 @@ function ExperienceShell({ codexFeatures, connection }) {
         activeId: current.activeId,
         requestedLook: current.restyleLook,
         currentLook: appearanceRef.current.look,
+        requestedMood: current.restyleMood,
+        currentMood: appearanceRef.current.mood,
         invalidated: current.restyleInvalidated,
       })) return;
       const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
@@ -861,7 +865,7 @@ function ExperienceShell({ codexFeatures, connection }) {
     error: "Fresh articles could not be added. Your saved articles are still here.",
   }[updateState];
   return (
-    <div className="vfx-shell" data-view={state.view} data-look={appearance.look} data-palette={appearance.palette} data-text-size={appearance.textSize} data-spacing={appearance.spacing}>
+    <div className="vfx-shell" data-view={state.view} data-look={appearance.look} data-mood={appearance.mood} data-palette={appearance.palette} data-text-size={appearance.textSize} data-spacing={appearance.spacing}>
       {state.view === "home" ? (
         <main
           ref={streamRef}
@@ -885,7 +889,7 @@ function ExperienceShell({ codexFeatures, connection }) {
           />
           <>
             <div className="vfx-publication-banner" role="banner" aria-label="Publication masthead">
-              <button type="button" className="vfx-masthead-home" aria-label="VIBE magazine home" onClick={goHome} dangerouslySetInnerHTML={{ __html: renderPublicationMasthead(appearance.look) }} />
+              <button type="button" className="vfx-masthead-home" aria-label="VIBE magazine home" onClick={goHome} dangerouslySetInnerHTML={{ __html: renderPublicationMasthead(appearance.look, appearance.mood) }} />
             </div>
             <div className={`vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`} style={{ height: `${pullDistance}px` }} aria-hidden="true">
               <span>{pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update"}</span>

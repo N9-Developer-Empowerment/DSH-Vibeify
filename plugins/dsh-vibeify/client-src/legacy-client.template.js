@@ -1014,7 +1014,7 @@ window.__ModuleLoader__.load({
 					saveAppearanceImmediately();
 				});
 				vibeMood.addEventListener("change", () => {
-					const palette = VIBE_MOODS[vibeMood.value].defaultPalette;
+					const palette = VIBE_MOODS[vibeMood.value].defaultPalette ?? WEBSITE_LOOKS[websiteLook.value].defaultPalette;
 					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button.dataset.magazinePalette === palette));
 					saveAppearanceImmediately();
 				});

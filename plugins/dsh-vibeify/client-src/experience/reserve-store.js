@@ -83,7 +83,7 @@ function writeStore(storage, store) {
   try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { return false; }
 }
 
-export function getEditorialReserve(storage, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
+export function getEditorialReserve(storage, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
   const store = readStore(storage, now);
   if (profile === null) return store;
   const key = editorialProfileKey(profile, websiteLook, publicationMood);
@@ -121,7 +121,7 @@ export function appendReservePages(storage, candidates, state, now = Date.now())
   return Object.freeze(appended);
 }
 
-export function consumeApprovedPages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
+export function consumeApprovedPages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
   const store = readStore(storage, now);
   const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
   const eligible = profile === null ? store.approved : store.approved.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook, publicationMood));
@@ -130,7 +130,7 @@ export function consumeApprovedPages(storage, count = 4, now = Date.now(), profi
   return Object.freeze(consumed);
 }
 
-export function consumeCandidatePages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
+export function consumeCandidatePages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
   const store = readStore(storage, now);
   const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
   const eligible = profile === null ? store.candidates : store.candidates.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook, publicationMood));

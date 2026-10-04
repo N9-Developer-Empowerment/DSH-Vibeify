@@ -28,8 +28,12 @@ test("saved mood restores its masthead and can combine with each website look", 
     for (const mood of Object.keys(VIBE_MOODS)) {
       const saved = saveAppearanceProfile(storage, { look, mood });
       const markup = renderPublicationMasthead(saved.look, saved.mood);
-      assert.match(markup, new RegExp(PUBLICATION_MOOD_BRANDS[mood].label));
-      assert.match(markup, new RegExp(PUBLICATION_MOOD_BRANDS[mood].id));
+      if (mood === "classic") {
+        assert.equal(markup, renderPublicationMasthead(look));
+      } else {
+        assert.match(markup, new RegExp(PUBLICATION_MOOD_BRANDS[mood].label));
+        assert.match(markup, new RegExp(PUBLICATION_MOOD_BRANDS[mood].id));
+      }
       if (look === "bbc-news") assert.match(markup, /vibe-brand-tile/);
     }
   }
@@ -41,7 +45,12 @@ test("browser preview and server derive identical mastheads without reader HTML"
     assert.equal(browser, renderPublicationMasthead(look));
     assert.doesNotMatch(browser, /<img|onerror|BBC|inspired|independent/);
   }
-  assert.match(renderPublicationMasthead("vibe"), /LILAC POP/);
+  assert.match(renderPublicationMasthead("vibe"), /A little intrigue/);
   assert.match(renderPublicationMasthead("bbc-news"), /vibe-brand-tile/);
   assert.match(renderPublicationMasthead("bbc-news"), />NEWS</);
+});
+
+test("missing mood keeps the exact legacy masthead identity for each website look", () => {
+  assert.equal(renderPublicationMasthead("vibe"), '<span class="vibe-masthead" data-brand="vibe-magazine-v1" data-treatment="magazine"><span class="vibe-brand-wordmark" aria-label="VIBE">VIBE</span><span class="vibe-brand-tagline">People. Culture. A little intrigue.</span></span>');
+  assert.equal(renderPublicationMasthead("bbc-news"), '<span class="vibe-masthead" data-brand="vibe-news-v1" data-treatment="news"><span class="vibe-brand-wordmark" aria-label="VIBE"><span class="vibe-brand-tile">V</span><span class="vibe-brand-tile">I</span><span class="vibe-brand-tile">B</span><span class="vibe-brand-tile">E</span></span><span class="vibe-brand-section">NEWS</span></span>');
 });

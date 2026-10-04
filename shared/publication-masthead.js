@@ -5,6 +5,7 @@ export const PUBLICATION_BRANDS = Object.freeze({
 });
 
 export const PUBLICATION_MOOD_BRANDS = Object.freeze({
+  classic: Object.freeze({ id: "vibe-classic-v1", tagline: "", label: "CLASSIC" }),
   "lilac-pop": Object.freeze({ id: "vibe-lilac-pop-v1", tagline: "Pop. Play. Main-character colour.", label: "LILAC POP" }),
   "cherry-soda": Object.freeze({ id: "vibe-cherry-soda-v1", tagline: "Life, style and the sweetest throwbacks.", label: "CHERRY SODA" }),
   "matcha-break": Object.freeze({ id: "vibe-matcha-break-v1", tagline: "Good taste. Better pace.", label: "MATCHA BREAK" }),
@@ -16,12 +17,19 @@ export function publicationBrand(look) {
 }
 
 /** Only fixed catalogue text enters this markup; reader-supplied strings never do. */
-export function renderPublicationMasthead(look, mood = "lilac-pop") {
+export function renderPublicationMasthead(look, mood = "classic") {
   const base = publicationBrand(look);
-  const moodBrand = PUBLICATION_MOOD_BRANDS[Object.hasOwn(PUBLICATION_MOOD_BRANDS, mood) ? mood : "lilac-pop"];
+  const moodId = Object.hasOwn(PUBLICATION_MOOD_BRANDS, mood) ? mood : "classic";
+  if (moodId === "classic") {
+    const wordmark = base.treatment === "news"
+      ? Array.from(base.name, (letter) => `<span class="vibe-brand-tile">${letter}</span>`).join("")
+      : base.name;
+    return `<span class="vibe-masthead" data-brand="${base.id}" data-treatment="${base.treatment}"><span class="vibe-brand-wordmark" aria-label="${base.name}">${wordmark}</span>${base.tagline ? `<span class="vibe-brand-tagline">${base.tagline}</span>` : ""}${base.section ? `<span class="vibe-brand-section">${base.section}</span>` : ""}</span>`;
+  }
+  const moodBrand = PUBLICATION_MOOD_BRANDS[moodId];
   const brand = base.treatment === "news"
     ? { ...base, id: `${base.id}-${moodBrand.id}`, tagline: moodBrand.tagline }
-    : { id: moodBrand.id, name: base.name, tagline: moodBrand.tagline, section: moodBrand.label, treatment: mood };
+    : { id: moodBrand.id, name: base.name, tagline: moodBrand.tagline, section: moodBrand.label, treatment: moodId };
   const wordmark = brand.treatment === "news"
     ? Array.from(brand.name, (letter) => `<span class="vibe-brand-tile">${letter}</span>`).join("")
     : brand.name;

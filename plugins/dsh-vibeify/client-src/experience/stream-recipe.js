@@ -13,11 +13,11 @@ export function articleRestyleEligibility(chunk) {
   return Object.freeze({ eligible: true, reason: null });
 }
 
-export function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, requestedMood = "lilac-pop", currentMood = "lilac-pop", invalidated = false }) {
+export function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, requestedMood = "classic", currentMood = "classic", invalidated = false }) {
   return invalidated !== true && runId === activeId && publicationWritingVoice(requestedLook, requestedMood).id === publicationWritingVoice(currentLook, currentMood).id;
 }
 
-export function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
+export function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe", publicationMood = "classic" }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("restyle run id is invalid");
   const eligibility = articleRestyleEligibility(chunk);
   if (!eligibility.eligible) throw new TypeError(eligibility.reason === "private" ? "only public Vibe articles can be restyled" : "restyle article is invalid");
@@ -57,7 +57,7 @@ Original kind: ${chunk.kind}
 ${chunk.markdown}`;
 }
 
-export function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
+export function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null, websiteLook = "vibe", publicationMood = "classic" }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
   const count = Number.isInteger(batchSize) ? Math.min(12, Math.max(4, batchSize)) : 8;
   const titles = Array.isArray(recentTitles)

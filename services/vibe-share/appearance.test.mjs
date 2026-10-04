@@ -9,7 +9,7 @@ const value = {version:1,title:"The kettle has called a press conference",kind:"
 test("website look survives cleaning, persistence and public rendering", () => {
  const stored = JSON.parse(JSON.stringify(cleanShareSnapshot(value)));
  const html = renderPublicArticle(cleanShareSnapshot(stored), "https://share.codingforjustice.org.uk/a/example");
- assert.match(html, /<body data-look="bbc-news" data-palette="news" data-text-size="large" data-spacing="roomy">/);
+ assert.match(html, /<body data-look="bbc-news" data-mood="lilac-pop" data-palette="news" data-text-size="large" data-spacing="roomy">/);
  assert.doesNotMatch(html, /VIBE parody|independent of the BBC|<small class="look-note">/);
  assert.match(html, /--reading-width:68ch/);
  assert.match(html, /grid-column:1 \/ -1/);
@@ -51,8 +51,8 @@ test("article appearance changes the preview to the exact server publication mas
 
 test("waiting preview and unavailable pages carry the stable default publication", () => {
  for (const html of [renderNewPage(),renderNotFound()]) {
-  assert.match(html,/<body data-look="vibe" data-palette="midnight" data-text-size="standard" data-spacing="standard">/);
-  assert.ok(html.includes(renderPublicationMasthead("vibe")));
+  assert.match(html,/<body data-look="vibe" data-mood="lilac-pop" data-palette="lilac-pop" data-text-size="standard" data-spacing="standard">/);
+  assert.ok(html.includes(renderPublicationMasthead("vibe","lilac-pop")));
   assert.ok(html.indexOf('id="publication-banner"') < html.indexOf('<main'));
  }
 });
@@ -67,6 +67,20 @@ test("unknown and malicious looks fall back without adding supplied markup", () 
   assert.equal(preview.markup,renderPublicationMasthead("vibe"));
   assert.ok(html.includes(preview.markup));
   assert.doesNotMatch(html,/onerror=alert|PRIVATE_EDITORIAL_PREFERENCE/);
-  assert.deepEqual(Object.keys(cleaned.appearance),["look","palette","textSize","spacing"]);
+  assert.deepEqual(Object.keys(cleaned.appearance),["look","mood","palette","textSize","spacing"]);
+ }
+});
+
+test("the four fixed VIBE moods retain their masthead in private preview and public rendering", () => {
+ for (const mood of ["lilac-pop","cherry-soda","matcha-break","after-dark"]) {
+  const appearance = {look:"bbc-news",mood,palette:mood,textSize:"standard",spacing:"standard"};
+  const preview = runPreviewAppearance(appearance);
+  const cleaned = cleanShareSnapshot({...value,appearance});
+  const html = renderPublicArticle(cleaned,"https://example.org/a/test");
+  assert.equal(preview.appearance.look,"bbc-news");
+  assert.equal(preview.appearance.mood,mood);
+  assert.ok(html.includes(`data-look="bbc-news" data-mood="${mood}" data-palette="${mood}"`));
+  assert.equal(preview.markup,renderPublicationMasthead("bbc-news",mood));
+  assert.ok(html.includes(preview.markup));
  }
 });

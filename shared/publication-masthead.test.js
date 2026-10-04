@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
-import { PUBLICATION_BRANDS, publicationBrand, renderPublicationMasthead, publicationMastheadRuntimeSource } from "./publication-masthead.js";
-import { WEBSITE_LOOKS } from "./article-appearance.js";
+import { PUBLICATION_BRANDS, PUBLICATION_MOOD_BRANDS, publicationBrand, renderPublicationMasthead, publicationMastheadRuntimeSource } from "./publication-masthead.js";
+import { VIBE_MOODS, WEBSITE_LOOKS } from "./article-appearance.js";
 import { saveAppearanceProfile, loadAppearanceProfile } from "../plugins/dsh-vibeify/client-src/experience/appearance-settings.js";
 
 test("every selectable look has a stable, immutable publication identity", () => {
   assert.deepEqual(Object.keys(PUBLICATION_BRANDS), Object.keys(WEBSITE_LOOKS));
+  assert.deepEqual(Object.keys(PUBLICATION_MOOD_BRANDS), Object.keys(VIBE_MOODS));
   assert.equal(new Set(Object.values(PUBLICATION_BRANDS).map(brand => brand.id)).size, Object.keys(WEBSITE_LOOKS).length);
   for (const look of Object.keys(WEBSITE_LOOKS)) assert.ok(Object.isFrozen(publicationBrand(look)));
 });
@@ -20,13 +21,27 @@ test("saved look restores the same masthead across visits and look switches", ()
   }
 });
 
+test("saved mood restores its masthead and can combine with each website look", () => {
+  const values = new Map();
+  const storage = { getItem: key => values.get(key), setItem: (key, value) => values.set(key, value) };
+  for (const look of Object.keys(WEBSITE_LOOKS)) {
+    for (const mood of Object.keys(VIBE_MOODS)) {
+      const saved = saveAppearanceProfile(storage, { look, mood });
+      const markup = renderPublicationMasthead(saved.look, saved.mood);
+      assert.match(markup, new RegExp(PUBLICATION_MOOD_BRANDS[mood].label));
+      assert.match(markup, new RegExp(PUBLICATION_MOOD_BRANDS[mood].id));
+      if (look === "bbc-news") assert.match(markup, /vibe-brand-tile/);
+    }
+  }
+});
+
 test("browser preview and server derive identical mastheads without reader HTML", () => {
   for (const look of ["vibe", "bbc-news", '<img src=x onerror=alert(1)>', null, "__proto__"]) {
     const browser = vm.runInNewContext(`${publicationMastheadRuntimeSource()}\nrenderPublicationMasthead(input)`, { input: look });
     assert.equal(browser, renderPublicationMasthead(look));
     assert.doesNotMatch(browser, /<img|onerror|BBC|inspired|independent/);
   }
-  assert.match(renderPublicationMasthead("vibe"), /A little intrigue/);
+  assert.match(renderPublicationMasthead("vibe"), /LILAC POP/);
   assert.match(renderPublicationMasthead("bbc-news"), /vibe-brand-tile/);
   assert.match(renderPublicationMasthead("bbc-news"), />NEWS</);
 });

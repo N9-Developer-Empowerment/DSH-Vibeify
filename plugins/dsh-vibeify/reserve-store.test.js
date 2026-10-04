@@ -59,6 +59,17 @@ test("changed website voice hides pages prepared for the previous look", () => {
   assert.equal(getEditorialReserve(local, NOW).approved.length, 0);
 });
 
+test("changed mood hides pages prepared for the previous mood", () => {
+  const local = storage();
+  const profile = createEditorialProfile({ tribes: ["global-curious"] });
+  appendReservePages(local, [
+    { id: "lilac-copy", kind: "article", title: "Pop", markdown: "Lilac copy", profileKey: editorialProfileKey(profile, "vibe", "lilac-pop") },
+    { id: "dark-copy", kind: "article", title: "Night", markdown: "After-dark copy", profileKey: editorialProfileKey(profile, "vibe", "after-dark") },
+  ], "approved", NOW);
+  assert.deepEqual(getEditorialReserve(local, NOW, profile, "vibe", "after-dark").approved.map(({ id }) => id), ["dark-copy"]);
+  assert.deepEqual(consumeApprovedPages(local, 4, NOW, profile, "vibe", "after-dark").map(({ id }) => id), ["dark-copy"]);
+});
+
 test("the hidden reserve rejects preference questionnaires but keeps ordinary question-led articles", () => {
   const local = storage();
   const appended = appendReservePages(local, [

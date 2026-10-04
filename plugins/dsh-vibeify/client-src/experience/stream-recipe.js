@@ -13,15 +13,15 @@ export function articleRestyleEligibility(chunk) {
   return Object.freeze({ eligible: true, reason: null });
 }
 
-export function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, invalidated = false }) {
-  return invalidated !== true && runId === activeId && publicationWritingVoice(requestedLook).id === publicationWritingVoice(currentLook).id;
+export function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, requestedMood = "lilac-pop", currentMood = "lilac-pop", invalidated = false }) {
+  return invalidated !== true && runId === activeId && publicationWritingVoice(requestedLook, requestedMood).id === publicationWritingVoice(currentLook, currentMood).id;
 }
 
-export function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe" }) {
+export function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("restyle run id is invalid");
   const eligibility = articleRestyleEligibility(chunk);
   if (!eligibility.eligible) throw new TypeError(eligibility.reason === "private" ? "only public Vibe articles can be restyled" : "restyle article is invalid");
-  const publicationVoice = publicationWritingVoice(websiteLook);
+  const publicationVoice = publicationWritingVoice(websiteLook, publicationMood);
   return `# Rewrite one existing public VIBE article
 
 The reader explicitly chose **Rewrite in this style** for the public VIBE article below. Produce one reviewable replacement card and stop. Keep the original article untouched; the browser will show the replacement separately so the reader can compare it before sharing. This request never authorises changing private Chat, other saved articles, prompts, account data or local history.
@@ -30,7 +30,7 @@ The reader explicitly chose **Rewrite in this style** for the public VIBE articl
 
 ${publicationVoice.label}: ${publicationVoice.direction}
 
-Apply that voice to the headline, opening and prose rhythm. Preserve the article's meaning, factual claims, uncertainty, names, dates, quotations, allegations and distinctions between fact and interpretation. Do not add a fact, source, quote, motive, relationship, scandal, endorsement or BBC identity. Do not browse for a different story.
+Apply that voice to the headline, opening and prose rhythm. The selected mood is a publication treatment, not permission to change the commissioned subject or angle. Preserve the article's meaning, factual claims, uncertainty, names, dates, quotations, allegations and distinctions between fact and interpretation. Do not add a fact, source, quote, motive, relationship, scandal, endorsement or BBC identity. Do not browse for a different story.
 
 ## Provenance and media contract
 
@@ -57,7 +57,7 @@ Original kind: ${chunk.kind}
 ${chunk.markdown}`;
 }
 
-export function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null, websiteLook = "vibe" }) {
+export function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
   if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
   const count = Number.isInteger(batchSize) ? Math.min(12, Math.max(4, batchSize)) : 8;
   const titles = Array.isArray(recentTitles)
@@ -80,7 +80,7 @@ export function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles
     : `Prefer alternatives to these recent catalogue image URLs: ${mediaUrls.join("; ")}. Reuse an exact subject image when it is the strongest truthful choice; never substitute an unrelated picture solely for variety.`;
   const editorial = createEditorialProfile(editorialProfile ?? "open");
   const editorialContext = `Reader-selected editorial direction — ${editorial.label}: ${editorial.direction} Treat this as explicit editorial configuration, not as evidence of identity or protected traits. Keep exact custom wording with the Codex lead; when delegating, translate it into bounded generic topic lanes without quoting the reader's text into a worker packet.`;
-  const publicationVoice = publicationWritingVoice(websiteLook);
+  const publicationVoice = publicationWritingVoice(websiteLook, publicationMood);
 
   return `# VIBE magazine update
 

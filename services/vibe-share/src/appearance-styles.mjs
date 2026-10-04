@@ -19,6 +19,18 @@ body[data-look] :is(.body th,.math) { color:var(--ink); background:var(--wash); 
 body[data-look] :is(.body th,.body td) { border-color:var(--edge); }
 body[data-text-size="large"] .body { font-size:clamp(20px,2vw,24px); }
 body[data-spacing="roomy"] .copy { padding:clamp(30px,5vw,80px); }
+body[data-mood="lilac-pop"] { background:radial-gradient(circle at 88% 4%,#efc8ff 0,transparent 29%),var(--page); }
+body[data-mood="lilac-pop"] .article { border-radius:26px 10px 26px 10px; box-shadow:0 18px 48px #7d3a9d16; }
+body[data-mood="lilac-pop"] :is(h1,h2,h3,h4) { font-family:Georgia,"Times New Roman",serif; font-style:italic; }
+body[data-mood="cherry-soda"] { background:repeating-linear-gradient(0deg,transparent 0 42px,color-mix(in srgb,var(--accent) 5%,transparent) 43px),var(--page); }
+body[data-mood="cherry-soda"] .article { border-radius:6px; box-shadow:7px 7px 0 color-mix(in srgb,var(--accent) 12%,transparent); }
+body[data-mood="cherry-soda"] :is(h1,h2,h3,h4) { font-family:"Arial Rounded MT Bold",Arial,sans-serif; letter-spacing:-.03em; }
+body[data-mood="matcha-break"] { background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent 34%),var(--page); }
+body[data-mood="matcha-break"] .article { border-radius:18px; box-shadow:none; }
+body[data-mood="matcha-break"] :is(h1,h2,h3,h4) { font-family:"Avenir Next",Avenir,Inter,sans-serif; font-weight:650; letter-spacing:-.025em; }
+body[data-mood="after-dark"] { background:radial-gradient(circle at 78% 8%,#6b214c55 0,transparent 30%),linear-gradient(155deg,#100914,#190d20 58%,#0c0710); }
+body[data-mood="after-dark"] .article { border-radius:2px 22px 2px 22px; box-shadow:0 20px 64px #0008; }
+body[data-mood="after-dark"] :is(h1,h2,h3,h4) { font-family:Didot,"Bodoni 72",Georgia,serif; font-weight:600; letter-spacing:.005em; }
 body[data-look="bbc-news"] .article { border:0; border-top:1px solid var(--edge); border-radius:0; box-shadow:none; }
 body[data-look="bbc-news"] .lead { border-radius:0; margin:24px auto 32px; }
 body[data-look="bbc-news"] :is(h1,h2,h3,h4) { font-family:Georgia,serif; font-weight:700; letter-spacing:-.025em; }

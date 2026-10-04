@@ -66,6 +66,22 @@ test("website look selects the writing voice for future generated pages", () => 
   assert.match(news, /does not authorise rewriting.*existing article or private Chat content/i);
 });
 
+test("saved VIBE moods combine with the website voice and explicit editor direction", () => {
+  const expectations = {
+    "lilac-pop": /anime-editorial energy/i,
+    "cherry-soda": /1990s and 2000s lifestyle-magazine/i,
+    "matcha-break": /sustainable, healthy and calm/i,
+    "after-dark": /pansexual and furry communities/i,
+  };
+  for (const [publicationMood, treatment] of Object.entries(expectations)) {
+    const prompt = buildContinuousStreamPrompt({ runId: `refill-${publicationMood}`, websiteLook: "bbc-news", publicationMood, editorialProfile: { customDirection: "Keep the reader's chosen railway-worker angle." } });
+    assert.match(prompt, /restrained British broadcast-news parody/i);
+    assert.match(prompt, treatment);
+    assert.match(prompt, /combine the website publication voice and mood coherently/i);
+    assert.match(prompt, /Keep the reader's chosen railway-worker angle/);
+  }
+});
+
 test("an explicit public-article rewrite preserves provenance and uses the selected look voice", () => {
   const prompt = buildArticleRestylePrompt({
     runId: "restyle-public",

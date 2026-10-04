@@ -30,6 +30,18 @@ ${PUBLICATION_MASTHEAD_STYLES}
 .vfx-shell[data-text-size="large"] .vfx-markdown { font-size:18px; line-height:1.8; }
 .vfx-shell[data-spacing="roomy"] .vfx-chunks { gap:32px; }
 .vfx-shell[data-spacing="roomy"] .vfx-chunk-copy { padding:clamp(26px,4vw,52px); }
+.vfx-shell[data-mood="lilac-pop"] .vfx-stream { background:radial-gradient(circle at 88% 4%,#efc8ff 0,transparent 29%),radial-gradient(circle at 5% 28%,#ffd9ee 0,transparent 24%),var(--page); }
+.vfx-shell[data-mood="lilac-pop"] .vfx-chunk { border-radius:26px 10px 26px 10px; box-shadow:0 18px 48px #7d3a9d16; }
+.vfx-shell[data-mood="lilac-pop"] :is(.vfx-edition-intro h1,.vfx-library h1,.vfx-chunk h2) { font-family:Georgia,"Times New Roman",serif; font-style:italic; }
+.vfx-shell[data-mood="cherry-soda"] .vfx-stream { background:repeating-linear-gradient(0deg,transparent 0 42px,color-mix(in srgb,var(--accent) 5%,transparent) 43px),var(--page); }
+.vfx-shell[data-mood="cherry-soda"] .vfx-chunk { border-radius:6px; box-shadow:7px 7px 0 color-mix(in srgb,var(--accent) 12%,transparent); }
+.vfx-shell[data-mood="cherry-soda"] :is(.vfx-edition-intro h1,.vfx-library h1,.vfx-chunk h2) { font-family:"Arial Rounded MT Bold",Arial,sans-serif; letter-spacing:-.03em; }
+.vfx-shell[data-mood="matcha-break"] .vfx-stream { background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 7%,transparent),transparent 34%),var(--page); }
+.vfx-shell[data-mood="matcha-break"] .vfx-chunk { border-radius:18px; box-shadow:none; }
+.vfx-shell[data-mood="matcha-break"] :is(.vfx-edition-intro h1,.vfx-library h1,.vfx-chunk h2) { font-family:"Avenir Next",Avenir,Inter,sans-serif; font-weight:650; letter-spacing:-.025em; }
+.vfx-shell[data-mood="after-dark"] .vfx-stream { background:radial-gradient(circle at 78% 8%,#6b214c55 0,transparent 30%),linear-gradient(155deg,#100914,#190d20 58%,#0c0710); }
+.vfx-shell[data-mood="after-dark"] .vfx-chunk { border-radius:2px 22px 2px 22px; box-shadow:0 20px 64px #0008; }
+.vfx-shell[data-mood="after-dark"] :is(.vfx-edition-intro h1,.vfx-library h1,.vfx-chunk h2) { font-family:Didot,"Bodoni 72",Georgia,serif; font-weight:600; letter-spacing:.005em; }
 @media(max-width:760px) { .vfx-header { height:auto; min-height:78px; padding:12px 16px; gap:8px; flex-wrap:wrap; } .vfx-wordmark { margin-right:auto; } .vfx-edition { display:none; } .vfx-header .vfx-find,.vfx-header .vfx-update,.vfx-header .vfx-chat { padding:0 10px; font-size:11px; } }
 /* Website structure stays independent of palette and accessibility choices. */
 .vfx-shell[data-look="bbc-news"] .vfx-stream { background:var(--page); }

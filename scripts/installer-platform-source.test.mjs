@@ -50,7 +50,7 @@ test("Windows and Linux keep the existing interactive provider mode by default",
 test("Windows qualifies pnpm in the user npm prefix before DSH plugin mutations", async () => {
   const windows = await read("scripts/Install DSH Vibeify.ps1");
   const linux = await read("scripts/install-dsh-vibeify-linux.sh");
-  const liveGuard = windows.indexOf("if (Test-LocalDsh)");
+  const liveGuard = windows.indexOf("if (-not (Confirm-IdleDshUpdate))");
   const pnpmPin = windows.indexOf('$QualifiedPnpmVersion = "10.34.6"');
   const prefixGuard = windows.indexOf("StartsWith($UserProfilePath");
   const pathPrepend = windows.indexOf('$env:PATH = "$GlobalNpmPrefix;$env:PATH"');

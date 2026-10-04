@@ -116,6 +116,7 @@ window.__ModuleLoader__.load({
 		const APPEARANCE_SETTINGS_EVENT = __DshVibeifyExperience.APPEARANCE_SETTINGS_EVENT;
 		const MAGAZINE_UPDATE_EVENT = __DshVibeifyExperience.MAGAZINE_UPDATE_EVENT;
 		const MAGAZINE_PALETTES = __DshVibeifyExperience.MAGAZINE_PALETTES;
+		const VIBE_MOODS = __DshVibeifyExperience.VIBE_MOODS;
 		const WEBSITE_LOOKS = __DshVibeifyExperience.WEBSITE_LOOKS;
 
 		function muxUrl() {
@@ -327,12 +328,12 @@ window.__ModuleLoader__.load({
 					error.length > 0 ? React.createElement("p", { className: "dsh-vibeify-updates-error", role: "alert" }, error) : null,
 					React.createElement("div", { className: "dsh-vibeify-update-actions" },
 						React.createElement("button", { type: "button", disabled: checking, onClick: () => check(true) }, checking ? "Checking…" : "Check again"),
-						report === null ? null : React.createElement("a", {
+						React.createElement("a", {
 							className: "dsh-vibeify-update-download",
-							href: report.updater.url,
+							href: report?.updater?.url || "https://dsh-vibeify.ezzye.chatgpt.site/#update",
 							target: "_blank",
 							rel: "noreferrer",
-						}, report.updater.label || "Open updater guide"),
+						}, report?.updater?.label || "Open update guide"),
 					),
 					React.createElement("p", { className: "dsh-vibeify-updates-note" }, report?.updater?.note || "Finish active tasks before activating an update."),
 				);
@@ -919,8 +920,11 @@ window.__ModuleLoader__.load({
 			  <p class="dsh-vibeify-intro">Set the magazine's appearance and editorial direction here. Chat colour has its own setting below.</p>
 			  <section class="dsh-vibeify-section" aria-labelledby="dsh-vibeify-appearance-heading">
 			    <div id="dsh-vibeify-appearance-heading" class="dsh-vibeify-heading">VIBE magazine appearance</div>
-			    <label>Website look<select id="dsh-vibeify-website-look">${Object.entries(WEBSITE_LOOKS).map(([id, look]) => `<option value="${id}">${look.label}</option>`).join("")}</select></label>
-			    <p class="dsh-vibeify-intro">The look keeps its own saved masthead, travels with your shared article and sets the writing voice for future Vibe pages. It does not rewrite saved articles or private Chat.</p>
+			    <div class="dsh-vibeify-appearance-controls">
+			      <label>Website look<select id="dsh-vibeify-website-look">${Object.entries(WEBSITE_LOOKS).map(([id, look]) => `<option value="${id}">${look.label}</option>`).join("")}</select></label>
+			      <label>VIBE mood<select id="dsh-vibeify-mood">${Object.entries(VIBE_MOODS).map(([id, mood]) => `<option value="${id}">${mood.label}</option>`).join("")}</select></label>
+			    </div>
+			    <p class="dsh-vibeify-intro">The website look and mood combine into a saved masthead and publication voice, and travel with a shared article. Your editorial lenses and editor note still set the subject and angle. They do not rewrite saved articles or private Chat.</p>
 			    <div class="dsh-vibeify-magazine-palette" role="radiogroup" aria-label="Magazine palette">${Object.entries(MAGAZINE_PALETTES).map(([id, { label, colors }]) => `<button class="dsh-vibeify-magazine-choice" type="button" role="radio" data-magazine-palette="${id}" aria-checked="false"><span class="dsh-vibeify-magazine-swatch" aria-hidden="true" style="--magazine-background:${colors.background};--magazine-accent:${colors.accent};--magazine-border:${colors.border}"></span>${label}</button>`).join("")}</div>
 			    <div class="dsh-vibeify-appearance-controls">
 			      <label>Text size<select id="dsh-vibeify-text-size"><option value="standard">Standard</option><option value="large">Large</option></select></label>
@@ -967,6 +971,7 @@ window.__ModuleLoader__.load({
 				const background = picker.querySelector("#dsh-vibeify-background");
 				const contentNotes = picker.querySelector("#dsh-vibeify-content-notes");
 				const websiteLook = picker.querySelector("#dsh-vibeify-website-look");
+				const vibeMood = picker.querySelector("#dsh-vibeify-mood");
 				const textSize = picker.querySelector("#dsh-vibeify-text-size");
 				const spacing = picker.querySelector("#dsh-vibeify-spacing");
 				const status = picker.querySelector(".dsh-vibeify-status");
@@ -977,6 +982,7 @@ window.__ModuleLoader__.load({
 					for (const button of picker.querySelectorAll("[data-tribe]")) button.setAttribute("aria-pressed", String(editorialProfile.tribes.includes(button.dataset.tribe)));
 					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(appearanceProfile.palette === button.dataset.magazinePalette));
 					websiteLook.value = appearanceProfile.look;
+					vibeMood.value = appearanceProfile.mood;
 					textSize.value = appearanceProfile.textSize;
 					spacing.value = appearanceProfile.spacing;
 					customDirection.value = editorialProfile.customDirection;
@@ -994,6 +1000,7 @@ window.__ModuleLoader__.load({
 				};
 				const saveAppearanceFromControls = () => applyAppearance({
 					look: websiteLook.value,
+					mood: vibeMood.value,
 					palette: picker.querySelector('[data-magazine-palette][aria-checked="true"]')?.dataset.magazinePalette,
 					textSize: textSize.value,
 					spacing: spacing.value,
@@ -1001,10 +1008,13 @@ window.__ModuleLoader__.load({
 				const saveAppearanceImmediately = () => {
 					appearanceProfile = saveAppearanceFromControls();
 					trigger.title = `Vibe settings · ${MAGAZINE_PALETTES[appearanceProfile.palette].label} magazine · ${editorialProfile.label}`;
-					status.textContent = `Magazine appearance saved: ${WEBSITE_LOOKS[appearanceProfile.look].label} look and future writing voice, ${MAGAZINE_PALETTES[appearanceProfile.palette].label} palette.`;
+					status.textContent = `Magazine appearance saved: ${WEBSITE_LOOKS[appearanceProfile.look].label} with ${VIBE_MOODS[appearanceProfile.mood].label}, fixed masthead and ${MAGAZINE_PALETTES[appearanceProfile.palette].label} palette.`;
 				};
 				websiteLook.addEventListener("change", () => {
-					const palette = WEBSITE_LOOKS[websiteLook.value].defaultPalette;
+					saveAppearanceImmediately();
+				});
+				vibeMood.addEventListener("change", () => {
+					const palette = VIBE_MOODS[vibeMood.value].defaultPalette;
 					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button.dataset.magazinePalette === palette));
 					saveAppearanceImmediately();
 				});

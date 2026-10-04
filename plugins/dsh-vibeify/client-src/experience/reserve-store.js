@@ -83,10 +83,10 @@ function writeStore(storage, store) {
   try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { return false; }
 }
 
-export function getEditorialReserve(storage, now = Date.now(), profile = null, websiteLook = "vibe") {
+export function getEditorialReserve(storage, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
   const store = readStore(storage, now);
   if (profile === null) return store;
-  const key = editorialProfileKey(profile, websiteLook);
+  const key = editorialProfileKey(profile, websiteLook, publicationMood);
   return Object.freeze({ ...store, candidates: Object.freeze(store.candidates.filter((page) => page.profileKey === key)), approved: Object.freeze(store.approved.filter((page) => page.profileKey === key)) });
 }
 
@@ -121,19 +121,19 @@ export function appendReservePages(storage, candidates, state, now = Date.now())
   return Object.freeze(appended);
 }
 
-export function consumeApprovedPages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe") {
+export function consumeApprovedPages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
   const store = readStore(storage, now);
   const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
-  const eligible = profile === null ? store.approved : store.approved.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook));
+  const eligible = profile === null ? store.approved : store.approved.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook, publicationMood));
   const consumed = eligible.slice(0, take);
   if (consumed.length > 0 || eligible.length !== store.approved.length) writeStore(storage, { ...store, approved: eligible.slice(consumed.length) });
   return Object.freeze(consumed);
 }
 
-export function consumeCandidatePages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe") {
+export function consumeCandidatePages(storage, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
   const store = readStore(storage, now);
   const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
-  const eligible = profile === null ? store.candidates : store.candidates.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook));
+  const eligible = profile === null ? store.candidates : store.candidates.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook, publicationMood));
   const consumed = eligible.slice(0, take);
   if (consumed.length > 0 || eligible.length !== store.candidates.length) writeStore(storage, { ...store, candidates: eligible.slice(consumed.length) });
   return Object.freeze(consumed);

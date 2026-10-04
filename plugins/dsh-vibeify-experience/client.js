@@ -70,6 +70,7 @@ window.__ModuleLoader__.load({
 			  "bbc-news": Object.freeze({ id: "vibe-news-v1", name: "VIBE", tagline: "", section: "NEWS", treatment: "news" })
 			});
 			var PUBLICATION_MOOD_BRANDS = Object.freeze({
+			  classic: Object.freeze({ id: "vibe-classic-v1", tagline: "", label: "CLASSIC" }),
 			  "lilac-pop": Object.freeze({ id: "vibe-lilac-pop-v1", tagline: "Pop. Play. Main-character colour.", label: "LILAC POP" }),
 			  "cherry-soda": Object.freeze({ id: "vibe-cherry-soda-v1", tagline: "Life, style and the sweetest throwbacks.", label: "CHERRY SODA" }),
 			  "matcha-break": Object.freeze({ id: "vibe-matcha-break-v1", tagline: "Good taste. Better pace.", label: "MATCHA BREAK" }),
@@ -78,10 +79,15 @@ window.__ModuleLoader__.load({
 			function publicationBrand(look) {
 			  return PUBLICATION_BRANDS[Object.hasOwn(PUBLICATION_BRANDS, look) ? look : "vibe"];
 			}
-			function renderPublicationMasthead(look, mood = "lilac-pop") {
+			function renderPublicationMasthead(look, mood = "classic") {
 			  const base = publicationBrand(look);
-			  const moodBrand = PUBLICATION_MOOD_BRANDS[Object.hasOwn(PUBLICATION_MOOD_BRANDS, mood) ? mood : "lilac-pop"];
-			  const brand = base.treatment === "news" ? { ...base, id: `${base.id}-${moodBrand.id}`, tagline: moodBrand.tagline } : { id: moodBrand.id, name: base.name, tagline: moodBrand.tagline, section: moodBrand.label, treatment: mood };
+			  const moodId = Object.hasOwn(PUBLICATION_MOOD_BRANDS, mood) ? mood : "classic";
+			  if (moodId === "classic") {
+			    const wordmark2 = base.treatment === "news" ? Array.from(base.name, (letter) => `<span class="vibe-brand-tile">${letter}</span>`).join("") : base.name;
+			    return `<span class="vibe-masthead" data-brand="${base.id}" data-treatment="${base.treatment}"><span class="vibe-brand-wordmark" aria-label="${base.name}">${wordmark2}</span>${base.tagline ? `<span class="vibe-brand-tagline">${base.tagline}</span>` : ""}${base.section ? `<span class="vibe-brand-section">${base.section}</span>` : ""}</span>`;
+			  }
+			  const moodBrand = PUBLICATION_MOOD_BRANDS[moodId];
+			  const brand = base.treatment === "news" ? { ...base, id: `${base.id}-${moodBrand.id}`, tagline: moodBrand.tagline } : { id: moodBrand.id, name: base.name, tagline: moodBrand.tagline, section: moodBrand.label, treatment: moodId };
 			  const wordmark = brand.treatment === "news" ? Array.from(brand.name, (letter) => `<span class="vibe-brand-tile">${letter}</span>`).join("") : brand.name;
 			  const moodLabel = base.treatment === "news" ? `<span class="vibe-brand-mood">${moodBrand.label}</span>` : "";
 			  return `<span class="vibe-masthead" data-brand="${brand.id}" data-treatment="${brand.treatment}"><span class="vibe-brand-wordmark" aria-label="${brand.name}">${wordmark}</span>${brand.tagline ? `<span class="vibe-brand-tagline">${brand.tagline}</span>` : ""}${brand.section ? `<span class="vibe-brand-section">${brand.section}</span>` : ""}${moodLabel}</span>`;
@@ -122,18 +128,20 @@ window.__ModuleLoader__.load({
 			  })
 			});
 			var VIBE_MOODS = Object.freeze({
+			  classic: Object.freeze({ label: "Classic", defaultPalette: null, direction: "" }),
 			  "lilac-pop": Object.freeze({ label: "Lilac Pop", defaultPalette: "lilac-pop", direction: "Add bright feminine pop confidence and anime-editorial energy: playful scene-setting, expressive but precise language, fashion and visual-culture awareness, and a polished sense of fun. Avoid infantilising readers, flattening Japanese culture into decoration, or imitating a named artist or publication." }),
 			  "cherry-soda": Object.freeze({ label: "Cherry Soda", defaultPalette: "cherry-soda", direction: "Use nostalgic 1990s and 2000s lifestyle-magazine rhythm: fizzy hooks, tactile cultural detail, confident service copy and affectionate hindsight. Date references accurately, distinguish memory from evidence, and avoid pretending every reader shared the same youth or culture." }),
 			  "matcha-break": Object.freeze({ label: "Matcha Break", defaultPalette: "matcha-break", direction: "Sound Gen Z-aware, sustainable, healthy and calm: direct, lightly playful, practical and low-pressure, with breathing room and credible choices people can actually use. Avoid wellness certainty, purity culture, diagnosis, greenwashing and forced slang." }),
 			  "after-dark": Object.freeze({ label: "After Dark", defaultPalette: "after-dark", direction: "Write for adults with flirtatious late-night confidence across romance, nightlife, style and subcultures. Be inclusive of queer, pansexual and furry communities where relevant, centre consent and self-definition, never infer a reader's identity, and keep the copy suggestive rather than sexually explicit." })
 			});
-			function publicationWritingVoice(look, mood = "lilac-pop") {
+			function publicationWritingVoice(look, mood = "classic") {
 			  const lookId = Object.hasOwn(WEBSITE_LOOKS, look) ? look : "vibe";
-			  const moodId = Object.hasOwn(VIBE_MOODS, mood) ? mood : "lilac-pop";
+			  const moodId = Object.hasOwn(VIBE_MOODS, mood) ? mood : "classic";
+			  const moodDirection = VIBE_MOODS[moodId].direction;
 			  return Object.freeze({
 			    id: `${lookId}:${moodId}`,
-			    label: `${WEBSITE_LOOKS[lookId].label} \xB7 ${VIBE_MOODS[moodId].label}`,
-			    direction: `${WEBSITE_LOOKS[lookId].writingVoice} ${VIBE_MOODS[moodId].direction} The reader's saved editorial lenses and editor note still govern the subject, angle and emphasis; combine the website publication voice and mood coherently without overriding that direction.`
+			    label: moodId === "classic" ? WEBSITE_LOOKS[lookId].label : `${WEBSITE_LOOKS[lookId].label} \xB7 ${VIBE_MOODS[moodId].label}`,
+			    direction: `${WEBSITE_LOOKS[lookId].writingVoice}${moodDirection ? ` ${moodDirection}` : ""} The reader's saved editorial lenses and editor note still govern the subject, angle and emphasis; combine the website publication voice and mood coherently without overriding that direction.`
 			  });
 			}
 			var MAGAZINE_PALETTES = Object.freeze({
@@ -150,11 +158,11 @@ window.__ModuleLoader__.load({
 			function cleanArticleAppearance(value) {
 			  const options = value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
 			  const look = Object.hasOwn(WEBSITE_LOOKS, options.look) ? options.look : "vibe";
-			  const mood = Object.hasOwn(VIBE_MOODS, options.mood) ? options.mood : "lilac-pop";
+			  const mood = Object.hasOwn(VIBE_MOODS, options.mood) ? options.mood : "classic";
 			  return Object.freeze({
 			    look,
 			    mood,
-			    palette: Object.hasOwn(MAGAZINE_PALETTES, options.palette) ? options.palette : VIBE_MOODS[mood].defaultPalette,
+			    palette: Object.hasOwn(MAGAZINE_PALETTES, options.palette) ? options.palette : VIBE_MOODS[mood].defaultPalette ?? WEBSITE_LOOKS[look].defaultPalette,
 			    textSize: options.textSize === "large" ? "large" : "standard",
 			    spacing: options.spacing === "roomy" ? "roomy" : "standard"
 			  });
@@ -1136,7 +1144,7 @@ window.__ModuleLoader__.load({
 			    clickToLoadMedia: options.clickToLoadMedia !== false
 			  });
 			}
-			function editorialProfileKey(profile, websiteLook = "vibe", publicationMood = "lilac-pop") {
+			function editorialProfileKey(profile, websiteLook = "vibe", publicationMood = "classic") {
 			  const normalized = createEditorialProfile(profile ?? "open");
 			  const voice = publicationWritingVoice(websiteLook, publicationMood).id;
 			  const input = JSON.stringify([EDITORIAL_SETTINGS_VERSION, 3, voice, normalized.tribes, normalized.customDirection, normalized.serendipity]);
@@ -1194,10 +1202,10 @@ window.__ModuleLoader__.load({
 			  if (chunk.markdown.length > MAX_RESTYLE_ARTICLE_CHARACTERS) return Object.freeze({ eligible: false, reason: "too-long" });
 			  return Object.freeze({ eligible: true, reason: null });
 			}
-			function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, requestedMood = "lilac-pop", currentMood = "lilac-pop", invalidated = false }) {
+			function articleRestyleResultIsCurrent({ runId, activeId, requestedLook, currentLook, requestedMood = "classic", currentMood = "classic", invalidated = false }) {
 			  return invalidated !== true && runId === activeId && publicationWritingVoice(requestedLook, requestedMood).id === publicationWritingVoice(currentLook, currentMood).id;
 			}
-			function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
+			function buildArticleRestylePrompt({ runId, chunk, websiteLook = "vibe", publicationMood = "classic" }) {
 			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("restyle run id is invalid");
 			  const eligibility = articleRestyleEligibility(chunk);
 			  if (!eligibility.eligible) throw new TypeError(eligibility.reason === "private" ? "only public Vibe articles can be restyled" : "restyle article is invalid");
@@ -1236,7 +1244,7 @@ window.__ModuleLoader__.load({
 
 			${chunk.markdown}`;
 			}
-			function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
+			function buildContinuousStreamPrompt({ runId, batchSize = 8, recentTitles = [], chatTopics = [], recentMediaUrls = [], editorialProfile = null, websiteLook = "vibe", publicationMood = "classic" }) {
 			  if (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId)) throw new TypeError("stream run id is invalid");
 			  const count = Number.isInteger(batchSize) ? Math.min(12, Math.max(4, batchSize)) : 8;
 			  const titles = Array.isArray(recentTitles) ? [...new Set(recentTitles.filter((title) => typeof title === "string").map((title) => title.trim()).filter(Boolean))].slice(-20) : [];
@@ -2993,7 +3001,7 @@ window.__ModuleLoader__.load({
 			    return false;
 			  }
 			}
-			function getEditorialReserve(storage3, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
+			function getEditorialReserve(storage3, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
 			  const store = readStore3(storage3, now);
 			  if (profile === null) return store;
 			  const key = editorialProfileKey(profile, websiteLook, publicationMood);
@@ -3028,7 +3036,7 @@ window.__ModuleLoader__.load({
 			  writeStore3(storage3, { ...store, [key]: [...existing, ...appended].slice(-limit) });
 			  return Object.freeze(appended);
 			}
-			function consumeApprovedPages(storage3, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
+			function consumeApprovedPages(storage3, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
 			  const store = readStore3(storage3, now);
 			  const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
 			  const eligible = profile === null ? store.approved : store.approved.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook, publicationMood));
@@ -3036,7 +3044,7 @@ window.__ModuleLoader__.load({
 			  if (consumed.length > 0 || eligible.length !== store.approved.length) writeStore3(storage3, { ...store, approved: eligible.slice(consumed.length) });
 			  return Object.freeze(consumed);
 			}
-			function consumeCandidatePages(storage3, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "lilac-pop") {
+			function consumeCandidatePages(storage3, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
 			  const store = readStore3(storage3, now);
 			  const take = Math.max(0, Math.min(12, Number.isInteger(count) ? count : 4));
 			  const eligible = profile === null ? store.candidates : store.candidates.filter((page) => page.profileKey === editorialProfileKey(profile, websiteLook, publicationMood));
@@ -3113,7 +3121,7 @@ window.__ModuleLoader__.load({
 			  }
 			  return selected;
 			}
-			function buildBackgroundReservePrompt({ runId, profile, signals, learning, codexFeatures, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
+			function buildBackgroundReservePrompt({ runId, profile, signals, learning, codexFeatures, websiteLook = "vibe", publicationMood = "classic" }) {
 			  const sourceRows = selectedSignals(signals, profile.tribes).map(
 			    ({ headline, region, url, tribeHints }) => `- ${headline} | region=${region} | hints=${tribeHints.join(",") || "global-curious"} | ${url}`
 			  ).join("\n");
@@ -6745,7 +6753,7 @@ window.__ModuleLoader__.load({
 					saveAppearanceImmediately();
 				});
 				vibeMood.addEventListener("change", () => {
-					const palette = VIBE_MOODS[vibeMood.value].defaultPalette;
+					const palette = VIBE_MOODS[vibeMood.value].defaultPalette ?? WEBSITE_LOOKS[websiteLook.value].defaultPalette;
 					for (const button of picker.querySelectorAll("[data-magazine-palette]")) button.setAttribute("aria-checked", String(button.dataset.magazinePalette === palette));
 					saveAppearanceImmediately();
 				});

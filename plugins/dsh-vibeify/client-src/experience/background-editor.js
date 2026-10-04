@@ -80,7 +80,7 @@ function selectedSignals(signals, tribes) {
   return selected;
 }
 
-export function buildBackgroundReservePrompt({ runId, profile, signals, learning, codexFeatures, websiteLook = "vibe", publicationMood = "lilac-pop" }) {
+export function buildBackgroundReservePrompt({ runId, profile, signals, learning, codexFeatures, websiteLook = "vibe", publicationMood = "classic" }) {
   const sourceRows = selectedSignals(signals, profile.tribes).map(({ headline, region, url, tribeHints }) =>
     `- ${headline} | region=${region} | hints=${tribeHints.join(",") || "global-curious"} | ${url}`
   ).join("\n");

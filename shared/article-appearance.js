@@ -18,19 +18,21 @@ export const WEBSITE_LOOKS = Object.freeze({
 });
 
 export const VIBE_MOODS = Object.freeze({
+  classic: Object.freeze({ label: "Classic", defaultPalette: null, direction: "" }),
   "lilac-pop": Object.freeze({ label: "Lilac Pop", defaultPalette: "lilac-pop", direction: "Add bright feminine pop confidence and anime-editorial energy: playful scene-setting, expressive but precise language, fashion and visual-culture awareness, and a polished sense of fun. Avoid infantilising readers, flattening Japanese culture into decoration, or imitating a named artist or publication." }),
   "cherry-soda": Object.freeze({ label: "Cherry Soda", defaultPalette: "cherry-soda", direction: "Use nostalgic 1990s and 2000s lifestyle-magazine rhythm: fizzy hooks, tactile cultural detail, confident service copy and affectionate hindsight. Date references accurately, distinguish memory from evidence, and avoid pretending every reader shared the same youth or culture." }),
   "matcha-break": Object.freeze({ label: "Matcha Break", defaultPalette: "matcha-break", direction: "Sound Gen Z-aware, sustainable, healthy and calm: direct, lightly playful, practical and low-pressure, with breathing room and credible choices people can actually use. Avoid wellness certainty, purity culture, diagnosis, greenwashing and forced slang." }),
   "after-dark": Object.freeze({ label: "After Dark", defaultPalette: "after-dark", direction: "Write for adults with flirtatious late-night confidence across romance, nightlife, style and subcultures. Be inclusive of queer, pansexual and furry communities where relevant, centre consent and self-definition, never infer a reader's identity, and keep the copy suggestive rather than sexually explicit." }),
 });
 
-export function publicationWritingVoice(look, mood = "lilac-pop") {
+export function publicationWritingVoice(look, mood = "classic") {
   const lookId = Object.hasOwn(WEBSITE_LOOKS, look) ? look : "vibe";
-  const moodId = Object.hasOwn(VIBE_MOODS, mood) ? mood : "lilac-pop";
+  const moodId = Object.hasOwn(VIBE_MOODS, mood) ? mood : "classic";
+  const moodDirection = VIBE_MOODS[moodId].direction;
   return Object.freeze({
     id: `${lookId}:${moodId}`,
-    label: `${WEBSITE_LOOKS[lookId].label} · ${VIBE_MOODS[moodId].label}`,
-    direction: `${WEBSITE_LOOKS[lookId].writingVoice} ${VIBE_MOODS[moodId].direction} The reader's saved editorial lenses and editor note still govern the subject, angle and emphasis; combine the website publication voice and mood coherently without overriding that direction.`,
+    label: moodId === "classic" ? WEBSITE_LOOKS[lookId].label : `${WEBSITE_LOOKS[lookId].label} · ${VIBE_MOODS[moodId].label}`,
+    direction: `${WEBSITE_LOOKS[lookId].writingVoice}${moodDirection ? ` ${moodDirection}` : ""} The reader's saved editorial lenses and editor note still govern the subject, angle and emphasis; combine the website publication voice and mood coherently without overriding that direction.`,
   });
 }
 
@@ -50,11 +52,11 @@ export const MAGAZINE_PALETTES = Object.freeze({
 export function cleanArticleAppearance(value) {
   const options = value !== null && typeof value === "object" && !Array.isArray(value) ? value : {};
   const look = Object.hasOwn(WEBSITE_LOOKS, options.look) ? options.look : "vibe";
-  const mood = Object.hasOwn(VIBE_MOODS, options.mood) ? options.mood : "lilac-pop";
+  const mood = Object.hasOwn(VIBE_MOODS, options.mood) ? options.mood : "classic";
   return Object.freeze({
     look,
     mood,
-    palette: Object.hasOwn(MAGAZINE_PALETTES, options.palette) ? options.palette : VIBE_MOODS[mood].defaultPalette,
+    palette: Object.hasOwn(MAGAZINE_PALETTES, options.palette) ? options.palette : (VIBE_MOODS[mood].defaultPalette ?? WEBSITE_LOOKS[look].defaultPalette),
     textSize: options.textSize === "large" ? "large" : "standard",
     spacing: options.spacing === "roomy" ? "roomy" : "standard",
   });

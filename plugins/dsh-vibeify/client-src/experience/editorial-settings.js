@@ -102,7 +102,7 @@ export function createEditorialProfile(presetOrOptions = "open", customDirection
 
 // This opaque browser-local fingerprint lets prepared pages follow the direction
 // that produced them without copying the reader's note into each saved page.
-export function editorialProfileKey(profile, websiteLook = "vibe", publicationMood = "lilac-pop") {
+export function editorialProfileKey(profile, websiteLook = "vibe", publicationMood = "classic") {
   const normalized = createEditorialProfile(profile ?? "open");
   const voice = publicationWritingVoice(websiteLook, publicationMood).id;
   const input = JSON.stringify([EDITORIAL_SETTINGS_VERSION, 3, voice, normalized.tribes, normalized.customDirection, normalized.serendipity]);

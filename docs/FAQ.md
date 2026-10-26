@@ -85,7 +85,7 @@ If the native worker cannot access a protected connected app or needs human inpu
 
 ## How do I get better photographs in Vibe?
 
-Vibeify 0.17.0 installs the separate, optional **DSH Visuals** plugin. Wikimedia Commons and Openverse work without an account. For a wider photographic catalogue, open **Settings → Images**, follow the official **Get a free API key** link for Pexels or Pixabay, and paste the issued key directly into that provider's password field.
+Vibeify 0.17.1 includes the magazine-card and image-recovery fixes; the separate **DSH Visuals** plugin remains optional. Wikimedia Commons and Openverse work without an account. For a wider photographic catalogue, open **Settings → Images**, follow the official **Get a free API key** link for Pexels or Pixabay, and paste the issued key directly into that provider's password field.
 
 Choose **Save key**. The field clears because DSH stores the key locally and never reads its value back into the page; only the **Configured** status is shown. A blank field keeps the current key, while **Remove key** is a separate explicit action. Never send an image-provider key through Chat or include it in a screenshot or support report.
 

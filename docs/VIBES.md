@@ -46,7 +46,7 @@ Editorial direction is explicit configuration, never an inferred identity. It is
 
 Every magazine card has a real pictorial image from its first frame. The local bundle includes ten credited Open Doodles human scenes by Pablo Stanley under CC0, alongside the curated photographs. A deterministic local matcher chooses a conceptual drawing for learning, relationships, care, creativity, work or movement. It uses article copy only on the device, makes no generation request, and never embeds the copy in the picture. It labels a drawing as an illustration, not a photograph of the article's subject. The artwork and provenance live in `shared/editorial-illustrations/`.
 
-The optional `dsh-visuals` capability improves those pictures with subject-specific images. Wikimedia Commons and Openverse work without image-provider credentials; configured Pexels and Pixabay keys add their libraries. Reusable photos and illustrations retain the original creator, licence and source. Existing links and cached photographs must pass the same browser decode and minimum-size checks as new search candidates. A failed, undersized or unavailable image leaves the local drawing visible. Repeated use alone does not invalidate an editor's selected photograph.
+The optional `dsh-visuals` capability improves those pictures with subject-specific images. Wikimedia Commons and Openverse work without image-provider credentials; configured Pexels and Pixabay keys add their libraries. Reusable photos and illustrations retain the original creator, licence and source. Existing links and cached photographs must pass the same browser decode and minimum-size checks as new search candidates. A failed, undersized or unavailable catalogue photo falls back to a locally bundled, clearly labelled conceptual illustration. This fallback describes a broad theme; it is not evidence about the article subject. Repeated use alone does not invalidate an editor's selected photograph.
 
 Open **Settings → Images** to see the four sources. Provider credentials remain in DSH's credential service and never enter browser results, caches or sharing snapshots. Search and AI generation use only an explicit public magazine brief. Ordinary Chat may resolve an explicitly linked public Commons image without sending its title or prose. Private Chat, missing services, provider-neutral mode and offline reading all retain a locally selected illustration.
 
@@ -85,10 +85,10 @@ Magazine images are checked against their original source metadata. Commons
 file links (including filenames with parentheses) and Commons thumbnails are
 supported. A missing licence in an old caption can be recovered from Commons;
 new captions must include the verified licence. A selected replacement must
-load at a usable size before it is cached. Failed exact Commons images retain the credited local fallback with a visible retry message. General public image searches can try other candidates when no exact Commons choice exists.
+load at a usable size before it is cached. Failed exact Commons images retain the labelled conceptual illustration with a visible retry message. General public image searches can try other candidates when no exact Commons choice exists.
 
 In ChatGPT mode, public magazine stories can use the installed Codex image tool
-as a last resort after image search. Only a short public image brief is supplied;
+as a last resort after image search. Only a short public image brief is supplied; image search does not guarantee a semantically exact photograph.
 private Chat titles, reader settings and history are not sent. Generation uses
 the existing ChatGPT sign-in, a three-minute timeout, one concurrent job and four
 attempts per day. Successful PNGs are cached locally and labelled Generated

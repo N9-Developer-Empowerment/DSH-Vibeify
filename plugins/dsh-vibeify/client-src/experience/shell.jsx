@@ -1,3 +1,4 @@
+import { hideExactLegacyDuplicates } from "./vibe-library.js";
 import { renderPublicationMasthead } from "../../../../shared/publication-masthead.js";
 import { MAGAZINE_APPEARANCE_STYLES } from "./appearance-styles.js";
 import React from "react";
@@ -16,12 +17,14 @@ import {
   remoteVisualForMarkdown,
   remoteVisualsForMarkdown,
   fallbackMediaForChunk,
+  storyCoverForChunk,
 } from "./feed.js";
 import {
   CONTENT_STORE_KEY,
   MAX_STREAM_CHUNKS,
   appendCachedChunks,
   getCachedStream,
+  replaceOwnedChatCopies,
 } from "./content-store.js";
 import {
   EDITORIAL_SETTINGS_EVENT,
@@ -97,7 +100,7 @@ import {
   generateVisualForChunk,
 } from "./visual-source-client.js";
 import { createVisualLifecycle } from "./visual-lifecycle.js";
-import { articleImageKey, articleImageMedia } from "./article-image.js";
+import { articleImageKey, articleImageMedia, recoverFailedCatalogueMedia } from "./article-image.js";
 import {
   boundMagazinePresentation,
   composeOpeningStream,
@@ -285,7 +288,12 @@ function InlineVisuals({ visuals, title, onOpen }) {
 }
 
 function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailure, saved, skipped, shareStatus, restyleStatus, clickToLoad, onSave, onEngage, onSkip, onShare, onRestyle, onChat }) {
-  const media = articleImageMedia(visualOverride, fallbackMediaForChunk(CATALOG, chunk));
+  const [failedCatalogueUrl, setFailedCatalogueUrl] = React.useState(null);
+  const selectedMedia = articleImageMedia(visualOverride, fallbackMediaForChunk(CATALOG, chunk));
+  const catalogueUrl = selectedMedia?.externalUrl ?? ARTWORK[selectedMedia?.artwork];
+  const media = failedCatalogueUrl === catalogueUrl
+    ? recoverFailedCatalogueMedia(selectedMedia, failedCatalogueUrl, storyCoverForChunk(chunk))
+    : selectedMedia;
   const externalContentLink = contentLinkForMarkdown(chunk.markdown);
   const hasLocalGame = hasMochiMeadowBlock(chunk.markdown);
   const hasInteractive = hasLocalGame || splitInteractiveBlocks(chunk.markdown).some((part) => part.type === "interactive");
@@ -331,8 +339,8 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
             decoding="async"
             fetchpriority={index === 0 ? "high" : "auto"}
             referrerPolicy="no-referrer"
-            onError={() => { if (media.kind !== "illustration") onVisualFailure(visual); }}
-            onLoad={(event) => { if (media.kind !== "illustration" && !usableImageDimensions(event.currentTarget)) onVisualFailure(visual); }}
+            onError={() => { if (media.kind !== "illustration") { if (!media.externalUrl) setFailedCatalogueUrl(visual); else onVisualFailure(visual); } }}
+            onLoad={(event) => { if (media.kind !== "illustration" && !usableImageDimensions(event.currentTarget)) { if (!media.externalUrl) setFailedCatalogueUrl(visual); else onVisualFailure(visual); } }}
           />
           <span className="vfx-visual-shade" />
           <figcaption><a href={media.href} target="_blank" rel="noreferrer" onClick={() => onEngage(chunk, "opened")}>{media.label}</a></figcaption>
@@ -633,8 +641,9 @@ function ExperienceShell({ codexFeatures, connection }) {
       const accepted = incoming.filter(({ id }) => acceptedIds.has(id));
       if (accepted.length === 0) return;
       setChunks((current) => {
-        const seen = new Set(current.map(({ id }) => id));
-        const next = boundMagazinePresentation([...current, ...accepted.filter(({ id }) => !seen.has(id))], MAX_STREAM_CHUNKS);
+        const updated = event.detail?.completedHistory ? replaceOwnedChatCopies(current, accepted) : current;
+        const seen = new Set(updated.map(({ id }) => id));
+        const next = boundMagazinePresentation([...updated, ...accepted.filter(({ id }) => !seen.has(id))], MAX_STREAM_CHUNKS);
         chunksRef.current = next;
         return next;
       });
@@ -835,7 +844,7 @@ function ExperienceShell({ codexFeatures, connection }) {
       },
     });
   }, [appearance]);
-  const newestChunks = newestFirst(chunks).filter(({ kind }) => kind !== "questionnaire");
+  const newestChunks = hideExactLegacyDuplicates(newestFirst(chunks).filter(({ kind }) => kind !== "questionnaire"));
   const librarySummary = vibeLibrarySummary(newestChunks);
   const displayChunks = libraryOpen ? searchableVibeChunks(newestChunks, libraryQuery) : newestChunks;
   const goHome = React.useCallback(() => {

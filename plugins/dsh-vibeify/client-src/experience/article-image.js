@@ -88,3 +88,9 @@ export function articleImageStatus(result) {
     ? "The credited image could not load. Update retries it."
     : "Image lookup is unavailable. Update retries it.";
 }
+
+/** Use the bundled illustration when a catalogue cover fails to render. */
+export function recoverFailedCatalogueMedia(media, failedUrl, illustration) {
+  if (!media || !failedUrl || media.kind === "illustration" || media.externalUrl || !illustration) return media;
+  return { ...illustration, label: `Conceptual ${illustration.label}`, episode: media.episode };
+}

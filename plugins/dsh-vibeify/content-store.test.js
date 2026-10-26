@@ -248,3 +248,41 @@ test("legacy background-editor envelopes cannot survive as one raw Content note 
   }));
   assert.deepEqual(getCachedStream(storage, now + 1).chunks.map(({ id }) => id), ["real-article"]);
 });
+
+test("completed Chat article repairs a same-ID progressive card without replacing other cards", async () => {
+  const { reconcileCompletedChatChunks } = await import("./client-src/experience/content-store.js");
+  const storage = memoryStorage(), now = 1_700_000_000_000;
+  appendCachedChunks(storage, [chunk("stream:chat-sone-example", "early", {owner:"sone"}), chunk("run:other", "original")], now);
+  reconcileCompletedChatChunks(storage, [chunk("stream:chat-sone-example", "final with image", {publishedAt:now,owner:"sone"}), chunk("run:other", "changed", {publishedAt:now})], now);
+  assert.deepEqual(getCachedStream(storage, now).chunks.map(({markdown}) => markdown), ["final with image", "original"]);
+});
+
+test("completed reconciliation leaves legacy and other-owner cards intact", async () => {
+  const { reconcileCompletedChatChunks } = await import("./client-src/experience/content-store.js");
+  const storage = memoryStorage(), now = 1_700_000_000_000;
+  appendCachedChunks(storage, [chunk("stream:chat-legacy", "legacy"), chunk("stream:chat-sa-same", "A", {owner:"sa"}), chunk("stream:chat-sb-same", "B", {owner:"sb"})], now);
+  reconcileCompletedChatChunks(storage, [chunk("stream:chat-legacy", "wrong", {publishedAt:now}), chunk("stream:chat-sa-same", "new A", {owner:"sa",publishedAt:now}), chunk("stream:chat-sb-same", "wrong B", {owner:"sa",publishedAt:now})], now);
+  assert.deepEqual(getCachedStream(storage, now).chunks.map(({markdown})=>markdown), ["legacy", "new A", "B"]);
+});
+
+test('completed replacement preserves all unrelated and legacy cards', async () => {
+  const { replaceOwnedChatCopies } = await import('./client-src/experience/content-store.js');
+  const legacy = chunk('stream:chat-legacy', 'legacy');
+  const unrelated = chunk('run:other', 'other');
+  const original = chunk('stream:chat-sa-same', 'old', {owner:'sa'});
+  const updated = chunk('stream:chat-sa-same', 'new', {owner:'sa'});
+  assert.deepEqual(replaceOwnedChatCopies([legacy, unrelated, original], [updated]), [legacy, unrelated, updated]);
+  assert.deepEqual(replaceOwnedChatCopies([legacy, unrelated, original], []), [legacy, unrelated, original]);
+  assert.deepEqual(replaceOwnedChatCopies([legacy], [chunk('stream:chat-legacy', 'bad')]), [legacy]);
+});
+
+test('placeholder-only cards are hidden while stored data and feedback survive writes', () => {
+  const storage = memoryStorage(), now = 1700000000000;
+  const placeholder = {...chunk('stream:chat-legacy','...markdown...'),publishedAt:now};
+  storage.setItem(CONTENT_STORE_KEY, JSON.stringify({version:CONTENT_STORE_VERSION,chunks:[placeholder],answers:[]}));
+  assert.equal(getCachedStream(storage,now).chunks.length,0);
+  appendCachedChunks(storage,[chunk('run:new','Normal ...markdown... in prose')],now);
+  const raw = JSON.parse(storage.getItem(CONTENT_STORE_KEY));
+  assert.equal(raw.chunks[0].markdown,'...markdown...');
+  assert.equal(getCachedStream(storage,now).chunks[0].markdown,'Normal ...markdown... in prose');
+});

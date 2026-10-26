@@ -1,7 +1,7 @@
 {
   "name": "dsh-vibeify",
-  "version": "0.16.8+codex.20261004",
-  "description": "Install, operate, diagnose, and personalize DeepSeek Harness with DeepSeek-only, ChatGPT-only, or combined Codex-led modes.",
+  "version": "0.17.1+codex.20261026",
+  "description": "Install, operate, diagnose, and personalize DSH Vibeify with DeepSeek-only, Codex-led ChatGPT-only, or DeepSeek-led OpenAI support.",
   "author": {
     "name": "Errol Elliott and Daniela Elliott",
     "url": "https://github.com/N9-Developer-Empowerment/DSH-Vibeify"
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "DSH Vibeify",
     "shortDescription": "A visual DSH home for DeepSeek, ChatGPT, or both.",
-    "longDescription": "Guides installation and operation of DSH Vibeify in DeepSeek-only, ChatGPT-only, or combined Codex-led modes. The Web UI becomes a content-first visual experience; governed mode adds Codex capability presets, visible progress, queue/steer controls, bounded DeepSeek execution, safe update checks, and privacy-gated single-article sharing while connected apps retain protected approvals.",
+    "longDescription": "Guides installation and operation of DSH Vibeify. DeepSeek-only uses native DSH; ChatGPT-only uses Codex as lead; Both keeps DeepSeek in charge with bounded GPT-6.1 Sol support. The Web UI presents completed public articles with related selected visuals, preserves original Chat, offers safe updates, and keeps single-article publication behind review and protected approvals.",
     "developerName": "Errol Elliott & Daniela Elliott",
     "websiteURL": "https://dsh-vibeify.ezzye.chatgpt.site",
     "category": "Developer Tools",

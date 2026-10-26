@@ -1,5 +1,5 @@
-import { appendCachedChunks } from "./content-store.js";
-import { freshStreamChunksFromEvents, openLiveChatChunkStream } from "./live-stream-collector.js";
+import { appendCachedChunks, reconcileCompletedChatChunks } from "./content-store.js";
+import { freshStreamChunksFromEvents, openLiveChatChunkStream, chatOwner } from "./live-stream-collector.js";
 import { readUpdateSessionId } from "./update-session.js";
 import { isBackgroundSession } from "./background-session.js";
 import { createSessionApi } from "./session-api.js";
@@ -90,8 +90,8 @@ function chatChunk(sessionId, event, publishedAt) {
   });
 }
 
-function streamChunks(_sessionId, messages, publishedAt) {
-  return freshStreamChunksFromEvents(messages, null, publishedAt);
+function streamChunks(sessionId, messages, publishedAt) {
+  return freshStreamChunksFromEvents(messages, null, publishedAt, chatOwner(sessionId));
 }
 
 /** Project only completed assistant output; prompts and incomplete work are never copied. */
@@ -211,6 +211,7 @@ export function installThreadMagazineBridge(ctx) {
         scanned.set(summary.id, summary.updatedAt);
         if (chunks.length === 0) return;
         appendCachedChunks(safeStorage(), chunks);
+        reconcileCompletedChatChunks(safeStorage(), chunks);
         const chatChunks = chunks.filter(({ source }) => source === "chat-directed");
         const streamChunksFound = chunks.filter(({ source }) => source === "fresh-stream");
         for (const chunk of chatChunks) {
@@ -218,7 +219,7 @@ export function installThreadMagazineBridge(ctx) {
         }
         if (streamChunksFound.length > 0) {
           window.dispatchEvent(new CustomEvent(VIBE_STREAM_CHUNKS_EVENT, {
-            detail: { runId: "manual", chunks: streamChunksFound, durationMs: 0 },
+            detail: { runId: "manual", chunks: streamChunksFound, durationMs: 0, completedHistory: true },
           }));
         }
       } finally {

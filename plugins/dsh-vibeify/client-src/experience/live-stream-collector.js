@@ -4,10 +4,11 @@ const MAX_LIVE_TEXT = 96_000;
 const SUBSCRIBE_TIMEOUT_MS = 1_500;
 
 function textFromMessage(event) {
-  if (event?.type !== "assistant/message") return "";
+  if (event?.type !== "assistant/message" || event.data?.interrupted === true) return "";
   const content = Array.isArray(event.data?.message?.content) ? event.data.message.content : [];
+  if (content.some((block) => block?.type === "tool-call")) return "";
   return content
-    .filter((block) => (block?.type === "text" || block?.type === "reasoning") && typeof block.text === "string")
+    .filter((block) => block?.type === "text" && typeof block.text === "string")
     .map(({ text }) => text)
     .join("\n");
 }
@@ -15,23 +16,31 @@ function textFromMessage(event) {
 function textFromFrame(frame) {
   if (frame?.type === "assistant-stream" && frame.frame?.type === "chunk") {
     const chunk = frame.frame.chunk;
-    return (chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && typeof chunk.text === "string" ? chunk.text : "";
+    return chunk?.type === "text-delta" && typeof chunk.text === "string" ? chunk.text : "";
   }
   if (frame?.type !== "session/event" && frame?.type !== "event") return "";
   const event = frame.event;
   if (event?.type === "assistant/chunk") {
     const chunk = event.data?.chunk;
-    if ((chunk?.type === "text-delta" || chunk?.type === "reasoning-delta") && typeof chunk.text === "string") {
+    if (chunk?.type === "text-delta" && typeof chunk.text === "string") {
       return chunk.text;
     }
   }
   return textFromMessage(event);
 }
 
-export function freshStreamChunk(chunk, publishedAt = Date.now()) {
+export function chatOwner(sessionId) {
+  if (typeof sessionId !== "string" || !sessionId) return null;
+  let a = 2166136261, b = 2246822507;
+  for (const char of sessionId) { const n = char.codePointAt(0); a = Math.imul(a ^ n, 16777619); b = Math.imul(b ^ n, 3266489909); }
+  return `s${(a >>> 0).toString(36)}${(b >>> 0).toString(36)}`;
+}
+
+export function freshStreamChunk(chunk, publishedAt = Date.now(), owner = null) {
   if (chunk === null || typeof chunk !== "object" || !Number.isFinite(publishedAt) || publishedAt <= 0) return null;
   return Object.freeze({
-    id: `stream:${chunk.id}`,
+    id: owner && chunk.id.startsWith("chat-") ? `stream:chat-${owner}-${chunk.id.slice(5)}` : `stream:${chunk.id}`,
+    ...(owner && chunk.id.startsWith("chat-") ? { owner } : {}),
     kind: chunk.kind,
     source: "fresh-stream",
     title: chunk.title,
@@ -41,28 +50,29 @@ export function freshStreamChunk(chunk, publishedAt = Date.now()) {
   });
 }
 
-export function extractRunChunks(text, runId, publishedAt = Date.now()) {
+export function extractRunChunks(text, runId, publishedAt = Date.now(), owner = null) {
   if (runId !== null && (typeof runId !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(runId))) return Object.freeze([]);
   return Object.freeze(extractPublishedChunks(text)
     .filter(({ id }) => runId === null ? id.startsWith("chat-") : id.startsWith(`${runId}-`))
-    .map((chunk) => freshStreamChunk(chunk, publishedAt))
+    .map((chunk) => freshStreamChunk(chunk, publishedAt, owner))
     .filter(Boolean));
 }
 
-export function freshStreamChunksFromEvents(entries, runId = null, publishedAt = Date.now()) {
-  const source = (Array.isArray(entries) ? entries : [])
+export function freshStreamChunksFromEvents(entries, runId = null, publishedAt = Date.now(), owner = null) {
+  const messages = (Array.isArray(entries) ? entries : [])
     .map((entry) => entry?.event ?? entry)
     .map(textFromMessage)
-    .filter(Boolean)
-    .join("\n");
-  const chunks = extractPublishedChunks(source)
+    .filter(Boolean);
+  const latest = new Map();
+  for (const message of messages) for (const chunk of extractPublishedChunks(message, { preferLatest: true })) latest.set(chunk.id, chunk);
+  const chunks = [...latest.values()]
     .filter(({ id }) => runId === null ? id.startsWith("refill-") || id.startsWith("chat-") : id.startsWith(`${runId}-`))
-    .map((chunk) => freshStreamChunk(chunk, publishedAt))
+    .map((chunk) => freshStreamChunk(chunk, publishedAt, owner))
     .filter(Boolean);
   return Object.freeze(chunks);
 }
 
-export function createLiveChunkCollector({ runId, now = Date.now }) {
+export function createLiveChunkCollector({ runId, now = Date.now, owner = null }) {
   let text = "";
   const seen = new Set();
   return Object.freeze({
@@ -70,7 +80,7 @@ export function createLiveChunkCollector({ runId, now = Date.now }) {
       const delta = textFromFrame(frame);
       if (delta.length === 0) return Object.freeze([]);
       text = `${text}${delta}`.slice(-MAX_LIVE_TEXT);
-      const ready = extractRunChunks(text, runId, now()).filter(({ id }) => !seen.has(id));
+      const ready = extractRunChunks(text, runId, now(), owner).filter(({ id }) => !seen.has(id));
       for (const chunk of ready) seen.add(chunk.id);
       return Object.freeze(ready);
     },
@@ -204,7 +214,7 @@ export function openLiveChatChunkStream({ acceptSession, onChunks }) {
       if (!acceptSession(frame.sessionId)) return;
       let collector = collectors.get(frame.sessionId);
       if (collector === undefined) {
-        collector = createLiveChunkCollector({ runId: null });
+        collector = createLiveChunkCollector({ runId: null, owner: chatOwner(frame.sessionId) });
         collectors.set(frame.sessionId, collector);
       }
       const chunks = collector.push(frame);

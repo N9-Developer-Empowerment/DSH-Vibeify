@@ -42,10 +42,13 @@ function cleanToken(value) {
   return token !== null && TOKEN.test(token) ? token : null;
 }
 
+const PLACEHOLDER_ONLY = /^\.\.\.\s*markdown\s*\.\.\.$/i;
+
 function internalAgentMaterial(title, markdown) {
   const heading = String(title ?? "").trim();
   const body = String(markdown ?? "");
-  return /^worker report\b/i.test(heading)
+  return PLACEHOLDER_ONLY.test(body.trim())
+    || /^worker report\b/i.test(heading)
     || /^work(?:er)? role\s*:/im.test(body)
     || /no final copy written\s*\(per task\)/i.test(body)
     || /codex can re-verify/i.test(body)
@@ -54,7 +57,7 @@ function internalAgentMaterial(title, markdown) {
     || /(?:<|&lt;|\\<)\/?vibe-(?:chunk|section)\b/i.test(body);
 }
 
-function cleanChunk(candidate, now) {
+function cleanChunk(candidate, now, preservePlaceholder = false) {
   if (candidate === null || typeof candidate !== "object") return null;
   const id = cleanId(candidate.id);
   const kind = KINDS.has(candidate.kind) ? candidate.kind : null;
@@ -64,12 +67,13 @@ function cleanChunk(candidate, now) {
   const topicId = candidate.topicId === undefined ? null : cleanToken(candidate.topicId);
   const tribes = Object.freeze([...new Set((Array.isArray(candidate.tribes) ? candidate.tribes : [])
     .filter((value) => typeof value === "string" && TRIBE.test(value)))].slice(0, 8));
+  const owner = candidate.owner === undefined ? null : cleanToken(candidate.owner);
   const publishedAt = Number(candidate.publishedAt);
   if (id === null || kind === null || source === null || title === null || markdown === null) return null;
-  if (internalAgentMaterial(title, markdown)) return null;
+  if (internalAgentMaterial(title, markdown) && !(preservePlaceholder && PLACEHOLDER_ONLY.test(markdown))) return null;
   if (!Number.isFinite(publishedAt) || publishedAt <= 0 || publishedAt > now + 5 * 60 * 1000) return null;
   if (now - publishedAt > CONTENT_TTL_MS) return null;
-  return Object.freeze({ id, kind, source, title, markdown, topicId, tribes, publishedAt });
+  return Object.freeze({ id, kind, source, title, markdown, topicId, tribes, publishedAt, ...(owner ? { owner } : {}) });
 }
 
 function cleanAnswer(candidate, now) {
@@ -94,7 +98,7 @@ function readStore(storage, now = Date.now()) {
     const chunks = [];
     const seen = new Set();
     for (const candidate of Array.isArray(parsed.chunks) ? parsed.chunks : []) {
-      const chunk = cleanChunk(candidate, now);
+      const chunk = cleanChunk(candidate, now, true);
       if (chunk === null || seen.has(chunk.id)) continue;
       seen.add(chunk.id);
       chunks.push(chunk);
@@ -125,7 +129,8 @@ function writeStore(storage, store) {
 }
 
 export function getCachedStream(storage, now = Date.now()) {
-  return readStore(storage, now);
+  const store = readStore(storage, now);
+  return Object.freeze({ ...store, chunks: Object.freeze(store.chunks.filter(({ markdown }) => !PLACEHOLDER_ONLY.test(markdown))) });
 }
 
 /** Append-only by id: an existing entry is retained and is never rewritten in place. */
@@ -146,6 +151,34 @@ export function appendCachedChunks(storage, candidates, now = Date.now()) {
   const bounded = boundReaderChunks(chunks);
   writeStore(storage, { version: CONTENT_STORE_VERSION, chunks: bounded, answers: current.answers });
   return Object.freeze(appended.filter(({ id }) => bounded.some((chunk) => chunk.id === id)));
+}
+
+/** Replace only an owned Chat copy with a matching owned completed article. */
+export function replaceOwnedChatCopies(current, candidates) {
+  const replacements = new Map(candidates.filter(({ id, owner }) => owner && id.startsWith(`stream:chat-${owner}-`)).map((chunk) => [chunk.id, chunk]));
+  return current.map((chunk) => {
+    const replacement = replacements.get(chunk.id);
+    return replacement && chunk.owner && replacement.owner === chunk.owner ? replacement : chunk;
+  });
+}
+
+/** Reconcile completed Chat envelopes with earlier progressive copies. */
+export function reconcileCompletedChatChunks(storage, candidates, now = Date.now()) {
+  if (!Array.isArray(candidates)) return Object.freeze([]);
+  const current = readStore(storage, now);
+  const chunks = [...current.chunks];
+  const accepted = [];
+  for (const candidate of candidates) {
+    const chunk = cleanChunk(candidate, now);
+    if (!chunk || !chunk.owner || chunk.source !== "fresh-stream" || !chunk.id.startsWith(`stream:chat-${chunk.owner}-`)) continue;
+    const index = chunks.findIndex((item) => item.id === chunk.id);
+    if (index < 0) chunks.push(chunk);
+    else if (chunks[index].owner === chunk.owner) chunks[index] = chunk;
+    else continue;
+    accepted.push(chunk);
+  }
+  if (accepted.length) writeStore(storage, { version: CONTENT_STORE_VERSION, chunks: boundReaderChunks(chunks), answers: current.answers });
+  return Object.freeze(accepted);
 }
 
 /** Stores one short visible answer label. Prompts, sessions, accounts and arbitrary form data are rejected. */

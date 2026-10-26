@@ -61,7 +61,7 @@ DeepSeek API use and ChatGPT plan usage are separate. Installation itself makes 
 
 The `deepseek-codex` mode uses the provider-neutral magazine plus the optional `dsh-vibeify-deepseek` routing bundle. DeepSeek V4.1 Flash 1017 (`deepseek-flash`) is the lead. GPT-6.1 Sol (`gpt-6.1-sol`) runs only when DeepSeek calls the bounded `subagent_codex` tool, using the existing ChatGPT login. DeepSeek reviews worker evidence and owns the final answer. The original Standard preset remains available; new sessions default to the separate Vibeify DeepSeek preset.
 
-From a checked-out 0.17.0 source tree, finish active DSH work, then run:
+From a checked-out 0.17.1 source tree, finish active DSH work, then run:
 
 ```sh
 ./scripts/install-dsh.sh --replace
@@ -81,13 +81,13 @@ Requirements:
 - Git;
 - a DeepSeek account for a DeepSeek-led mode; ChatGPT sign-in only if you choose the Codex lead or want the optional Codex worker.
 
-The 0.17.0 release target uses this qualified compatibility bundle:
+The 0.17.1 release uses this qualified compatibility bundle:
 
 - `@deepseek-ai/dsh` `0.2.1-rc.2` (qualified on 26 October 2026);
 - `@openai/codex` `0.164.0` inside the governed bridge and native worker;
-- DSH Vibeify `0.17.0`.
+- DSH Vibeify `0.17.1`.
 
-Release verification is still in progress. The current macOS installer flow is covered by an isolated simulation; Windows and Linux remain preview until tested on real machines. Read the release note for the final validation status before treating this bundle as fully qualified.
+The full current release CI is pending. Windows and Linux remain preview until tested on real machines. See the [0.17.1 release note](releases/0.17.1.md) for the available checks and evidence limits.
 
 The optional `@deepseek-ai/dsh-subagent-codex` worker uses the native Codex app-server protocol and the profile's ChatGPT sign-in. The qualified package pins its payload to Codex `0.164.0`; the installer aligns it with DSH `0.2.1-rc.2`.
 
@@ -95,14 +95,14 @@ To add only the provider-neutral Vibe experience to an existing DSH Web
 profile, use the versioned package path:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.17.0&path:/plugins/dsh-vibeify-experience'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.17.1&path:/plugins/dsh-vibeify-experience'
 ```
 
 This keeps native DSH/DeepSeek in the lead. To add optional GPT-6.1 Sol support,
 also install the DeepSeek-led bundle from the same release:
 
 ```bash
-dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.17.0&path:/plugins/dsh-vibeify-deepseek'
+dsh plugin --profile web add --workspace-root 'github:N9-Developer-Empowerment/DSH-Vibeify#v0.17.1&path:/plugins/dsh-vibeify-deepseek'
 ```
 
 The friendly installer configures the default preset and worker together. Use

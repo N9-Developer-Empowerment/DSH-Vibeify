@@ -8,7 +8,7 @@
 2. The resolver tries the credited direct image first, even offline. Every selected image must decode at a usable size (480 × 240 minimum).
 3. For an explicit Commons File credit, it restores a matching saved image or resolves that exact file using authoritative Commons metadata. Equivalent URL escaping is accepted. Unrelated stock and generated pictures cannot override this choice.
 4. Without an exact Commons choice, it tries saved generated artwork, saved photography, public image search and finally optional bounded generation. Ordinary private Chat never supplies its title or prose to these services.
-5. Until a candidate loads, the card keeps its credited bundled fallback. A failed exact image leaves a visible retry message. It does not pretend the illustration is the credited Commons image.
+5. Until a candidate loads, the card keeps its credited bundled fallback. A failed exact image leaves a visible retry message and retains the credited local illustration. A catalogue photograph that fails at render time switches to an illustration labelled Conceptual. Neither fallback is presented as the credited Commons photograph or a documentary depiction of the article.
 6. Rendering and sharing consume the same selected media record, including creator, licence and source. Extra inline images use the same markup parser; they are not separate cover searches.
 
 ## Responsibilities
@@ -32,3 +32,7 @@ Missing capability and transient search failures receive bounded retries. Update
 `article-image.test.js` includes the Robert Scott Burn steam-engine caption reported by the user. It covers direct display, standalone exact lookup, equivalent URLs, sharing continuity, generated-cache precedence, render-time failure, explicit retry, stale edits, queue isolation and transient retry. `visual-service.test.js` proves exact misses and network failures never invoke broad search. Existing feed, lifecycle, client and sharing tests guard the surrounding contracts.
 
 These deterministic tests establish selection behavior. Browser decoding and the installed DSH bundle still need live verification before declaring the reported article fixed on a particular machine.
+
+## 0.17.1 behavior
+
+Magazine streaming accepts public article text rather than reasoning. Completed text and image updates reconcile only within the same owned chat, with distinct owner IDs preventing cross-chat replacement. A complete public article envelope can appear before its whole turn finishes. Reasoning output is not treated as magazine content. Placeholder-only cards and exact legacy duplicates are hidden; older cards with different content remain available. If a catalogue photograph fails, the card uses a labelled conceptual illustration. Image search remains best-effort: a loaded image is not proof that every older article image is semantically correct.

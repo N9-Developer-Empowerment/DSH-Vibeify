@@ -4,7 +4,15 @@ import path from "node:path";
 import test from "node:test";
 
 const root = path.resolve(import.meta.dirname, "..");
-const read = (relativePath) => readFile(path.join(root, relativePath), "utf8");
+const normalizeLineEndings = (source) => source.replace(/\r\n/g, "\n");
+const read = async (relativePath) => normalizeLineEndings(await readFile(path.join(root, relativePath), "utf8"));
+
+test("source checks normalize Windows CRLF line endings", () => {
+  const windowsCheckout = 'if (ready) {\r\n  default_choice="3"\r\n}\r\n';
+  assert.equal(normalizeLineEndings(windowsCheckout), 'if (ready) {\n  default_choice="3"\n}\n');
+  const linuxCheckout = 'if p.dependencies?.["dsh-vibeify-deepseek"] ; then\r\n  default_choice="3"\r\nfi\r\n';
+  assert.match(normalizeLineEndings(linuxCheckout), /\["dsh-vibeify-deepseek"\].*\n  default_choice="3"/);
+});
 
 test("Windows and Linux resolve their qualified DSH version from one package manifest", async () => {
   const windows = await read("scripts/Install DSH Vibeify.ps1");

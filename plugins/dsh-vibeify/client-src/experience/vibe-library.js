@@ -59,3 +59,14 @@ export function vibeLibrarySummary(chunks) {
     oldestPublishedAt: timestamps.length === 0 ? null : Math.min(...timestamps),
   });
 }
+
+/** Hide a legacy copy only when an owned copy has identical identity and text. */
+export function hideExactLegacyDuplicates(chunks) {
+  const owned = new Set();
+  for (const chunk of chunks) {
+    if (!chunk?.owner || !chunk.id?.startsWith(`stream:chat-${chunk.owner}-`)) continue;
+    const rawId = `stream:chat-${chunk.id.slice(`stream:chat-${chunk.owner}-`.length)}`;
+    owned.add(JSON.stringify([rawId, chunk.title, chunk.markdown]));
+  }
+  return chunks.filter((chunk) => chunk?.owner || !owned.has(JSON.stringify([chunk?.id, chunk?.title, chunk?.markdown])));
+}

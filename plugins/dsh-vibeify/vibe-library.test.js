@@ -61,3 +61,13 @@ test("the library summary reports the retained count and oldest publication time
   ];
   assert.deepEqual(vibeLibrarySummary(chunks), { count: 2, oldestPublishedAt: 100 });
 });
+
+test('only an exact legacy copy of an owned chat article is hidden', async () => {
+  const { hideExactLegacyDuplicates } = await import('./client-src/experience/vibe-library.js');
+  const scoped = {id:'stream:chat-sa-story',owner:'sa',title:'Story',markdown:'Article'};
+  const legacy = {id:'stream:chat-story',title:'Story',markdown:'Article'};
+  const edited = {...legacy,markdown:'Edited'};
+  const other = {id:'stream:chat-other',title:'Story',markdown:'Article'};
+  assert.deepEqual(hideExactLegacyDuplicates([legacy,edited,other,scoped]),[edited,other,scoped]);
+  assert.deepEqual(hideExactLegacyDuplicates([legacy,edited,other]),[legacy,edited,other]);
+});

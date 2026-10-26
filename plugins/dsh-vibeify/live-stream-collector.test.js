@@ -9,7 +9,7 @@ import {
   openLiveChunkStream,
 } from "./client-src/experience/live-stream-collector.js";
 
-function delta(text, type = "reasoning-delta") {
+function delta(text, type = "text-delta") {
   return {
     type: "session/event",
     sessionId: "magazine-session",
@@ -49,7 +49,7 @@ test("final history is a lossless fallback when the live stream disconnects", ()
   const entries = [{
     event: {
       type: "assistant/message",
-      data: { message: { content: [{ type: "reasoning", text: '<vibe-chunk id="refill-fallback-one" kind="article" title="Recovered">Complete.</vibe-chunk>' }] } },
+      data: { message: { content: [{ type: "text", text: '<vibe-chunk id="refill-fallback-one" kind="article" title="Recovered">Complete.</vibe-chunk>' }] } },
     },
   }];
   assert.deepEqual(freshStreamChunksFromEvents(entries, "refill-fallback", 1234).map(({ id, title }) => ({ id, title })), [
@@ -92,7 +92,7 @@ test("the live mux subscriber releases chunks without selecting the update sessi
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "magazine-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="refill-live-now" kind="image" title="Now">Ready.</vibe-chunk>' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="refill-live-now" kind="image" title="Now">Ready.</vibe-chunk>' } } },
     });
     assert.deepEqual(published.map(({ title }) => title), ["Now"]);
     assert.match(FakeWebSocket.instance.url, /^ws:\/\/127\.0\.0\.1:3080\/api\/events\.mux$/);
@@ -179,28 +179,28 @@ test("ordinary Chat publishes each closed semantic chunk before its turn ends", 
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "reader-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-jason-opening" kind="editorial" title="An opening">Half' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="chat-jason-opening" kind="editorial" title="An opening">Half' } } },
     });
     assert.equal(published.length, 0);
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "reader-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: " a page.</vibe-chunk>" } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: " a page.</vibe-chunk>" } } },
     });
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "worker-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-worker-report" kind="article" title="Worker">Never.</vibe-chunk>' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="chat-worker-report" kind="article" title="Worker">Never.</vibe-chunk>' } } },
     });
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "reader-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="refill-wrong-route" kind="article" title="Update">Never.</vibe-chunk>' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="refill-wrong-route" kind="article" title="Update">Never.</vibe-chunk>' } } },
     });
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "reader-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-stale" kind="article" title="Stale">Old turn' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="chat-stale" kind="article" title="Stale">Old turn' } } },
     });
     FakeWebSocket.instance.emit({
       type: "session/event",
@@ -210,7 +210,7 @@ test("ordinary Chat publishes each closed semantic chunk before its turn ends", 
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "reader-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: " should not leak.</vibe-chunk>" } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: " should not leak.</vibe-chunk>" } } },
     });
     assert.deepEqual(published.map(({ sessionId, chunks }) => ({ sessionId, titles: chunks.map(({ title }) => title) })), [
       { sessionId: "reader-session", titles: ["An opening"] },
@@ -222,4 +222,37 @@ test("ordinary Chat publishes each closed semantic chunk before its turn ends", 
     if (originalWebSocket === undefined) delete globalThis.WebSocket;
     else Object.defineProperty(globalThis, "WebSocket", originalWebSocket);
   }
+});
+
+test("reasoning envelopes never become magazine content, and completed text wins", () => {
+  const draft = '<vibe-chunk id="chat-synthetic" kind="article" title="Draft">Private planning.</vibe-chunk>';
+  const final = '<vibe-chunk id="chat-synthetic" kind="article" title="Final">![Cover](https://example.com/p.jpg)\n\nFinished article.</vibe-chunk>';
+  const collector = createLiveChunkCollector({ runId: null, now: () => 1234 });
+  assert.deepEqual(collector.push(delta(draft, "reasoning-delta")), []);
+  assert.equal(collector.push(delta(final, "text-delta"))[0].title, "Final");
+  const events = [{ type: "assistant/message", data: { message: { content: [{type:"reasoning", text:draft}, {type:"text", text:final}] } } }];
+  assert.equal(freshStreamChunksFromEvents(events, null, 1234)[0].title, "Final");
+});
+
+test("latest completed message wins when a Chat article ID is repeated", () => {
+  const message = text => ({type:"assistant/message", data:{message:{content:[{type:"text",text}]}}});
+  const chunk = body => `<vibe-chunk id="chat-repeat" kind="article" title="Story">${body}</vibe-chunk>`;
+  assert.equal(freshStreamChunksFromEvents([message(chunk("earlier")), message(chunk("final"))], null, 1234)[0].markdown, "final");
+  assert.equal(freshStreamChunksFromEvents([message(chunk("earlier") + chunk("final"))], null, 1234)[0].markdown, "final");
+});
+
+test("session-scoped live and completed Chat IDs agree without colliding", async () => {
+  const { chatOwner } = await import("./client-src/experience/live-stream-collector.js");
+  const final = '<vibe-chunk id="chat-same" kind="article" title="Actual">![Photo](https://example.com/photo.jpg)\n\nActual article.</vibe-chunk>';
+  const draft = '<vibe-chunk id="chat-same" kind="article" title="Private">Private reasoning.</vibe-chunk>';
+  const a = chatOwner("session-a"), b = chatOwner("session-b");
+  const collector = createLiveChunkCollector({runId:null, owner:a, now:()=>1234});
+  assert.deepEqual(collector.push(delta(draft,"reasoning-delta")), []);
+  const live = collector.push(delta(final,"text-delta"))[0];
+  const messages = [{type:"assistant/message",data:{message:{content:[{type:"reasoning",text:draft},{type:"text",text:final}]}}}];
+  const history = freshStreamChunksFromEvents(messages,null,1234,a)[0];
+  assert.equal(live.id,history.id); assert.equal(history.markdown,live.markdown);
+  assert.notEqual(history.id,freshStreamChunksFromEvents(messages,null,1234,b)[0].id);
+  const partial = [{type:"assistant/message",data:{interrupted:true,message:{content:[{type:"text",text:final}]}}}, {type:"assistant/message",data:{message:{content:[{type:"text",text:final},{type:"tool-call"}]}}}];
+  assert.deepEqual(freshStreamChunksFromEvents(partial,null,1234,a),[]);
 });

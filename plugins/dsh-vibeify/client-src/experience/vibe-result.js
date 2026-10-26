@@ -18,16 +18,21 @@ export const VIBE_CHAT_RESULT_EVENT = "dsh-vibeify:chat-result";
 export const VIBE_STREAM_CHUNKS_EVENT = "dsh-vibeify:stream-chunks";
 export const VIBE_STREAM_STATUS_EVENT = "dsh-vibeify:stream-status";
 
-export function extractPublishedChunks(value) {
+export function extractPublishedChunks(value, { preferLatest = false } = {}) {
   const text = typeof value === "string" ? value : "";
   const chunks = [];
   const seen = new Set();
   CHUNK_PATTERN.lastIndex = 0;
   for (const match of text.matchAll(CHUNK_PATTERN)) {
     const markdown = match[4].trim();
-    if (markdown.length === 0 || seen.has(match[1]) || (match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown))) continue;
+    if (markdown.length === 0 || (match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown))) continue;
+    const candidate = { id: match[1], kind: match[2], title: match[3].trim(), markdown };
+    if (seen.has(match[1])) {
+      if (preferLatest) chunks[chunks.findIndex(({ id }) => id === match[1])] = candidate;
+      continue;
+    }
     seen.add(match[1]);
-    chunks.push({ id: match[1], kind: match[2], title: match[3].trim(), markdown });
+    chunks.push(candidate);
   }
   LEGACY_SECTION_PATTERN.lastIndex = 0;
   for (const match of text.matchAll(LEGACY_SECTION_PATTERN)) {

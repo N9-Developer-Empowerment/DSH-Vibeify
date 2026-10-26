@@ -70,7 +70,7 @@ test("closed Vibe chunks from one completed update are published without its sum
       time: 500,
       id: "update-step",
       content: [{
-        type: "reasoning",
+        type: "text",
         text: '<vibe-chunk id="refill-one-opening" kind="editorial" title="A new opening">Ready to read.</vibe-chunk>',
       }],
     }),
@@ -84,14 +84,14 @@ test("closed Vibe chunks from one completed update are published without its sum
   assert.doesNotMatch(chunks[0].markdown, /update is complete/);
 });
 
-test("completed Chat reasoning restores every closed music Vibe instead of only the short final answer", () => {
+test("completed Chat text restores every closed music Vibe instead of only the short final answer", () => {
   const entries = [
     message({
       seq: 20,
       time: 700,
       id: "music-stream",
       content: [{
-        type: "reasoning",
+        type: "text",
         text: [
           '<vibe-chunk id="chat-music-first" kind="music" title="First song">Play [the first song](https://soundcloud.com/example/first).</vibe-chunk>',
           '<vibe-chunk id="chat-music-second" kind="music" title="Second song">Play [the second song](https://soundcloud.com/example/second).</vibe-chunk>',
@@ -103,8 +103,8 @@ test("completed Chat reasoning restores every closed music Vibe instead of only 
   ];
   const chunks = completedHistoryMagazineChunks("reader-session", entries);
   assert.deepEqual(chunks.map(({ id, kind, title }) => ({ id, kind, title })), [
-    { id: "stream:chat-music-first", kind: "music", title: "First song" },
-    { id: "stream:chat-music-second", kind: "music", title: "Second song" },
+    { id: "stream:chat-s1a70b371untyzx-music-first", kind: "music", title: "First song" },
+    { id: "stream:chat-s1a70b371untyzx-music-second", kind: "music", title: "Second song" },
   ]);
   assert.match(chunks[0].markdown, /https:\/\/soundcloud\.com\/example\/first/);
   assert.doesNotMatch(JSON.stringify(chunks), /Both music cards/);
@@ -201,12 +201,12 @@ test("the shared magazine receives a closed Chat chunk while that reader turn is
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "reader-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-jason-first" kind="article" title="First Jason article">Ready now.</vibe-chunk>' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="chat-jason-first" kind="article" title="First Jason article">Ready now.</vibe-chunk>' } } },
     });
     FakeWebSocket.instance.emit({
       type: "session/event",
       sessionId: "worker-session",
-      event: { type: "assistant/chunk", data: { chunk: { type: "reasoning-delta", index: 0, text: '<vibe-chunk id="chat-worker" kind="article" title="Worker">Never.</vibe-chunk>' } } },
+      event: { type: "assistant/chunk", data: { chunk: { type: "text-delta", index: 0, text: '<vibe-chunk id="chat-worker" kind="article" title="Worker">Never.</vibe-chunk>' } } },
     });
     assert.deepEqual(published.map(({ title }) => title), ["First Jason article"]);
   } finally {

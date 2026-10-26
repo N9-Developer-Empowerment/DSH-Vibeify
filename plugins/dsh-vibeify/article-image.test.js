@@ -132,3 +132,27 @@ test('credited articles start before optional searches in a long saved edition',
   lifecycle.enqueue([...ordinary,article()]);await lifecycle.whenIdle();
   assert.equal(order[0],'engine');lifecycle.dispose();
 });
+
+test('failed catalogue photograph recovers to the local illustration and retains its episode', async () => {
+  const { recoverFailedCatalogueMedia } = await import('./client-src/experience/article-image.js');
+  const episode = { accent: '#123' };
+  const photo = {kind:'photograph', artwork:'bundled-photo', episode};
+  const illustration = {kind:'illustration', illustrationId:'doodles-reading', label:'Illustration by Pablo Stanley'};
+  assert.deepEqual(recoverFailedCatalogueMedia(photo, 'broken-photo', illustration), {...illustration,label:'Conceptual Illustration by Pablo Stanley',episode});
+  const remote = {kind:'photograph', externalUrl:'https://example.com/photo.jpg',episode};
+  assert.equal(recoverFailedCatalogueMedia(remote,'broken-photo',illustration),remote);
+});
+
+test('a failed catalogue cover shares the illustration displayed on the card', async () => {
+  const { recoverFailedCatalogueMedia } = await import('./client-src/experience/article-image.js');
+  const { illustrationForChunk } = await import('../../shared/editorial-illustrations.js');
+  const chunk = {id:'example',kind:'article',title:'A story about reading',markdown:'A useful story.',publishedAt:1700000000000};
+  const photo = {kind:'photograph',artwork:'broken',episode:{photo:{publicImageUrl:'https://example.org/old.jpg'}}};
+  const displayedMedia = recoverFailedCatalogueMedia(photo,'broken',illustrationForChunk(chunk));
+  const snapshot = shareSnapshotForChunk({chunk,markdown:chunk.markdown,media:displayedMedia,inlineVisuals:[]},1700000000000);
+  assert.equal(displayedMedia.kind,'illustration');
+  assert.equal(snapshot.visual.kind,'illustration');
+  assert.equal(snapshot.visual.illustrationId,displayedMedia.illustrationId);
+  assert.match(snapshot.visual.imageUrl, new RegExp(`${displayedMedia.illustrationId}\\.svg$`));
+  assert.notEqual(snapshot.visual.imageUrl, photo.episode.photo.publicImageUrl);
+});

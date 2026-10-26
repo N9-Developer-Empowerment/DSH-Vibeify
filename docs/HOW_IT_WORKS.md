@@ -7,10 +7,10 @@ DSH Vibeify is a local agent harness presented as a living magazine. It is not a
 Think of it as a small editorial studio:
 
 - **Vibe is the magazine.** It opens with a fresh evergreen welcome issue, then a local content well and the reader's older saved edition. The welcome articles explain the product and lead directly to making a personal Vibe in Chat.
-- **Chat is the commissioning desk.** A request starts one agent turn. Say **“Make a Vibe about…”** when you specifically want an edited visual article or series. Its completed answer remains in Chat. For that explicit Vibe request, each complete verified card may also appear in Vibe before the whole answer is finished.
+- **Chat is the commissioning desk.** A request starts one agent turn. Say **“Make a Vibe about…”** when you specifically want an edited visual article or series. Its completed answer remains in Chat. For that explicit Vibe request, each complete verified card may also appear in Vibe before the whole answer is finished. Reasoning output never becomes a magazine card; final text and images must belong to the same chat, and separate owner IDs prevent one chat overwriting another.
 - **A public radar watches the world, not the reader.** GitHub publishes a content-only catalogue of current public signals every 30 minutes. It contains no local history or preferences.
 - **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
-- **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page remains the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
+- **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page remains the zero-wait fallback, and a failed catalogue photo can fall back to a labelled conceptual illustration; one bounded foreground batch starts only when fewer than four ready pages exist.
 - **The lead is the editor.** It plans, divides eligible work, verifies evidence, and decides what is safe and good enough to publish.
 - **Workers are contributors.** DeepSeek or the optional GPT-6.1 Sol worker can handle bounded pieces, but its raw report is never itself a Vibe article.
 - **Finished pages stream independently.** A quick page does not wait for a deeper research lane. Each complete, checked page appears as soon as it is ready.

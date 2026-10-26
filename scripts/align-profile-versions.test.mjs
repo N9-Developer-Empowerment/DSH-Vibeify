@@ -48,7 +48,7 @@ test("web profiles own both runtime bundles so agent scopes cannot fall back to 
   }
   assert.equal(updated.pnpm.overrides["@deepseek-ai/cordis"], "4.0.8");
   assert.equal(updated.pnpm.overrides["@deepseek-ai/schemastery"], "3.18.8");
-  assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-app-boot"], `link:${await realpath(join(runtime, "node_modules", "@deepseek-ai", "dsh-app-boot"))}`);
+  assert.equal(updated.pnpm.overrides["@deepseek-ai/dsh-app-boot"], `link:${(await realpath(join(runtime, "node_modules", "@deepseek-ai", "dsh-app-boot"))).replaceAll("\\", "/")}`);
   assert.deepEqual(updated.dsh, original.dsh);
   for (const name of ["@deepseek-ai/dsh-agent-preset", "@deepseek-ai/dsh-agent", "@deepseek-ai/dsh-scope", "@deepseek-ai/dsh-session"]) {
     assert.equal(updated.dependencies[name], qualified, `${name} is a transitive qualified DSH runtime entry`);

@@ -1,5 +1,11 @@
 # Architecture
 
+## Native DeepSeek-led routing
+
+`dsh-vibeify-experience` supplies the magazine without a Codex lead provider. The optional `dsh-vibeify-deepseek` bundle keeps the default on `deepseek-official/deepseek-flash` and contributes a separate preset with one `subagent_codex` tool. The registered native worker uses `gpt-6.1-sol`; its ephemeral one-shot result is evidence for DeepSeek to verify, not an independently accepted answer. The existing Codex-led provider remains a separate selectable installation mode. Policy sections are scoped to the new preset, so the original Standard preset and native Codex child do not inherit recursive worker instructions.
+
+`scripts/configure-deepseek-lead.mjs` changes only the selected default model/preset, retires the inactive Codex lead settings row, and pins the worker payload. It preserves unrelated permission and credential settings with local backups. `align-profile-versions.mjs` qualifies the full dependency graph and framework versions, including physical bootstrap identity. The appearance and public sharing modules are independent of these provider changes.
+
 For the reader-facing lifecycle before the module-level detail, see [How DSH Vibeify works](HOW_IT_WORKS.md).
 
 DSH Vibeify has four deliberately separate faces.
@@ -7,7 +13,7 @@ DSH Vibeify has four deliberately separate faces.
 | Face | Runs where | Responsibility |
 | --- | --- | --- |
 | Provider-neutral DSH bundle | DSH Node process and Web UI | Supplies the complete Vibe experience while leaving DSH's native provider and lead agent untouched; its host half provides only the local update-status endpoint. |
-| DSH host bundle | DSH Node process | Registers the ChatGPT-authenticated Codex adapter, capability settings, access policy, model routing, image handling, connected-app support, and bounded DSH delegation tool. |
+| DSH host bundles | DSH Node process | `dsh-vibeify` registers the ChatGPT-authenticated Codex lead adapter; `dsh-vibeify-deepseek` adds native DeepSeek lead configuration and the optional native Codex worker. |
 | DSH browser client | DSH Web UI | Presents the lean-back Experience Shell, preserves conventional DSH Chat underneath, keeps approvals live, expands progress, adds Queue/Steer and Codex capability controls, and applies the selected Chat VIBE. |
 | Optional DSH Visuals bundle | DSH Node process | Searches allow-listed public image catalogues, keeps creator/source/licence provenance attached, resolves optional Pexels/Pixabay credentials per operation, and exposes a loopback RPC that fails back to Vibeify's local cover. |
 | Codex plugin skill | Codex | Teaches a Codex agent how to install, diagnose, update, and operate the DSH bundle safely. It does not itself run the DSH bridge. |
@@ -18,7 +24,9 @@ DSH Vibeify has four deliberately separate faces.
 
 `plugins/dsh-vibeify` composes the same generated visual client with Codex-only capability, approval, progress, Queue, and Steer controls enabled, plus the host bridge. A build-time feature constant keeps those Codex controls out of the provider-neutral runtime while both modes reuse one tested source implementation.
 
-## Combined-mode lead and worker flow
+`plugins/dsh-vibeify-deepseek` is a separate native DeepSeek-led bundle. It selects the Vibeify DeepSeek preset without replacing the original Standard preset, mounts the official `@deepseek-ai/dsh-subagent-codex` provider, and exposes one one-shot `subagent_codex` tool to the DeepSeek lead. The worker is fixed to `gpt-6.1-sol`; the parent DeepSeek agent owns planning and final acceptance. A policy asks for no more than two workers, but this instruction is not an enforced runtime cap.
+
+## Codex-led lead and worker flow
 
 ```text
 User
@@ -31,7 +39,22 @@ User
           └─ integration + final answer (Codex)
 ```
 
-Codex owns the parent turn throughout. For non-trivial work it first defines the plan, authority boundary, acceptance criteria, and required evidence. Eligible packets then go to DeepSeek by default. The worker result returns as unverified evidence; Codex inspects the real artifacts or sources and reruns or otherwise validates the acceptance contract. It reuses passing work, repairs gaps, and remains the only acceptance and final-answer authority.
+Codex owns the parent turn throughout this mode. For non-trivial work it first defines the plan, authority boundary, acceptance criteria, and required evidence. Eligible packets can go to DeepSeek. The worker result returns as unverified evidence; Codex inspects the real artifacts or sources and reruns or otherwise validates the acceptance contract. It reuses passing work, repairs gaps, and remains the only acceptance and final-answer authority.
+
+## Native DeepSeek lead and Codex worker flow
+
+```text
+User
+  └─ DSH Web UI
+      └─ Native DeepSeek lead (deepseek-flash / V4.1 Flash 1017)
+          ├─ plan + acceptance criteria (DeepSeek)
+          ├─ optional bounded one-shot task
+          │   └─ GPT-6.1 Sol through ChatGPT-authenticated Codex
+          ├─ review of returned workspace evidence (DeepSeek)
+          └─ integration + final answer (DeepSeek)
+```
+
+The `dsh-vibeify-deepseek` bundle composes this route alongside the provider-neutral Vibe experience. The native Codex worker uses an ephemeral app-server thread and returns a final text result; it does not transfer its lead settings or connected-app session to the parent. Its permission mode is `approve-for-me`: workspace-write sandbox with Codex automatic review. Requests requiring human input or protected connected-app approval fail closed. DeepSeek retains the decision whether the result satisfies its task.
 
 The modular boundary is deliberate:
 
@@ -111,10 +134,11 @@ An explicit update can then extend that reserve with remote public imagery. The 
 
 ## Configuration boundaries
 
-- `plugins/dsh-vibeify/cordis.patch.yml` registers the governed bundle's Codex host row and default provider.
+- `plugins/dsh-vibeify/cordis.patch.yml` registers the Codex-led bundle's Codex host row and default provider.
+- `plugins/dsh-vibeify-deepseek/cordis.patch.yml` selects the DeepSeek lead and Vibeify preset, and registers the native Codex worker with its one-shot tool route.
 - `plugins/dsh-vibeify-experience/cordis.patch.yml` mounts only the loopback update-status host service; the package's browser client still owns the provider-neutral Vibe surface and does not change the native DSH provider.
 - `plugins/dsh-vibeify/package.json` declares both the DSH bundle patch and browser client entry.
-- DSH 0.1.7 persists the Codex model/effort pair in the active profile document through volatile Config fields; the older settings service remains supported. `codex-settings.js` normalizes both APIs into one live runtime-settings getter. The model picker saves `capabilityLevel: custom`, `model` and `reasoningEffort` in one revision-checked settings update. Old named presets remain compatible.
+- The Codex-led bridge retains compatibility with the DSH 0.1.7 volatile Config model/effort path and the older settings service. `codex-settings.js` normalizes both APIs into one live runtime-settings getter. The model picker saves `capabilityLevel: custom`, `model` and `reasoningEffort` in one revision-checked settings update. Old named presets remain compatible.
 - `codex-model-discovery.js` reads ChatGPT authentication and paginated visible model capabilities in a short-lived app-server process, without starting a thread or inference. `codex-model-control.js` exposes only model labels/capabilities, the saved pair, a settings revision, and running pairs through loopback RPC; it never exposes account data.
 - `client-src/experience/codex-model-settings.jsx` owns the two selectors, model-specific efforts, save/conflict feedback and saved/running status. Model discovery happens on opening/reloading/saving; status refreshes are local-only.
 - Existing default-route Codex connections read settings at each turn boundary. The captured selection remains fixed throughout that turn, including worker-catalogue requests; explicit specialist overrides remain independent of the lead selection.
@@ -129,7 +153,7 @@ An explicit update can then extend that reserve with remote public imagery. The 
 
 The public GitHub repository owns only a shared content radar. A scheduled Action gathers reviewed public trend/community/knowledge endpoints and publishes a validated static JSON document. It contains no installation identifier, settings, Chat history, behaviour or credentials.
 
-Each installation owns its private editorial intelligence. `background-editor.js` combines the public signals with locally selected broad tribes and a bounded summary of explicit interactions, then prompts a separate hidden DSH session. In combined mode the prompt keeps Codex as lead and asks one or two DeepSeek Flash workers to perform most discovery/drafting; Codex validates the closed pages. In provider-neutral mode DeepSeek produces candidates without a Codex-verification claim. That session cannot become a reader Chat card and its pages remain hidden until an explicit update.
+Each installation owns its private editorial intelligence. `background-editor.js` combines the public signals with locally selected broad tribes and a bounded summary of explicit interactions, then prompts a separate hidden DSH session. In Codex-led mode Codex remains lead and may use bounded DeepSeek workers; Codex validates the closed pages. In native DeepSeek modes, DeepSeek produces and reviews candidates without a Codex-lead verification claim. That session cannot become a reader Chat card and its pages remain hidden until an explicit update.
 
 ## Why a bundle
 
@@ -141,4 +165,4 @@ Connected apps surfaced by the Codex app-server are available to the lead. Deskt
 
 The browser client and its Vibes do not depend on Codex-specific model logic. Native DSH/DeepSeek can already reuse that UI through the provider-neutral package. Other governed lead-agent adapters still require separate authentication, capability checks, and equivalent acceptance tests.
 
-Codex model controls and update checks share `local-rpc.js`: authenticated, loopback-only HTTP envelopes with a 32 KiB request limit. It registers with the declared `webServer` service because DSH 0.1.7-rc.2 generic `connection.rpc.handle` reaches an undeclared server property; the image service uses the same host workaround.
+Codex model controls and update checks share `local-rpc.js`: authenticated, loopback-only HTTP envelopes with a 32 KiB request limit. It registers with the declared `webServer` service; the image service uses the same host path.

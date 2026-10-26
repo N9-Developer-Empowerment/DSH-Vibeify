@@ -59,4 +59,4 @@ if [[ "$installed_version" != "$target_version" ]]; then
 fi
 
 echo "DeepSeek Harness $installed_version is installed."
-echo "Next: run ./scripts/install-vibeify.sh; it will use ChatGPT when signed in and DeepSeek mode otherwise."
+echo "Next: run ./scripts/install-vibeify.sh; auto preserves the current mode. Use --provider deepseek-codex for DeepSeek leadership with OpenAI support."

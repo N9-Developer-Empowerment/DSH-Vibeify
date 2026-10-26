@@ -915,8 +915,8 @@ function ExperienceShell({ codexFeatures, connection }) {
           ) : (
             <section className="vfx-edition-intro">
               <span>Your magazine · {editorialProfile.label}</span>
-              <h1>People. Stories. Something worth your time.</h1>
-              <p>Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return.</p>
+              <h1>{appearance.look === "bbc-news" ? "Your latest stories" : "People. Stories. Something worth your time."}</h1>
+              <p>{appearance.look === "bbc-news" ? "People, culture and ideas, through your chosen lens." : "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return."}</p>
               <button type="button" className="vfx-intro-cta" disabled={["starting", "submitted", "stopping"].includes(updateState)} onClick={startRun}>Update my magazine</button>
               {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
             </section>

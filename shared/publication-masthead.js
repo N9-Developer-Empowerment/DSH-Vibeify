@@ -50,7 +50,7 @@ export const PUBLICATION_MASTHEAD_STYLES = `
 .vibe-masthead[data-treatment="matcha-break"] .vibe-brand-wordmark { font-family:"Avenir Next",Avenir,Inter,sans-serif; font-weight:600; letter-spacing:-.06em; }
 .vibe-masthead[data-treatment="after-dark"] .vibe-brand-wordmark { font-family:Didot,"Bodoni 72",Georgia,serif; font-weight:600; letter-spacing:.02em; }
 .vibe-masthead:is([data-treatment="lilac-pop"],[data-treatment="cherry-soda"],[data-treatment="matcha-break"],[data-treatment="after-dark"]) .vibe-brand-section { display:inline-block; margin-top:16px; padding:7px 12px; color:var(--page); background:var(--accent); font-size:12px; letter-spacing:.2em; }
-.vibe-masthead[data-treatment="news"] { --masthead-inset:clamp(20px,5vw,72px); }
+.vibe-masthead[data-treatment="news"] { --masthead-inset:max(20px,calc((100% - 1240px)/2)); }
 .vibe-masthead[data-treatment="news"] .vibe-brand-wordmark { display:flex; gap:7px; padding:20px var(--masthead-inset); }
 .vibe-masthead[data-treatment="news"] .vibe-brand-tagline { margin-top:0; padding:12px var(--masthead-inset) 14px; }
 .vibe-masthead[data-treatment="news"] .vibe-brand-section { padding-inline:var(--masthead-inset); }

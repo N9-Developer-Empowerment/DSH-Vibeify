@@ -81,6 +81,18 @@ test("unsupported capability settings fail before a Codex process starts", () =>
   );
 });
 
+test("GPT-6.1 Sol must be advertised and use its own supported reasoning effort", () => {
+  const sol = {
+    id: "gpt-6.1-sol",
+    model: "gpt-6.1-sol",
+    supportedReasoningEfforts: [{ reasoningEffort: "high" }],
+  };
+  const selection = { capabilityLevel: "custom", model: sol.model, reasoningEffort: "high" };
+  assert.equal(validateCodexRuntimeSettingsAgainstCatalog(selection, [sol]), sol);
+  assert.throws(() => validateCodexRuntimeSettingsAgainstCatalog(selection, []), /not available in the authenticated Codex catalogue/);
+  assert.throws(() => validateCodexRuntimeSettingsAgainstCatalog({ ...selection, reasoningEffort: "ultra" }, [sol]), /does not support reasoning effort ultra/);
+});
+
 test("authenticated model capabilities validate each model's own reasoning effort", () => {
   const models = [
     {

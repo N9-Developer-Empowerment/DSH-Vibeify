@@ -12,6 +12,9 @@ const installerUnderTest = process.env.DSH_VIBEIFY_INSTALLER_UNDER_TEST
 const expectedPort = process.env.DSH_VIBEIFY_EXPECTED_PORT || "39989";
 const qualifiedDshVersion = JSON.parse(await readFile(path.join(root, "plugins", "dsh-vibeify", "package.json"), "utf8"))
   .peerDependencies["@deepseek-ai/dsh-agent"];
+const qualifiedFrameworkVersions = qualifiedDshVersion === "0.2.1-rc.2"
+  ? { cordis: "4.0.5", schemastery: "3.18.5" }
+  : { cordis: "4.0.4", schemastery: "3.18.4" };
 
 async function executable(filePath, source) {
   await writeFile(filePath, source, "utf8");
@@ -43,8 +46,8 @@ test("macOS installer completes against the current checkout with all mutations 
   const profileDirectory = path.join(dshHome, "profiles", "web");
   await mkdir(profileDirectory, { recursive: true });
   await writeFile(path.join(profileDirectory, "package.json"), JSON.stringify({
-    dependencies: { "dsh-vibeify": "file:/existing/governed-plugin.tgz" },
-    dsh: { profile: { bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-vibeify"] } },
+    dependencies: { "dsh-vibeify-deepseek": "file:/existing/deepseek-plugin.tgz" },
+    dsh: { profile: { bundles: ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-vibeify-deepseek"] } },
   }));
   const npmRoot = path.join(directory, "npm-global");
   const runtimeRoot = path.join(npmRoot, "@deepseek-ai", "dsh");
@@ -73,6 +76,11 @@ test("macOS installer completes against the current checkout with all mutations 
     };
     await writeFile(path.join(folder, "package.json"), JSON.stringify(manifest));
   }
+  for (const [name, version] of Object.entries(qualifiedFrameworkVersions)) {
+    const folder = path.join(runtimeRoot, "node_modules", "@deepseek-ai", name);
+    await mkdir(folder, { recursive: true });
+    await writeFile(path.join(folder, "package.json"), JSON.stringify({ name: `@deepseek-ai/${name}`, version }));
+  }
   for (const name of ["dsh-app-boot"]) {
     const folder = path.join(runtimeRoot, "node_modules", "@deepseek-ai", name);
     await mkdir(folder, { recursive: true });
@@ -87,6 +95,10 @@ test("macOS installer completes against the current checkout with all mutations 
 if [[ "\${1:-}" == *"dsh-web-readiness.mjs" ]]; then
   printf 'readiness %s\\n' "$2" >>"$OPERATIONS"
   if [[ "$2" == "url" ]]; then printf 'http://127.0.0.1:39989/?token=fixtureOnlyToken'; fi
+  exit 0
+fi
+if [[ "\${1:-}" == *"configure-deepseek-lead.mjs" ]]; then
+  printf 'configure-deepseek-lead %s\\n' "$*" >>"$OPERATIONS"
   exit 0
 fi
 exec "$REAL_NODE" "$@"
@@ -120,7 +132,7 @@ if(args[0]==="plugin"&&args.includes("install")){
 }
 if(args[0]==="plugin"&&args.includes("add")){
  const profile=args[args.indexOf("--profile")+1]||"web";const source=args[args.indexOf("--workspace-root")+1]||"";
- const name=source.includes("dsh-social-desk")?"dsh-social-desk":source.includes("dsh-visuals")?"dsh-visuals":source.includes("dsh-vibeify-experience")?"dsh-vibeify-experience":"dsh-vibeify";
+ const name=source.includes("@deepseek-ai/dsh-subagent-codex")?"@deepseek-ai/dsh-subagent-codex":source.includes("dsh-vibeify-deepseek")?"dsh-vibeify-deepseek":source.includes("dsh-social-desk")?"dsh-social-desk":source.includes("dsh-visuals")?"dsh-visuals":source.includes("dsh-vibeify-experience")?"dsh-vibeify-experience":"dsh-vibeify";
  const dir=path.join(process.env.DSH_HOME,"profiles",profile);mkdirSync(dir,{recursive:true});
  const manifest=path.join(dir,"package.json");const current=existsSync(manifest)?JSON.parse(readFileSync(manifest,"utf8")):{dependencies:{},dsh:{profile:{bundles:["@deepseek-ai/dsh-base","@deepseek-ai/dsh-web-app"]}}};
  current.dependencies[name]=source;if(!current.dsh.profile.bundles.includes(name))current.dsh.profile.bundles.push(name);
@@ -164,6 +176,7 @@ exec "$REAL_CURL" "$@"
 
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
     assert.match(result.stdout, /DSH Vibeify is ready/);
+    assert.match(`${result.stdout}\n${result.stderr}`, /Both — DeepSeek leads; OpenAI supports suitable work/);
     const startPattern = new RegExp(`dsh --profile web --no-open --host 127\\.0\\.0\\.1 --port ${expectedPort}`);
     const log = await waitForOperation(operations, startPattern);
     assert.doesNotMatch(log, /npm view @deepseek-ai\/dsh@latest version/);
@@ -173,13 +186,16 @@ exec "$REAL_CURL" "$@"
     assert.match(log, /npm pack .*dsh-social-desk/);
     assert.match(log, /dsh plugin --profile web add --workspace-root file:/);
     assert.match(log, /codex login status/);
+    assert.match(log, /configure-deepseek-lead\.mjs/);
+    assert.match(log, /dsh plugin --profile web add --workspace-root @deepseek-ai\/dsh-subagent-codex@/);
     assert.match(log, startPattern);
     assert.match(log, /readiness check/);
     assert.match(log, /readiness url/);
     assert.match(log, /open authenticated-local-page/);
     assert.doesNotMatch(log, /fixtureOnlyToken/);
     const profile = JSON.parse(await readFile(path.join(dshHome, "profiles", "web", "package.json"), "utf8"));
-    assert.ok(profile.dependencies["dsh-vibeify"]);
+    assert.ok(profile.dependencies["dsh-vibeify-deepseek"]);
+    assert.ok(profile.dependencies["@deepseek-ai/dsh-subagent-codex"]);
     assert.ok(profile.dependencies["dsh-visuals"]);
     assert.ok(profile.dependencies["dsh-social-desk"]);
 

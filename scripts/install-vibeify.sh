@@ -9,14 +9,14 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     *)
-      echo "Usage: $0 [--provider auto|deepseek|chatgpt]" >&2
+      echo "Usage: $0 [--provider auto|deepseek|deepseek-codex|chatgpt]" >&2
       exit 2
       ;;
   esac
 done
 
-if [[ "$provider_mode" != "auto" && "$provider_mode" != "deepseek" && "$provider_mode" != "chatgpt" ]]; then
-  echo "Provider mode must be auto, deepseek, or chatgpt." >&2
+if [[ "$provider_mode" != "auto" && "$provider_mode" != "deepseek" && "$provider_mode" != "deepseek-codex" && "$provider_mode" != "chatgpt" ]]; then
+  echo "Provider mode must be auto, deepseek, deepseek-codex, or chatgpt." >&2
   exit 2
 fi
 
@@ -47,9 +47,11 @@ if command -v codex >/dev/null 2>&1; then
 fi
 
 if [[ "$provider_mode" == "auto" ]]; then
-  if [[ "$codex_authenticated" == true ]]; then provider_mode="chatgpt"; else provider_mode="deepseek"; fi
+  existing_mode="$(node -e 'const fs=require("node:fs");try{const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(p.dependencies?.["dsh-vibeify-deepseek"])process.stdout.write("deepseek-codex");else if(p.dependencies?.["dsh-vibeify"])process.stdout.write("chatgpt");else if(p.dependencies?.["dsh-vibeify-experience"])process.stdout.write("deepseek")}catch{}' "$profile_directory/package.json")"
+  if [[ -n "$existing_mode" ]]; then provider_mode="$existing_mode";
+  elif [[ "$codex_authenticated" == true ]]; then provider_mode="chatgpt"; else provider_mode="deepseek"; fi
 fi
-if [[ "$provider_mode" == "chatgpt" && "$codex_authenticated" != true ]]; then
+if [[ ( "$provider_mode" == "chatgpt" || "$provider_mode" == "deepseek-codex" ) && "$codex_authenticated" != true ]]; then
   echo "ChatGPT mode needs Codex signed in with ChatGPT. Run 'codex login' or choose '--provider deepseek'." >&2
   exit 1
 fi
@@ -76,6 +78,11 @@ done
 
 runtime_anchor="${DSH_RUNTIME_ANCHOR:-$(npm root --global)/@deepseek-ai/dsh/package.json}"
 node "$script_directory/align-profile-versions.mjs" "$profile_directory/package.json" "$runtime_anchor"
+
+if [[ "$provider_mode" != "deepseek-codex" ]] && node -e 'const p=require(process.argv[1]);process.exit(p.dependencies?.["dsh-vibeify-deepseek"]?0:1)' "$profile_directory/package.json"; then
+  node "$script_directory/configure-deepseek-lead.mjs" --restore "$profile_directory" "$runtime_anchor" "$provider_mode"
+  dsh plugin --profile "$profile" remove --workspace-root "dsh-vibeify-deepseek"
+fi
 
 if [[ -f "$profile_directory/package.json" ]] && grep -q "\"$legacy_package\"" "$profile_directory/package.json"; then
   echo "Migrating the older local Vibeify bridge..."
@@ -119,11 +126,18 @@ install_immutable_plugin() {
 install_immutable_plugin "$plugin_name" "$plugin_directory"
 install_immutable_plugin "$visual_plugin_name" "$visual_plugin_directory"
 install_immutable_plugin "$social_plugin_name" "$social_plugin_directory"
-if [[ -f "$profile_directory/package.json" ]] && node -e '
+if [[ "$provider_mode" == "deepseek-codex" ]]; then
+  node "$script_directory/configure-deepseek-lead.mjs" "$profile_directory" "$runtime_anchor"
+fi
+
+if [[ "$provider_mode" == "deepseek-codex" ]] || { [[ -f "$profile_directory/package.json" ]] && node -e '
   const p=require(process.argv[1]);
   process.exit(p.dependencies?.["@deepseek-ai/dsh-subagent-codex"] ? 0 : 1);
-' "$profile_directory/package.json"; then
+' "$profile_directory/package.json"; }; then
   dsh plugin --profile "$profile" add --workspace-root "@deepseek-ai/dsh-subagent-codex@$qualified_dsh_version"
+fi
+if [[ "$provider_mode" == "deepseek-codex" ]]; then
+  install_immutable_plugin "dsh-vibeify-deepseek" "$repository_root/plugins/dsh-vibeify-deepseek"
 fi
 node "$script_directory/align-profile-versions.mjs" "$profile_directory/package.json" "$runtime_anchor"
 dsh plugin --profile "$profile" install
@@ -134,11 +148,11 @@ if [[ "$provider_mode" == "chatgpt" ]] && ! grep -q "provider: codex-chatgpt" "$
   echo "Vibeify was installed but Codex is not the composed default provider." >&2
   exit 1
 fi
-if [[ "$provider_mode" == "deepseek" ]] && grep -q "provider: codex-chatgpt" "$config_dump"; then
+if [[ "$provider_mode" != "chatgpt" ]] && grep -q "provider: codex-chatgpt" "$config_dump"; then
   echo "DeepSeek mode was requested but the Codex provider still owns the composed profile." >&2
   exit 1
 fi
-if [[ "$provider_mode" == "deepseek" ]] && ! node -e '
+if [[ "$provider_mode" != "chatgpt" ]] && ! node -e '
   const p=require(process.argv[1]);
   const n=process.argv[2];
   if (!p.dependencies?.[n] || !p.dsh?.profile?.bundles?.includes(n)) process.exit(1);
@@ -164,7 +178,9 @@ if ! node -e '
 fi
 
 printf 'Vibeify mode: %s\n' "$provider_mode"
-if [[ "$provider_mode" == "deepseek" ]]; then
+if [[ "$provider_mode" == "deepseek-codex" ]]; then
+  echo "DeepSeek V4.1 Flash leads; GPT-6.1 Sol is available for bounded support through your ChatGPT login."
+elif [[ "$provider_mode" == "deepseek" ]]; then
   echo "Open Settings → Models after launch to connect a DeepSeek account. Installation itself needs no account."
 else
   echo "Codex will lead. A DeepSeek key remains optional and can add lower-cost worker routes."

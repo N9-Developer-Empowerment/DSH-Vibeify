@@ -10,6 +10,7 @@ export const CODEX_MODEL_CHOICES = Object.freeze([
 
 export const CODEX_SPECIALIST_MODEL_IDS = Object.freeze([
   "gpt-5.6-terra",
+  "gpt-6.1-sol",
   "gpt-6-sol",
   "gpt-6-astra",
 ]);

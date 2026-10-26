@@ -4,9 +4,11 @@
 
 DSH Vibeify is an open-source, local magazine for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness). It gives AI work a visual, content-first home: use DeepSeek, ChatGPT, or both; keep Chat for control; and share only the finished article you choose.
 
+Vibeify 0.17.0 adds **DeepSeek-led with OpenAI support**: DeepSeek V4.1 Flash 1017 leads through `deepseek-flash`, with GPT-6.1 Sol available for bounded tasks through ChatGPT-authenticated Codex. This mode uses Harness 0.2.1-rc.2 and Codex 0.164.0. See [the installation route](docs/INSTALL.md#deepseek-led-with-openai-support).
+
 [![Watch the real DSH Vibeify welcome edition and finished walkthrough](docs/assets/dsh-vibeify-magazine-social.png)](https://youtu.be/jda4uplWsiI)
 
-[Download Vibeify 0.16.6](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.16.6) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
+[Release 0.17.0](https://github.com/N9-Developer-Empowerment/DSH-Vibeify/releases/tag/v0.17.0) · [Watch the finished walkthrough](https://youtu.be/jda4uplWsiI) · [See how it works](docs/HOW_IT_WORKS.md) · [Get installation help](docs/FAQ.md) · [Email Vibeify](mailto:info@codingforjustice.org.uk)
 
 The real 2:24 demonstration opens Vibe with content, turns a Chat request into a visual card, uses an explicit Update, then previews one article privately before optional publication. [Watch it on YouTube.](https://youtu.be/jda4uplWsiI)
 
@@ -49,7 +51,7 @@ The visible surface is website-like, but the machinery underneath is an agent ha
 | **Vibeify** | Adds the continuous editorial stream, visual presentation, local content buffer and safe route between generated work and the stream. |
 | **Vibe** | Presents every thread's completed answers—and complete verified cards from an active public-content request—as one newest-first edition. A hidden local reserve may be prepared while Vibe is in recent use; only Pull to update, Update, a closed public-content card, or a completed Chat answer changes the visible magazine. It is not a separate public site. |
 | **Chat** | Lets the user ask directly, queue or steer work, approve protected actions and inspect progress or technical evidence. |
-| **Lead agent** | Plans, sets the acceptance bar, validates work and owns the final result. This is Codex in governed ChatGPT/combined mode, or the native DSH agent in DeepSeek-only mode. |
+| **Lead agent** | Plans, sets the acceptance bar, validates work and owns the final result. This is Codex in ChatGPT-only mode, or native DeepSeek in DeepSeek-only and DeepSeek-led/OpenAI-support modes. |
 | **Workers** | Optionally perform bounded research, coding, analysis or media work; their output is not published merely because they say it is finished. |
 | **Optional share service** | Receives one allow-listed, reader-reviewed article only after **Share** is clicked, shows a private preview, and performs a public write only after a second **Publish public link** click. It never receives the Chat prompt, reasoning, session identity, settings, local history, or credentials. |
 
@@ -63,9 +65,9 @@ Choose the provider setup that suits you:
 
 - **DeepSeek only:** native DSH/DeepSeek runs the agent and the provider-neutral Vibe package supplies the experience.
 - **ChatGPT only:** a ChatGPT-authenticated Codex agent leads and works without an OpenAI API key.
-- **Both (recommended governance mode):** Codex plans, manages, verifies, integrates, and answers while DeepSeek performs eligible bounded execution.
+- **Both (DeepSeek leads, OpenAI supports):** native DeepSeek plans and owns the final answer; an optional GPT-6.1 Sol Codex worker can handle bounded subtasks through ChatGPT sign-in. The lead reviews the worker's result.
 
-Neither account is individually compulsory, and installation can finish before either is connected. At least one working provider is required before asking the agent to perform AI work. DeepSeek billing and ChatGPT plan limits remain separate.
+The original Codex-led mode remains available as **ChatGPT only** (`--provider chatgpt` for the developer installer). For the new **Both** mode, connect DeepSeek under DSH **Settings → Models** and sign in to Codex with ChatGPT if you want the optional worker. Installation can finish before either account is connected. DeepSeek billing and ChatGPT plan limits remain separate.
 
 The first screen is Vibe itself: a full-screen editorial feed opens with the current welcome issue, followed by a bundled content well and the reader's older saved magazine. No guide, tile, recipe, or prompt must be selected. The welcome issue repeatedly points to one useful next move: open **Chat**, say **“Make a Vibe about…”**, watch the completed visual pages enter Vibe, then preview and share a good one. A new answer made during the current visit arrives above the welcome issue. Older saved pages remain further down rather than being deleted or mistaken for today's front page. **Chat** remains the detailed source view with the conventional DSH conversation and technical controls.
 
@@ -93,13 +95,13 @@ Think of DSH as a control room for AI agents. DSH Vibeify changes that control r
 
 1. **The product starts with content, not a task form.** Read, scroll, save, watch, listen, or answer an optional question; open Chat only when you want to make or solve something.
 2. **Every tile is visual.** A stable locally bundled photograph is available without a model or network wait. Generated magazine pages require subject-relevant public photography, long features can carry several photographic beats, and occasional AI-assisted graphics remain explicitly labelled.
-3. **Provider choice is real.** DeepSeek, ChatGPT, and combined Codex-led governance are separate install modes rather than one account being hidden as a requirement.
+3. **Provider choice is clear.** Choose DeepSeek only, ChatGPT only, or DeepSeek-led work with optional OpenAI support. The lead model is stated for each route.
 
 It does not switch provider mode without telling you, send your images elsewhere, approve emails or other external actions for you, or promise equivalent quality where no Codex verification step is present.
 
 ### I want to try it
 
-For the verified Apple-silicon macOS route, [download the installer](https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip), unzip it, and open **Install DSH Vibeify.command**. It installs or updates DSH and Vibeify, lets you choose DeepSeek, ChatGPT, both, or later, runs checks, and opens DSH. It never asks for an API key.
+For the verified Apple-silicon macOS route, [download the installer](https://dsh-vibeify.ezzye.chatgpt.site/DSH-Vibeify-Installer-macOS.zip), unzip it, and open **Install DSH Vibeify.command**. It installs or updates DSH and Vibeify, lets you choose DeepSeek only, ChatGPT only, DeepSeek with OpenAI support, or later, runs checks, and opens DSH. It never asks for an API key.
 
 The repository also contains friendly **Windows** and **Linux** preview installers. They use the same public-source, immutable-package, provider-choice, non-billing-check, and do-not-interrupt-active-work contract. They will remain visibly labelled preview until the complete path has passed on real Windows and representative Linux machines; a Mac-only test is not treated as cross-platform evidence. See [Installation](docs/INSTALL.md) for the current downloads and [Installation and help FAQ](docs/FAQ.md) for check-only mode and private, free-chat troubleshooting.
 
@@ -109,7 +111,8 @@ For the developer route you need Node.js 22.19+ in the 22.x line, or Node.js 24+
 git clone https://github.com/N9-Developer-Empowerment/DSH-Vibeify.git
 cd DSH-Vibeify
 ./scripts/install-dsh.sh --replace
-./scripts/install-vibeify.sh --provider deepseek   # or chatgpt / auto
+./scripts/install-vibeify.sh --provider deepseek-codex # DeepSeek leads, optional GPT-6.1 Sol worker
+# Or choose deepseek (DeepSeek only), chatgpt (Codex leads), or auto (preserve/detect mode)
 ./scripts/doctor.sh
 dsh web
 ```
@@ -125,7 +128,7 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **A deep, findable local well.** Twenty-four deterministic editorial chunks—text, credited photography and AI-assisted graphics—are available synchronously on a cold visit. Every tile receives one of twelve bundled visuals with varied crop and treatment, later images decode lazily, and up to 160 completed magazine items persist for 30 days. **Find Vibes** searches their titles and article text locally; 96 places inside the same total are protected for completed Chat-made Vibes so editorial refills cannot crowd all of them out.
 - **Instant, bounded updates.** Pull down from the top of Vibe—including a two-finger pull on a Mac trackpad—or choose **Update**. Ready pages are released from the hidden reserve synchronously; a local visual short ensures an immediate response even when the reserve is empty. If fewer than four ready pages exist, one bounded foreground batch fills the gap and streams complete pages independently. **Stop update** cancels only that dedicated foreground turn, and a 20-minute ceiling stops a stuck update.
 - **A shared radar, private editing.** A transparent GitHub Action publishes a public, content-only trend catalogue every 30 minutes. It contains headlines, links, regions and broad tribe hints—never reader history. Each installation keeps its selected tribes, free-text editor note, interactions, candidates, ready pages and spending ledger in that browser.
-- **A deliberately overstocked reserve.** While the browser is open, Vibe was used within 24 hours, background editing is enabled, and the local ready reserve is below target, a separate hidden editor may prepare 6–8 pages. Combined mode asks bounded DeepSeek Flash workers to do most discovery and drafting while Codex verifies; native mode keeps its distinct no-Codex-verification boundary. The conservative reservation ledger hard-stops at the chosen daily maximum, never above **US $2**.
+- **A deliberately overstocked reserve.** While the browser is open, Vibe was used within 24 hours, background editing is enabled, and the local ready reserve is below target, a separate hidden editor may prepare 6–8 pages. Codex-led mode uses bounded DeepSeek execution with Codex review; native DeepSeek modes keep their distinct no-Codex-verification boundary. The conservative reservation ledger hard-stops at the chosen daily maximum, never above **US $2**.
 - **Newest-first, append-only depth.** Fresh chunks join the top of the same edition while storage remains append-only. They never replace earlier material; deeper research becomes a visible editorial follow-up above the earlier page.
 - **Direction belongs in settings and Chat.** Automatic preference-questionnaire cards are removed, including legacy cards. Change the mix through VIBE settings or an explicit request. Saves, opens, plays and deliberate skips still inform the local editor; its learning stays on-device and has a one-click reset.
 - **One magazine across every real Chat thread.** Vibe passively follows ordinary reader sessions for complete verified `chat-` cards, then reads durable DSH history as the fallback and for un-enveloped final answers. It never reopens or resumes a thread. Internal subagents, the dedicated foreground update and the hidden background editor are never mistaken for reader conversations. Transport envelopes are removed during cache migration; card titles are not repeated in their bodies, and Markdown tables remain structured. Raw prompts, half-written envelopes, worker reports, candidate lists, attachments, reasoning, tool activity, approvals, session identifiers, aborted work and incomplete progress are never copied.
@@ -137,21 +140,22 @@ For screenshots, alternative profiles, DeepSeek credentials, updating, migration
 - **Simple manual link sharing.** Copy an existing public link or use your device’s share action, then make the final post yourself. Private Vibe articles retain their separate preview and explicit **Publish public link** step. No social account setup, scheduling or automatic posting. See [Sharing](docs/SHARING.md).
 - **Provider-neutral Vibe.** `dsh-vibeify-experience` supplies Vibe without installing a Codex provider, so native DSH/DeepSeek remains in control.
 - **Optional governed mode.** `dsh-vibeify` uses ChatGPT-authenticated Codex and deliberately removes OpenAI API-key fallbacks from the child process. In this mode Codex remains the lead.
-- **DeepSeek-first execution.** Flash handles routine bounded work by default, while Pro is reserved for packets where harder reasoning reduces rework. Experimental Vision remains explicit opt-in for current images.
-- **A quality gate, not blind trust.** Every worker receives a Codex-defined acceptance contract and evidence request. Worker prose is never accepted on its own: Codex validates artifacts, tests, or cited evidence before integration.
-- **Choose your Codex lead.** Open **Settings → Codex** to select the main model and its thinking effort separately. The list comes from your signed-in ChatGPT account and offers only supported efforts. Save both together; the next turn, including in an existing chat, uses your selection. The page shows the saved choice and any currently running Codex selection. Luna Max remains the initial default; DeepSeek Flash still handles eligible bounded work.
+- **DeepSeek-led OpenAI support.** `dsh-vibeify-deepseek` keeps native DeepSeek as the lead and adds a separate Vibeify preset with an optional one-shot GPT-6.1 Sol worker. DeepSeek reviews the returned evidence and owns the final answer. The original Standard preset remains available.
+- **DeepSeek V4.1 Flash 1017 lead.** The Vibeify DeepSeek preset uses the official `deepseek-flash` alias as its main route. Its optional GPT-6.1 Sol worker is available for bounded tasks through ChatGPT sign-in.
+- **A route-specific quality gate.** In Codex-led mode, Codex sets acceptance criteria and checks returned DeepSeek evidence. In DeepSeek-led mode, the DeepSeek lead reviews optional Codex-worker results before deciding what to use. A worker's own claim of success is not the acceptance check.
+- **Choose your Codex lead.** In ChatGPT-only mode, open **Settings → Codex** to choose the signed-in main model and supported thinking effort. This setting does not change the DeepSeek-led route's GPT-6.1 Sol specialist, which is fixed for that worker.
 - **A safe update centre.** Open **Settings → Updates** to check the installed DSH, Vibeify, and bundled Codex agent separately. A newer Codex release is not labelled installable until Vibeify has qualified it. The updater route is platform-aware: macOS opens the verified friendly updater, while Windows and Linux open their clearly labelled preview/help route until real-machine qualification is complete.
 - **Clearer live work.** Chat receives useful progress, Queue or Steer controls remain available while the agent is busy, and explicit magazine updates or public-content requests can publish closed, source-checked chunks into Vibe without exposing reasoning or raw worker prose. Vibeify opens the current Think disclosure while work is live, then closes that same disclosure once when the final answer settles; the reader can reopen it without the interface fighting back.
-- **Fewer unnecessary prompts.** Full local access avoids repeated shell approvals while protected external writes still require confirmation.
-- **Connected Codex apps.** Installed tools can be surfaced through their normal Codex approval boundaries; desktop-only capabilities still require the appropriate host connection.
+- **Fewer unnecessary prompts.** Local work follows the selected DSH/Codex permissions; protected external actions still require the applicable confirmation route.
+- **Connected apps.** In Codex-led mode, installed tools use their normal Codex approval boundaries. The native Codex worker cannot complete protected connected-app requests or ask a person questions; those requests fail closed and return to the lead.
 - **Image support.** Images can be uploaded to Codex; sending them to another provider always requires explicit intent.
 - **Colour and editorial settings.** In Chat, **VIBE settings** combines colour themes with any mix of 15 broad audience lenses—from Global & curious, Gen Z and Builders & nerds to Culture & arts, parents, sport and local life. It also controls useful surprise, a free-text editor note, background reserve filling, gentle content notes and a clearly denominated **USD/day** DeepSeek maximum. Colour remains presentation-only; editorial settings never change permissions or protected-action approval.
 
-## What “lower cost without lower quality” means in combined mode
+## How bounded workers are reviewed
 
-Codex cannot see the exact quota remaining on your ChatGPT plan. Vibeify therefore does not wait for a quota alarm. It reduces lead-agent consumption structurally: Codex spends its capability on planning, routing, judgment, validation, and the final result, while DeepSeek performs most eligible execution work.
+No route promises lower total cost or identical results on every task. DeepSeek API use and ChatGPT plan use are separate. A worker can add value when a task is bounded, but the lead still has to review its evidence and decide whether to use it.
 
-Codex sends one or more well-defined execution packets to a cheaper worker when:
+The Codex-led route may send well-defined execution packets to a DeepSeek worker when:
 
 - the task is self-contained;
 - its result can be checked independently;
@@ -160,9 +164,9 @@ Codex sends one or more well-defined execution packets to a cheaper worker when:
 
 Codex does not simply ask whether the worker says it succeeded. It inspects the actual diff, files, test results, sources, or other task evidence. Passing work is reused; Codex repairs only failed or unverifiable parts instead of pointlessly repeating everything.
 
-No system can promise identical quality on every unseen task. Vibeify preserves the quality *process*: the default Codex lead remains the frontier preset, acceptance criteria do not change, and unverifiable work stays with or returns to Codex. Choosing a lower Codex capability level is an explicit user trade-off and should be evaluated on representative work.
+In the DeepSeek-led route, DeepSeek chooses whether a bounded task is suitable for the optional GPT-6.1 Sol worker. The worker uses a workspace-write sandbox with Codex automatic permission review. The lead reviews its result; it does not transfer final acceptance to the worker. The two-worker limit is prompt policy, not a hard runtime cap.
 
-DeepSeek API calls are billed separately by DeepSeek. Pricing and model availability change, so the live DSH catalogue is consulted before making cost claims.
+Pricing and model availability change. Consult current provider information before estimating costs.
 
 ## Experience Shell and VIBEs
 
@@ -203,9 +207,9 @@ DSH-Vibeify/
 
 The bridge currently pins:
 
-- `@deepseek-ai/dsh` `0.1.7-rc.2`
-- `@openai/codex` `0.160.0` inside the governed bridge
-- DSH Vibeify `0.16.6`
+- `@deepseek-ai/dsh` `0.2.1-rc.2`
+- `@openai/codex` `0.164.0` inside the governed bridge and native worker
+- DSH Vibeify `0.17.0`
 
 Before changing authentication, approvals, routing, image transfer, external actions, or provider behavior, read [Architecture](docs/ARCHITECTURE.md), [Security and billing](docs/SECURITY.md), [Contributing](CONTRIBUTING.md), and [AGENTS.md](AGENTS.md).
 

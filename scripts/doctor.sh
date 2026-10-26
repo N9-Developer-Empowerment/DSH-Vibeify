@@ -37,6 +37,8 @@ check "provider-neutral browser JavaScript syntax" node --check "$experience_plu
 check "update checker JavaScript syntax" node --check "$plugin_directory/update-check.js"
 check "provider-neutral update host syntax" node --check "$experience_plugin_directory/index.js"
 check "provider-neutral package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-vibeify-experience"||p.main!=="index.js"||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$experience_plugin_directory/package.json"
+check "DeepSeek leadership bundle syntax" node --check "$repository_root/plugins/dsh-vibeify-deepseek/index.js"
+check "DeepSeek leadership and migration tests" node --test "$repository_root/plugins/dsh-vibeify-deepseek/index.test.js" "$script_directory/configure-deepseek-lead.test.mjs" "$script_directory/align-profile-versions.test.mjs"
 check "visual-source package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-visuals"||p.main!=="index.js"||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$visual_plugin_directory/package.json"
 check "visual-source host syntax" node --check "$visual_plugin_directory/index.js"
 check "Social Desk package manifest" node -e 'const p=require(process.argv[1]);if(p.name!=="dsh-social-desk"||p.main!=="index.js"||p.dsh?.bundle?.patch!=="./cordis.patch.yml")process.exit(1)' "$social_plugin_directory/package.json"
@@ -91,6 +93,11 @@ if [[ "$source_only" != true ]]; then
           failures=$((failures + 1))
         else
           printf 'OK   Native DSH provider remains in control\n'
+        fi
+        if grep -q 'vibeify-deepseek' "$config_dump"; then
+          check "DeepSeek Flash lead is configured" grep -q 'model: deepseek-flash' "$config_dump"
+          check "GPT-6.1 Sol support is configured" grep -q 'model: gpt-6.1-sol' "$config_dump"
+          check "native Codex worker uses workspace approval review" grep -q 'permissionMode: approve-for-me' "$config_dump"
         fi
         printf 'INFO Connect DeepSeek under Settings → Models before asking the agent to work.\n'
       elif grep -q "name: dsh-vibeify" "$config_dump"; then

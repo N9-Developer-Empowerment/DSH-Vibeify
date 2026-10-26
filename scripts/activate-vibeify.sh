@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ "${1:-}" != "--confirmed-idle" ]]; then
-  echo "Usage: $0 --confirmed-idle [--provider auto|deepseek|chatgpt]" >&2
+  echo "Usage: $0 --confirmed-idle [--provider auto|deepseek|deepseek-codex|chatgpt]" >&2
   echo "Use only after the user explicitly authorises activation and the current DSH task is complete." >&2
   exit 2
 fi

@@ -1,0 +1,13 @@
+{
+  "name": "dsh-vibeify-deepseek",
+  "version": "0.17.0",
+  "description": "Optional native DeepSeek-led routing for DSH Vibeify.",
+  "type": "module",
+  "main": "index.js",
+  "exports": { ".": "./index.js", "./package.json": "./package.json" },
+  "files": ["index.js", "cordis.patch.yml"],
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" } },
+  "peerDependencies": { "@deepseek-ai/dsh-system-prompt": "0.2.1-rc.2" },
+  "engines": { "node": ">=22" },
+  "license": "MIT"
+}

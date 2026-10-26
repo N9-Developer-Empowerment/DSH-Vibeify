@@ -48,7 +48,7 @@ The existing CMD launcher starts a separate PowerShell process with its installe
 
 ## Windows says updates could not be checked
 
-Vibeify 0.16.4/0.16.5 tried to run `dsh --version` as a subprocess. Windows command wrappers and launcher-specific PATHs can make that fail even while DSH works. Vibeify 0.16.6 reads the running DSH package instead. Use the public update page once to install the fix; thereafter **Settings → Updates → Check again** works without launching a command wrapper. The update guide remains available even if a check fails.
+This affected older releases: Vibeify 0.16.4/0.16.5 tried to run `dsh --version` as a subprocess, which could fail with Windows command wrappers or launcher-specific PATHs. The 0.16.6 fix reads the running DSH package instead. Use the current release and its **Settings → Updates → Check again** control; the update guide remains available if a check fails.
 
 ## Linux says “permission denied”
 
@@ -79,11 +79,13 @@ node scripts/support-report.mjs --prompt
 
 ## DeepSeek or ChatGPT does not answer
 
-Installation and provider connection are separate. Open **Settings → Models** in DSH to connect DeepSeek, or complete the official `codex login` browser flow for ChatGPT/combined mode. At least one working provider is needed before Chat can do AI work. Never paste a provider key into a support chat, screenshot, issue, or terminal command suggested by a stranger.
+Installation and provider connection are separate. Open **Settings → Models** in DSH to connect DeepSeek. The **Both** option keeps DeepSeek as lead and uses GPT-6.1 Sol only for optional bounded worker tasks; complete `codex login` with ChatGPT if you want that worker. **ChatGPT only** keeps Codex in the lead. Never paste a provider key into a support chat, screenshot, issue, or terminal command suggested by a stranger.
+
+If the native worker cannot access a protected connected app or needs human input, it fails closed. Continue through the lead agent's normal confirmation flow instead. The two-worker limit is a model instruction, not a technical quota cap. DeepSeek API usage and ChatGPT plan usage are separate.
 
 ## How do I get better photographs in Vibe?
 
-Vibeify 0.15.6 installs the separate, optional **DSH Visuals** plugin. Wikimedia Commons and Openverse work without an account. For a wider photographic catalogue, open **Settings → Images**, follow the official **Get a free API key** link for Pexels or Pixabay, and paste the issued key directly into that provider's password field.
+Vibeify 0.17.0 installs the separate, optional **DSH Visuals** plugin. Wikimedia Commons and Openverse work without an account. For a wider photographic catalogue, open **Settings → Images**, follow the official **Get a free API key** link for Pexels or Pixabay, and paste the issued key directly into that provider's password field.
 
 Choose **Save key**. The field clears because DSH stores the key locally and never reads its value back into the page; only the **Configured** status is shown. A blank field keeps the current key, while **Remove key** is a separate explicit action. Never send an image-provider key through Chat or include it in a screenshot or support report.
 

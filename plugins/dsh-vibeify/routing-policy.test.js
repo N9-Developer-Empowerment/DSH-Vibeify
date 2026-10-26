@@ -102,7 +102,7 @@ test("policy contains every installed native DeepSeek route", () => {
     policy.models.map((model) => model.id),
     ["deepseek-flash", "deepseek-v4-pro"],
   );
-  assert.equal(policy.models[0].name, "DeepSeek V4.1 Flash");
+  assert.equal(policy.models[0].name, "DeepSeek-V4.1-Flash-1017");
   assert.deepEqual(policy.models[0].modalities, ["text", "image"]);
   assert.deepEqual(policy.models[0].pricing, {
     inputCacheHit: 0.006,
@@ -132,7 +132,7 @@ test("developer instructions preserve Codex leadership, quota, quality, and bill
   assert.match(text, /removes OpenAI API keys/);
   assert.match(text, /DeepSeek is separately API-billed/);
   assert.match(text, /Never hand leadership to another model/);
-  assert.match(text, /Prefer deepseek-flash \(DeepSeek V4.1 Flash\)/);
+  assert.match(text, /Prefer deepseek-flash \(DeepSeek-V4.1-Flash-1017\)/);
   assert.match(text, /at most 2 execution packets per user turn/);
   assert.match(text, /use peak rates unless the provider confirms the exact pricing window/i);
 });
@@ -145,11 +145,11 @@ test("live catalogue uses authenticated Codex models and verified DeepSeek route
     ],
     listModels: async () => [{
       id: "deepseek-flash",
-      name: "DeepSeek V4.1 Flash",
+      name: "DeepSeek-V4.1-Flash-1017",
       inputModalities: ["text", "image"],
     }],
   };
-  const codexModels = ["gpt-6-luna", "gpt-6-sol", "gpt-6-astra", "gpt-5.6-terra"].map((model) => ({
+  const codexModels = ["gpt-6-luna", "gpt-6.1-sol", "gpt-6-sol", "gpt-6-astra", "gpt-5.6-terra"].map((model) => ({
     id: model,
     model,
     displayName: model,
@@ -164,17 +164,20 @@ test("live catalogue uses authenticated Codex models and verified DeepSeek route
     codexModels,
     leadSettings: DEFAULT_CODEX_RUNTIME_SETTINGS,
   });
-  assert.equal(catalog.models.length, 5);
+  assert.equal(catalog.models.length, 6);
   assert.equal(catalog.models[0].subagentFromCurrentCodex, false);
   assert.equal(catalog.models[0].leadAllowedByPolicy, true);
   assert.equal(catalog.models[0].route, "codex-chatgpt/gpt-6-luna");
   assert.equal(catalog.models[0].defaultReasoningEffort, "max");
-  assert.deepEqual(catalog.models.slice(1, 4).map((model) => model.subagentFromCurrentCodex), [true, true, true]);
+  assert.deepEqual(catalog.models.slice(1, 5).map((model) => model.subagentFromCurrentCodex), [true, true, true, true]);
+  assert.equal(catalog.models[1].id, "gpt-6.1-sol");
+  assert.deepEqual(catalog.models[1].supportedReasoningEfforts, ["high", "max", "ultra"]);
+  assert.equal(catalog.models[1].pricing, null);
   assert.equal(catalog.models[1].primaryForNewSession, false);
   assert.equal(catalog.models[1].leadAllowedByPolicy, false);
-  assert.equal(catalog.models[4].subagentFromCurrentCodex, true);
-  assert.equal(catalog.models[4].pricing.inputCacheMiss, 0.30);
-  assert.deepEqual(catalog.models[4].offPeakPricing, policy.models[0].offPeakPricing);
+  assert.equal(catalog.models[5].subagentFromCurrentCodex, true);
+  assert.equal(catalog.models[5].pricing.inputCacheMiss, 0.30);
+  assert.deepEqual(catalog.models[5].offPeakPricing, policy.models[0].offPeakPricing);
 });
 
 test("reported usage produces the official Flash estimate", () => {

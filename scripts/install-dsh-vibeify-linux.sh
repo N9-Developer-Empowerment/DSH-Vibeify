@@ -102,11 +102,13 @@ export PATH="$pnpm_directory/node_modules/.bin:$PATH"
 printf '\nChoose how you want the AI side to work:\n'
 printf '  1. DeepSeek only — connect a DeepSeek account inside DSH\n'
 printf '  2. ChatGPT only — sign in with ChatGPT now\n'
-printf '  3. Both — Codex leads; DeepSeek handles suitable work\n'
+printf '  3. Both — DeepSeek leads; ChatGPT assists with suitable work\n'
 printf '  4. Install first and connect an account later\n'
 default_choice="1"
 profile_package="${DSH_HOME:-$HOME/.dsh}/profiles/$profile/package.json"
-if [[ -f "$profile_package" ]] && node -e 'const p=require(process.argv[1]);process.exit(p.dependencies?.["dsh-vibeify"]?0:1)' "$profile_package"; then
+if [[ -f "$profile_package" ]] && node -e 'const p=require(process.argv[1]);process.exit(p.dependencies?.["dsh-vibeify-deepseek"]?0:1)' "$profile_package"; then
+  default_choice="3"
+elif [[ -f "$profile_package" ]] && node -e 'const p=require(process.argv[1]);process.exit(p.dependencies?.["dsh-vibeify"]?0:1)' "$profile_package"; then
   default_choice="2"
 fi
 read -r -p "Choice [$default_choice]: " account_choice
@@ -114,7 +116,7 @@ account_choice="${account_choice:-$default_choice}"
 
 provider_mode="deepseek"
 if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
-  provider_mode="chatgpt"
+  if [[ "$account_choice" == "3" ]]; then provider_mode="deepseek-codex"; else provider_mode="chatgpt"; fi
   if ! command -v codex >/dev/null 2>&1; then
     say "Installing the official Codex command so ChatGPT can be connected..."
     npm install --global @openai/codex@latest || fail "Codex could not be installed. The FAQ explains safe npm permission fixes."

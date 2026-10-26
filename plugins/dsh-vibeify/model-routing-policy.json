@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "verifiedAt": "2026-09-25",
+  "verifiedAt": "2026-10-26",
   "currency": "USD",
   "pricingUnit": "per 1M tokens",
   "sources": {
@@ -21,7 +21,7 @@
     "rule": "Use a bounded DeepSeek worker for eligible execution by default when Codex can independently inspect its artifacts or evidence against explicit acceptance criteria.",
     "fallback": "If verification fails, context transfer is lossy, or quality parity is uncertain, Codex repairs or completes only the failed or unverifiable part itself.",
     "primaryPolicy": "Never select or recommend DeepSeek as the primary agent under this policy; DeepSeek models are workers behind the Codex lead.",
-    "delegationDefault": "For a non-trivial task, plan first, then delegate up to two eligible execution packets. Prefer DeepSeek V4.1 Flash for routine work; use Pro when its reasoning is likely to avoid Flash rework. Use GPT-6 Sol, GPT-6 Astra, or GPT-5.6 Terra only for a bounded Codex specialist packet whose skill is likely to avoid rework. Codex may keep a packet when delegation overhead or unverifiable context would outweigh the worker benefit.",
+    "delegationDefault": "For a non-trivial task, plan first, then delegate up to two eligible execution packets. Prefer DeepSeek-V4.1-Flash-1017 for routine work; use Pro when its reasoning is likely to avoid Flash rework. Use GPT-6.1 Sol, GPT-6 Sol, GPT-6 Astra, or GPT-5.6 Terra only for a bounded Codex specialist packet whose skill is likely to avoid rework. Codex may keep a packet when delegation overhead or unverifiable context would outweigh the worker benefit.",
     "verificationContract": "A worker's prose is not acceptance. Codex must inspect the changed artifacts or cited evidence and rerun, reproduce, or otherwise directly validate the packet's acceptance criteria before integration. Passing work should be reused rather than gratuitously repeated.",
     "codexResponsibilities": [
       "understand user intent and plan the work",
@@ -47,7 +47,7 @@
     {
       "provider": "deepseek-official",
       "id": "deepseek-flash",
-      "name": "DeepSeek V4.1 Flash",
+      "name": "DeepSeek-V4.1-Flash-1017",
       "tier": "economy",
       "modalities": ["text", "image"],
       "contextWindow": 1000000,
@@ -77,7 +77,7 @@
     {
       "provider": "deepseek-official",
       "id": "deepseek-v4-pro",
-      "name": "DeepSeek-V4-Pro",
+      "name": "DeepSeek-V4-Pro-0813",
       "tier": "quality",
       "modalities": ["text"],
       "contextWindow": 1000000,

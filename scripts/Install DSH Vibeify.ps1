@@ -315,7 +315,9 @@ try {
       $defaultChoice = "1"
       if (Test-Path -LiteralPath $ProfilePackage) {
         $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
-        if ($existingProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify") {
+        if ($existingProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify-deepseek") {
+          $defaultChoice = "3"
+        } elseif ($existingProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify") {
           $defaultChoice = "2"
         }
       }
@@ -323,7 +325,7 @@ try {
       Write-Host "Choose how you want the AI side to work:"
       Write-Host "  1. DeepSeek only - connect DeepSeek inside DSH"
       Write-Host "  2. ChatGPT only - sign in with ChatGPT now"
-      Write-Host "  3. Both - Codex leads; DeepSeek handles suitable work"
+      Write-Host "  3. Both - DeepSeek leads; ChatGPT assists with suitable work"
       Write-Host "  4. Install first and connect an account later"
       $choice = Read-Host "Choice [$defaultChoice]"
       if (-not $choice) { $choice = $defaultChoice }
@@ -335,8 +337,8 @@ try {
       }
     }
 
-    $ProviderMode = if ($Provider -in @("chatgpt", "both")) { "chatgpt" } else { "deepseek" }
-    if ($ProviderMode -eq "chatgpt") {
+    $ProviderMode = if ($Provider -eq "both") { "deepseek-codex" } elseif ($Provider -eq "chatgpt") { "chatgpt" } else { "deepseek" }
+    if ($ProviderMode -in @("chatgpt", "deepseek-codex")) {
       if (-not (Get-Command codex -ErrorAction SilentlyContinue)) {
         Write-Host "Installing the official Codex command so ChatGPT can be connected..."
         & npm install --global "@openai/codex@latest"
@@ -371,6 +373,15 @@ try {
     $RuntimeAnchor = Join-Path ((& npm root --global).Trim()) "@deepseek-ai\dsh\package.json"
     & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Aligning legacy DSH profile versions"
+    if ($ProviderMode -ne "deepseek-codex" -and (Test-Path -LiteralPath $ProfilePackage)) {
+      $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
+      if ($existingProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify-deepseek") {
+        & node (Join-Path $ProjectDirectory "scripts\configure-deepseek-lead.mjs") --restore $ProfileDirectory $RuntimeAnchor $ProviderMode
+        Assert-Native "Restoring the previous provider defaults"
+        & dsh plugin --profile $ProfileName remove --workspace-root "dsh-vibeify-deepseek"
+        Assert-Native "Removing the DeepSeek-led routing bundle"
+      }
+    }
     $PluginName = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify" } else { "dsh-vibeify-experience" }
     $OppositePlugin = if ($ProviderMode -eq "chatgpt") { "dsh-vibeify-experience" } else { "dsh-vibeify" }
     $PluginDirectory = Join-Path $ProjectDirectory "plugins\$PluginName"
@@ -393,6 +404,19 @@ try {
     Install-ImmutableDshPlugin $ProjectDirectory $PluginName $PluginDirectory $DshHome $PackDirectory $ProfileName
     Install-ImmutableDshPlugin $ProjectDirectory $VisualPluginName $VisualPluginDirectory $DshHome $PackDirectory $ProfileName
     Install-ImmutableDshPlugin $ProjectDirectory $SocialPluginName $SocialPluginDirectory $DshHome $PackDirectory $ProfileName
+    if ($ProviderMode -eq "deepseek-codex") {
+      & node (Join-Path $ProjectDirectory "scripts\configure-deepseek-lead.mjs") $ProfileDirectory $RuntimeAnchor
+      Assert-Native "Configuring DeepSeek leadership"
+    }
+
+    $existingProfile = Get-Content -Raw -LiteralPath $ProfilePackage | ConvertFrom-Json
+    if ($ProviderMode -eq "deepseek-codex" -or $existingProfile.dependencies.PSObject.Properties.Name -contains "@deepseek-ai/dsh-subagent-codex") {
+      & dsh plugin --profile $ProfileName add --workspace-root "@deepseek-ai/dsh-subagent-codex@$TargetVersion"
+      Assert-Native "Installing the qualified Codex worker"
+    }
+    if ($ProviderMode -eq "deepseek-codex") {
+      Install-ImmutableDshPlugin $ProjectDirectory "dsh-vibeify-deepseek" (Join-Path $ProjectDirectory "plugins\dsh-vibeify-deepseek") $DshHome $PackDirectory $ProfileName
+    }
     & node (Join-Path $ProjectDirectory "scripts\align-profile-versions.mjs") $ProfilePackage $RuntimeAnchor
     Assert-Native "Aligning the profile runtime"
     & dsh plugin --profile $ProfileName install
@@ -415,7 +439,11 @@ try {
     if ($ProviderMode -eq "chatgpt" -and $ConfigDump -notlike "*provider: codex-chatgpt*") {
       throw "Vibeify was installed but Codex is not the composed default provider."
     }
-    if ($ProviderMode -eq "deepseek" -and $ConfigDump -like "*provider: codex-chatgpt*") {
+    if ($ProviderMode -eq "deepseek-codex") {
+      if (-not (($installedProfile.dependencies.PSObject.Properties.Name -contains "dsh-vibeify-deepseek") -and (@($installedProfile.dsh.profile.bundles) -contains "dsh-vibeify-deepseek"))) { throw "DeepSeek-led routing is not active in the DSH profile." }
+      if ($ConfigDump -notlike "*provider: deepseek-official*" -or $ConfigDump -notlike "*vibeify-deepseek*") { throw "DeepSeek-led routing is not the composed default." }
+    }
+    if ($ProviderMode -in @("deepseek", "deepseek-codex") -and $ConfigDump -like "*provider: codex-chatgpt*") {
       throw "DeepSeek mode was requested but the Codex provider still owns the profile."
     }
 

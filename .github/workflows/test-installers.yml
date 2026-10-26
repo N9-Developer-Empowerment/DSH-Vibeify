@@ -51,3 +51,23 @@ jobs:
           name: dsh-vibeify-installers
           path: dist/installers/
           if-no-files-found: error
+
+  native-routing:
+    name: DeepSeek-led runtime and client checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install the qualified test runtime
+        run: |
+          qualified_dsh="$(node -p 'require("./plugins/dsh-vibeify/package.json").peerDependencies["@deepseek-ai/dsh-agent"]')"
+          npm install --global "@deepseek-ai/dsh@$qualified_dsh"
+          npm ci --prefix plugins/dsh-vibeify --ignore-scripts --no-audit --no-fund
+      - name: Verify generated clients and core behavior
+        run: |
+          npm run check --prefix plugins/dsh-vibeify
+          npm test --prefix plugins/dsh-vibeify
+      - name: Verify native leadership and a fresh profile
+        run: node --test plugins/dsh-vibeify-deepseek/index.test.js scripts/configure-deepseek-lead.test.mjs scripts/install-vibeify-fresh-profile.test.mjs

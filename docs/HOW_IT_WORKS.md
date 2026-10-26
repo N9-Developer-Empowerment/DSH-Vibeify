@@ -12,7 +12,7 @@ Think of it as a small editorial studio:
 - **A local editor quietly prepares options.** When Vibe was used within 24 hours, the tab is open, the reserve is low, background work is enabled and budget remains, a separate hidden session prepares candidates. It never opens or steers an ordinary Chat.
 - **Update releases one new edition pass.** Vibe spends ready pages immediately. A local visual page remains the zero-wait fallback; one bounded foreground batch starts only when fewer than four ready pages exist.
 - **The lead is the editor.** It plans, divides eligible work, verifies evidence, and decides what is safe and good enough to publish.
-- **Workers are contributors.** DeepSeek or another available worker can research or build bounded pieces, but its raw report is never itself a Vibe article.
+- **Workers are contributors.** DeepSeek or the optional GPT-6.1 Sol worker can handle bounded pieces, but its raw report is never itself a Vibe article.
 - **Finished pages stream independently.** A quick page does not wait for a deeper research lane. Each complete, checked page appears as soon as it is ready.
 - **The run stops.** One Chat request produces one answer; one Vibe update produces one batch. Neither completion nor ordinary scrolling starts another run.
 - **Sharing is a separate deliberate route.** A reader can preview one finished article outside DSH, inspect the exact public copy, and then explicitly publish an account-free link. The rest of the magazine stays local.
@@ -183,11 +183,11 @@ Vibeify supports three provider arrangements:
 | --- | --- | --- |
 | DeepSeek only | Native DSH/DeepSeek agent | DSH's native agent and approval boundaries apply; no Codex verification claim is made |
 | ChatGPT only | ChatGPT-authenticated Codex | Codex plans, executes, verifies and answers |
-| Both | Codex | Codex keeps planning and acceptance; DeepSeek performs eligible bounded work when that preserves the same evidence bar |
+| Both: DeepSeek leads, OpenAI supports | Native DSH/DeepSeek agent | DeepSeek may request a bounded GPT-6.1 Sol task through the ChatGPT-authenticated Codex worker and reviews its result |
 
-In combined mode, cheaper execution is not treated as trusted merely because it completed. Codex checks the actual file, diff, test, source, or other required artifact. Passing work is reused; failed or unverifiable work is repaired or rerun. Protected connected-app actions, privacy decisions, final acceptance, and the final answer stay with Codex.
+In Codex-led mode, a DeepSeek result is not trusted merely because the worker says it completed; Codex checks the relevant artifact or evidence. In DeepSeek-led mode, DeepSeek remains responsible for reviewing its optional Codex worker and deciding what to use. The worker does not own final acceptance or the final answer.
 
-**Settings → Codex** selects the main Codex model and its supported thinking effort independently. This changes the lead's model, not the responsibility split. Both values are validated against the signed-in model catalogue and saved in one revision-checked update. Each turn captures its selection once; changing settings affects the next turn, including an existing chat, and never interrupts an active turn. Luna Max remains the initial default. DeepSeek Flash handles eligible bounded execution; Codex specialists remain available when needed.
+**Settings → Codex** selects the main Codex model only in ChatGPT-led mode. The DeepSeek-led route uses GPT-6.1 Sol as its optional specialist worker; this does not replace the DeepSeek lead. DeepSeek API use and ChatGPT plan usage are separate.
 
 ## How a page crosses into Vibe
 

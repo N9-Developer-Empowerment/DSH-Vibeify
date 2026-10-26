@@ -280,7 +280,7 @@ export async function liveModelCatalog(llm, policy, options = {}) {
       "DeepSeek routes are workers only: Codex delegates bounded work, verifies it, and owns the final answer.",
       "The Codex bridge can delegate only routes marked subagentFromCurrentCodex; do not recommend a worker as the primary model.",
       "Codex model rows come from the authenticated app-server model/list response. Reasoning efforts are model-specific; use only efforts that the selected row advertises.",
-      "Codex specialists are the explicitly listed GPT-6 Sol, GPT-6 Astra, and GPT-5.6 Terra routes. They are bounded workers, never the lead.",
+      "Codex specialists are the explicitly listed GPT-6.1 Sol, GPT-6 Sol, GPT-6 Astra, and GPT-5.6 Terra routes. They are bounded workers, never the lead.",
       "DeepSeek API estimates use official peak rates as a conservative assumption because the current pricing window is not known. The catalogue also shows official off-peak rates when available.",
       "Registered catalogue presence does not prove that a provider credential has funds; authentication is checked on use."
     ],
@@ -308,7 +308,7 @@ export function buildDeveloperRoutingInstructions(policy) {
     `- DeepSeek worker responsibilities: ${policy.qualityPolicy.workerResponsibilities.join("; ")}.`,
     `- Never delegate: ${policy.qualityPolicy.neverDelegate.join("; ")}.`,
     `- ${policy.qualityPolicy.verificationContract}`,
-    `- Prefer deepseek-flash (DeepSeek V4.1 Flash) for routine execution packets. Use DeepSeek V4 Pro only when Flash's likely rework or reasoning risk outweighs the price difference. Use a Codex specialist only for a bounded packet where its model-specific ability is likely to avoid rework.`,
+    `- Prefer deepseek-flash (DeepSeek-V4.1-Flash-1017) for routine execution packets. Use DeepSeek V4 Pro only when Flash's likely rework or reasoning risk outweighs the price difference. Use a Codex specialist only for a bounded packet where its model-specific ability is likely to avoid rework.`,
     `- Keep planning, final synthesis, acceptance, authorization-bearing decisions, and uncertain semantic judgment with Codex. Do not lower tests, review depth, evidence requirements, or safety boundaries to save quota.`,
     `- Delegate at most ${policy.qualityPolicy.maximumDelegationsPerTurn} execution packets per user turn. Decompose clean independent packets, but do not split work merely to manufacture model calls and do not run Flash and Pro gratuitously.`,
     `- This Codex route uses ChatGPT authentication and removes OpenAI API keys. The optimization target is the user's finite Codex plan quota. DeepSeek is separately API-billed, so use it when its low measured API cost and demonstrable quality parity justify moving bounded worker effort away from Codex.`,

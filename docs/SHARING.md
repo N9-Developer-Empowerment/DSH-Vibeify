@@ -37,6 +37,8 @@ The shared contract is allow-list only:
 
 Website looks use a shared fixed catalogue. The BBC News inspired look uses familiar layout cues without the BBC logo, fetched site styling, or an explanatory subtitle. Preview and public rendering retain the selected presentation.
 
+In the BBC News inspired presentation, the headline and lead image can span 1040px while the article prose stays within a 700px reading column. An opening paragraph appears as a standfirst above the image. Lead images preserve their proportions, with credits below; tables and interactive graphics can use the wider space. The layout stacks on phones and respects the saved text-size and spacing controls.
+
 DSH communicates only with the pinned HTTPS share origin. It checks both the response origin and the exact window it opened before sending the card. The share page cannot reach back into DSH and DSH has no publishing credential.
 
 ## Publishing and removal

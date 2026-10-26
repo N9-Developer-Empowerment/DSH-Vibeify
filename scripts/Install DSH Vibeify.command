@@ -144,21 +144,26 @@ if [[ -n "$active_listener" ]]; then
 fi
 
 profile_directory="${DSH_HOME:-$HOME/.dsh}/profiles/$PROFILE"
-existing_provider="$(node -e 'const fs=require("node:fs");try{const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(p.dependencies?.["dsh-vibeify"])process.stdout.write("chatgpt");else if(p.dependencies?.["dsh-vibeify-experience"])process.stdout.write("deepseek")}catch{}' "$profile_directory/package.json")"
+existing_provider="$(node -e 'const fs=require("node:fs");try{const p=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(p.dependencies?.["dsh-vibeify-deepseek"])process.stdout.write("deepseek-codex");else if(p.dependencies?.["dsh-vibeify"])process.stdout.write("chatgpt");else if(p.dependencies?.["dsh-vibeify-experience"])process.stdout.write("deepseek")}catch{}' "$profile_directory/package.json")"
 default_choice="1"
-if [[ "$existing_provider" == "chatgpt" ]]; then default_choice="2"; fi
+if [[ "$existing_provider" == "deepseek-codex" ]]; then default_choice="3"
+elif [[ "$existing_provider" == "chatgpt" ]]; then default_choice="2"; fi
 
 printf '\nChoose how you want the AI side to work:\n'
 printf '  1. DeepSeek only — connect a DeepSeek account inside DSH\n'
 printf '  2. ChatGPT only — sign in with ChatGPT now\n'
-printf '  3. Both — Codex leads; DeepSeek handles suitable work\n'
+printf '  3. Both — DeepSeek leads; OpenAI supports suitable work\n'
 printf '  4. Install first and connect an account later\n'
 read -r -p "Choice [$default_choice]: " account_choice
 account_choice="${account_choice:-$default_choice}"
 
 provider_mode="deepseek"
-if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
+if [[ "$account_choice" == "2" ]]; then
   provider_mode="chatgpt"
+elif [[ "$account_choice" == "3" ]]; then
+  provider_mode="deepseek-codex"
+fi
+if [[ "$account_choice" == "2" || "$account_choice" == "3" ]]; then
   if ! command -v codex >/dev/null 2>&1; then
     say "Installing the official Codex command so ChatGPT can be connected..."
     npm install --global @openai/codex@latest || fail "Codex could not be installed. The FAQ explains safe npm permission fixes."

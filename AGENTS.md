@@ -5,8 +5,8 @@ These instructions apply to every agent working in this repository.
 ## Preserve the agent boundary
 
 - Provider mode is explicit. `dsh-vibeify-experience` leaves native DSH/DeepSeek in the lead; `dsh-vibeify` installs the ChatGPT-authenticated Codex lead.
-- In ChatGPT or combined mode, Codex owns planning, verification, acceptance, authorization-bearing decisions, integration, and the final answer. DeepSeek and other providers are optional bounded workers; never claim equal quality without task-specific verification.
-- DeepSeek-only mode does not inherit the Codex verification guarantee. Describe the difference honestly and never expose Codex-only settings in the provider-neutral client.
+- In Codex-led ChatGPT mode, Codex owns planning, verification, acceptance, authorization-bearing decisions, integration, and the final answer. In the explicit `deepseek-codex` mode, native DeepSeek leads and verifies bounded OpenAI worker results. Preserve the selected leadership mode and protected action boundaries.
+- DeepSeek-only and DeepSeek-led modes do not inherit the Codex verification guarantee. Describe the difference honestly and never expose Codex-only settings in the provider-neutral client.
 - Never forward private content or current images to another provider without explicit user authorization.
 
 ## Protect users

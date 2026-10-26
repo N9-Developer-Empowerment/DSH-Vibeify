@@ -24,8 +24,17 @@ const retired = new Set([
   "@deepseek-ai/dsh-workflow-worker-thread",
 ]);
 const qualified = JSON.parse(await readFile(new URL("../plugins/dsh-vibeify/package.json", import.meta.url), "utf8")).peerDependencies["@deepseek-ai/dsh-agent"];
-const previous = new Set(["0.1.5-rc.3", "0.1.7-rc.2"]);
+const previous = new Set(["0.1.5-rc.3", "0.1.7-rc.2", "0.2.0-rc.2"].filter((version) => version !== qualified));
+const retiredIn021 = new Set(["@deepseek-ai/dsh-invariants", "@deepseek-ai/dsh-subagent-in-process-driver"]);
 
+const frameworkTargets = qualified === "0.2.1-rc.2"
+  ? { "@deepseek-ai/cordis": "4.0.5", "@deepseek-ai/schemastery": "3.18.5" }
+  : { "@deepseek-ai/cordis": "4.0.4", "@deepseek-ai/schemastery": "3.18.4" };
+const frameworkPrevious = {
+  "@deepseek-ai/cordis": new Set(["4.0.2", "4.0.4"]),
+  "@deepseek-ai/schemastery": new Set(["3.18.2", "3.18.4"]),
+  "@deepseek-ai/cordis-plugin-include": new Set(["1.0.8", "1.0.9"]),
+};
 let changes = 0;
 // A profile that only owns selected peer packages mixes its scope registry with
 // CLI fallback bundles. Equal versions still have different Symbols/WeakMaps.
@@ -37,14 +46,11 @@ if (Array.isArray(bundles) && bundles.includes("@deepseek-ai/dsh-web-app")) {
   profile.pnpm.overrides ??= {};
   for (const name of ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app"]) {
     const version = profile.dependencies[name];
+    if (runtimeAnchor && version !== undefined && version !== qualified && !previous.has(version)) {
+      throw new Error(`Cannot align an independently configured runtime dependency: ${name}`);
+    }
     if (version === undefined || previous.has(version)) {
       profile.dependencies[name] = qualified;
-      changes += 1;
-    }
-  }
-  for (const [name, version] of [["@deepseek-ai/cordis", "4.0.4"], ["@deepseek-ai/schemastery", "3.18.4"]]) {
-    if (profile.pnpm.overrides[name] === undefined) {
-      profile.pnpm.overrides[name] = version;
       changes += 1;
     }
   }
@@ -57,12 +63,24 @@ if (Array.isArray(bundles) && bundles.includes("@deepseek-ai/dsh-web-app")) {
     // DSH 0.2 bootstrap owns a private WeakMap used by settings/profile reload.
     // The launcher and profile consumers must resolve the same physical module.
     const bootPath = await realpath(require.resolve("@deepseek-ai/dsh-app-boot/package.json"));
+    for (const name of Object.keys(frameworkTargets)) {
+      const resolvedPath = require.resolve(`${name}/package.json`);
+      const manifest = JSON.parse(await readFile(resolvedPath, "utf8"));
+      if (manifest.name !== name || typeof manifest.version !== "string" || !manifest.version) {
+        throw new Error(`Invalid resolved runtime manifest: ${name}`);
+      }
+      frameworkTargets[name] = manifest.version;
+    }
     const bootLink = `link:${dirname(bootPath).replaceAll("\\", "/")}`;
     if (profile.pnpm.overrides["@deepseek-ai/dsh-app-boot"] !== bootLink) {
       profile.pnpm.overrides["@deepseek-ai/dsh-app-boot"] = bootLink;
       changes += 1;
     }
-    if (profile.dependencies["@deepseek-ai/dsh-agent-preset-registry"] !== qualified) {
+    const existingRegistry = profile.dependencies["@deepseek-ai/dsh-agent-preset-registry"];
+    if (existingRegistry !== undefined && existingRegistry !== qualified && !previous.has(existingRegistry)) {
+      throw new Error("Cannot align an independently configured runtime dependency: @deepseek-ai/dsh-agent-preset-registry");
+    }
+    if (existingRegistry !== qualified) {
       profile.dependencies["@deepseek-ai/dsh-agent-preset-registry"] = qualified;
       changes += 1;
     }
@@ -98,11 +116,18 @@ if (Array.isArray(bundles) && bundles.includes("@deepseek-ai/dsh-web-app")) {
       await alignRuntimePackage(packageName);
     }
   }
+  if (qualified === "0.2.1-rc.2") frameworkTargets["@deepseek-ai/cordis-plugin-include"] = "1.0.10";
+  for (const [name, version] of Object.entries(frameworkTargets)) {
+    if (profile.pnpm.overrides[name] === undefined) {
+      profile.pnpm.overrides[name] = version;
+      changes += 1;
+    }
+  }
 }
 for (const entries of [profile.dependencies, profile.devDependencies, profile.pnpm?.overrides]) {
   if (!entries || typeof entries !== "object" || Array.isArray(entries)) continue;
   for (const [name, version] of Object.entries(entries)) {
-    if (retired.has(name) && previous.has(version)) {
+    if ((retired.has(name) && previous.has(version)) || (qualified.startsWith("0.2.1-") && retiredIn021.has(name) && (previous.has(version) || version === qualified))) {
       delete entries[name];
       changes += 1;
       continue;
@@ -110,10 +135,8 @@ for (const entries of [profile.dependencies, profile.devDependencies, profile.pn
     let replacement;
     if ((name === "@deepseek-ai/dsh" || name.startsWith("@deepseek-ai/dsh-")) && previous.has(version)) {
       replacement = qualified;
-    } else if (name === "@deepseek-ai/cordis" && version === "4.0.2") {
-      replacement = "4.0.4";
-    } else if (name === "@deepseek-ai/schemastery" && version === "3.18.2") {
-      replacement = "3.18.4";
+    } else if (frameworkPrevious[name]?.has(version) && version !== frameworkTargets[name]) {
+      replacement = frameworkTargets[name];
     }
     if (replacement) {
       entries[name] = replacement;

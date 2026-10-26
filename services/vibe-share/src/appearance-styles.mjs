@@ -31,13 +31,87 @@ body[data-mood="matcha-break"] :is(h1,h2,h3,h4) { font-family:"Avenir Next",Aven
 body[data-mood="after-dark"] { background:radial-gradient(circle at 78% 8%,color-mix(in srgb,var(--accent) 12%,transparent) 0,transparent 30%),var(--page); }
 body[data-mood="after-dark"] .article { border-radius:2px 22px 2px 22px; box-shadow:0 20px 64px #0008; }
 body[data-mood="after-dark"] :is(h1,h2,h3,h4) { font-family:Didot,"Bodoni 72",Georgia,serif; font-weight:600; letter-spacing:.005em; }
-/* One news reading column for headline, image, prose and source. */
-body[data-look="bbc-news"] { --reading-width:680px; --headline-width:var(--reading-width); --image-width:var(--reading-width); }
-body[data-look="bbc-news"] .article { border:0; border-top:1px solid var(--edge); border-radius:0; box-shadow:none; }
-body[data-look="bbc-news"] .lead { width:min(100%,var(--reading-width)); border-radius:0; margin:24px auto 32px; }
-body[data-look="bbc-news"] .lead img { width:100%; max-height:none; }
-body[data-look="bbc-news"] :is(h1,h2,h3,h4) { font-family:Georgia,serif; font-weight:700; letter-spacing:-.025em; }
-body[data-look="bbc-news"] h1 { font-size:clamp(34px,5vw,60px); line-height:1.1; }
-body[data-look="bbc-news"] .body { color:var(--ink); }
+/* Newsroom pages use a wide visual and a narrower, left-aligned reading column. */
+body[data-look="bbc-news"] {
+  --reading-width:700px;
+  --headline-width:1040px;
+  --image-width:1040px;
+}
+body[data-look="bbc-news"] { background:var(--page); font-family:Arial,Helvetica,sans-serif; }
+body[data-look="bbc-news"] .article {
+  max-width:1120px;
+  margin:32px auto 48px;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  background:var(--page);
+}
+body[data-look="bbc-news"] .copy>.source { margin-inline:0; border-color:var(--edge); }
+body[data-look="bbc-news"] .copy { padding:0 28px; display:grid; grid-template-columns:minmax(0,min(100%,var(--reading-width))) minmax(0,1fr); }
+body[data-look="bbc-news"] .copy>* { min-width:0; grid-column:1 / -1; }
+body[data-look="bbc-news"] .copy>.kind { grid-row:1; }
+body[data-look="bbc-news"] .copy>h1 { grid-row:2; }
+body[data-look="bbc-news"] .copy>.lead { grid-row:4; }
+body[data-look="bbc-news"] .copy>:is(h1,.kind) { margin-inline:0; }
+body[data-look="bbc-news"] .copy>h1 { margin:12px 0 24px; }
+body[data-look="bbc-news"] .vibe-masthead[data-treatment="news"] { --masthead-inset:max(20px,calc((100% - 1120px)/2 + 28px)); }
+body[data-look="bbc-news"] .lead {
+  width:min(100%,var(--image-width));
+  max-width:var(--image-width);
+  border-radius:0;
+  margin:24px 0 32px;
+  background:var(--wash);
+}
+body[data-look="bbc-news"] .lead img {
+  width:auto;
+  max-width:100%;
+  max-height:min(75svh,720px);
+  object-fit:contain;
+}
+body[data-look="bbc-news"] :is(.lead figcaption,.gallery figcaption) {
+  background:var(--wash);
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.5;
+}
+body[data-look="bbc-news"] :is(h1,h2,h3,h4) {
+  font-family:Arial,Helvetica,sans-serif;
+  font-style:normal;
+  font-weight:700;
+  letter-spacing:-.025em;
+}
+body[data-look="bbc-news"] h1 {
+  font-size:clamp(32px,5.6vw,52px);
+  line-height:1.08;
+  text-align:left;
+  text-wrap:pretty;
+}
+body[data-look="bbc-news"] .copy>.body {
+  display:contents;
+  color:var(--ink);
+  font-size:19px;
+  line-height:1.62;
+}
+body[data-look="bbc-news"] .copy>.body>* { grid-column:1; }
+body[data-look="bbc-news"] .copy>.body>:is(.vibe-interactive,.table-scroll,.media-card,.gallery) {
+  grid-column:1 / -1;
+}
+body[data-look="bbc-news"] .copy>.body>p:first-child {
+  grid-row:3;
+  grid-column:1 / -1;
+  max-width:880px;
+  font-size:1.15em;
+  line-height:1.5;
+}
+body[data-look="bbc-news"][data-text-size="large"] .copy>.body { font-size:clamp(20px,2vw,24px); }
+body[data-look="bbc-news"][data-spacing="roomy"] .copy { padding:clamp(30px,5vw,80px); }
 body[data-look="bbc-news"] :is(button,.try-vibe,.media-card,.preview-actions,.published-actions,.gallery figure) { border-radius:0; }
+@media(max-width:760px) {
+  body[data-look="bbc-news"] .copy { padding:0 20px; grid-template-columns:minmax(0,1fr); }
+  body[data-look="bbc-news"] .vibe-masthead[data-treatment="news"] { --masthead-inset:20px; }
+  body[data-look="bbc-news"] .copy>.body { font-size:18px; }
+  body[data-look="bbc-news"][data-text-size="large"] .copy>.body { font-size:22px; }
+  body[data-look="bbc-news"][data-spacing="roomy"] .copy { padding:24px 28px; }
+  body[data-look="bbc-news"] .copy>.body>:is(.vibe-interactive,.table-scroll,.media-card,.gallery) { grid-column:1; }
+}
 `;

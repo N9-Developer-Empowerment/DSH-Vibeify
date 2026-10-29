@@ -363,3 +363,14 @@ test("completed technical Chat answers are eligible after completion and retain 
   assert.match(chunk.markdown, /parser now keeps the existing API/);
   assert.deepEqual(Object.keys(chunk).sort(), ["id", "kind", "markdown", "publishedAt", "source", "title", "topicId"]);
 });
+
+test('completed rendered answers retain long article endings', () => {
+  const text = 'Full paragraph. '.repeat(2000) + 'Final method note.';
+  assert.equal(createChatResultChunk(element('div', [element('p', [textNode(text)])]), 1_700_000_000_000).markdown, text);
+});
+
+test('oversized completed answers and envelopes are rejected intact', () => {
+  const text = 'x'.repeat(100_001);
+  assert.equal(createChatResultChunk(element('div', [element('p', [textNode(text)])]), 1_700_000_000_000), null);
+  assert.deepEqual(extractPublishedChunks(`<vibe-chunk id="chat-long" kind="article" title="Long">${text}</vibe-chunk>`), []);
+});

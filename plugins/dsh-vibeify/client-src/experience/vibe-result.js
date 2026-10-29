@@ -1,3 +1,4 @@
+import { MAX_SHARE_MARKDOWN } from "../../../../shared/vibe-share-contract.js";
 import {
   markdownTableAt as sharedMarkdownTableAt,
   parseVibeInline,
@@ -25,7 +26,7 @@ export function extractPublishedChunks(value, { preferLatest = false } = {}) {
   CHUNK_PATTERN.lastIndex = 0;
   for (const match of text.matchAll(CHUNK_PATTERN)) {
     const markdown = match[4].trim();
-    if (markdown.length === 0 || (match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown))) continue;
+    if (markdown.length === 0 || markdown.length > MAX_SHARE_MARKDOWN || (match[2] === "questionnaire" && !validQuestionnaireMarkdown(markdown))) continue;
     const candidate = { id: match[1], kind: match[2], title: match[3].trim(), markdown };
     if (seen.has(match[1])) {
       if (preferLatest) chunks[chunks.findIndex(({ id }) => id === match[1])] = candidate;
@@ -37,7 +38,7 @@ export function extractPublishedChunks(value, { preferLatest = false } = {}) {
   LEGACY_SECTION_PATTERN.lastIndex = 0;
   for (const match of text.matchAll(LEGACY_SECTION_PATTERN)) {
     const markdown = match[2].trim();
-    if (markdown.length === 0 || seen.has(match[1])) continue;
+    if (markdown.length === 0 || markdown.length > MAX_SHARE_MARKDOWN || seen.has(match[1])) continue;
     seen.add(match[1]);
     const title = markdown.match(/^#{1,3}\s+(.+)$/m)?.[1]?.trim() ?? "A new page in the edition";
     chunks.push({ id: match[1], kind: "article", title, markdown });
@@ -123,7 +124,7 @@ export function stripDuplicatedLeadTitle(markdown, title) {
 export function createChatResultChunk(source, publishedAt = Date.now()) {
   if (!Number.isFinite(publishedAt) || publishedAt <= 0) return null;
   const markdown = renderedAnswerToMarkdown(source);
-  if (markdown.length === 0 || markdown.length > 16_000) return null;
+  if (markdown.length === 0 || markdown.length > MAX_SHARE_MARKDOWN) return null;
   const titleNode = source?.querySelector?.("h1,h2,h3") ?? source?.querySelector?.("strong");
   const rawTitle = titleNode?.textContent?.replace(/\s+/g, " ").trim() || "From Chat";
   const title = `${rawTitle.charAt(0).toUpperCase()}${rawTitle.slice(1)}`.slice(0, 180);

@@ -1,6 +1,7 @@
 import { extractPublishedChunks } from "./vibe-result.js";
 
-const MAX_LIVE_TEXT = 96_000;
+// Allow a complete 100,000-character article plus its envelope and preceding text.
+const MAX_LIVE_TEXT = 200_000;
 const SUBSCRIBE_TIMEOUT_MS = 1_500;
 
 function textFromMessage(event) {

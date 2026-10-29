@@ -1,3 +1,4 @@
+import { shareMarkdownTooLong } from "../../../../shared/vibe-share-contract.js";
 import { hideExactLegacyDuplicates } from "./vibe-library.js";
 import { renderPublicationMasthead } from "../../../../shared/publication-masthead.js";
 import { MAGAZINE_APPEARANCE_STYLES } from "./appearance-styles.js";
@@ -392,7 +393,7 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
                 onClick={() => onShare(chunk, { media, inlineVisuals, contentLink: externalContentLink, embeddedMedia: player })}
               >
                 <Icon name="share" />
-                {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
+                {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable", "too-long": "Article too long to share (100,000 character limit)" }[shareStatus] ?? "Preview and share"}
               </button>
               {restyleEligibility.reason === "private" || ["empty", "title"].includes(restyleEligibility.reason) ? null : (
                 <button
@@ -834,7 +835,7 @@ function ExperienceShell({ codexFeatures, connection }) {
       embeddedMedia,
     });
     if (snapshot === null) {
-      setShareState({ chunkId: chunk.id, status: "invalid" });
+      setShareState({ chunkId: chunk.id, status: shareMarkdownTooLong(markdownWithoutLeadVisual(chunk.markdown)) ? "too-long" : "invalid" });
       return;
     }
     setShareState({ chunkId: chunk.id, status: "opening" });

@@ -79,3 +79,17 @@ test("the hidden reserve rejects preference questionnaires but keeps ordinary qu
   assert.deepEqual(appended.map(({ id }) => id), ["useful-question"]);
   assert.deepEqual(getEditorialReserve(local, NOW).approved.map(({ id }) => id), ["useful-question"]);
 });
+
+test('long reserve articles survive storage intact', () => {
+  const local = storage(), markdown = 'Paragraph. '.repeat(3000) + 'Final note.';
+  appendReservePages(local, [{id:'long', kind:'article', title:'Long', markdown}], 'approved', NOW);
+  assert.equal(getEditorialReserve(local, NOW).approved[0].markdown, markdown);
+});
+
+test('reserve rejects new oversized pages and preserves existing oversized pages on unrelated writes', () => {
+  const local = storage(), markdown = 'x'.repeat(100_001);
+  local.setItem('dsh-vibeify.reserve.v1', JSON.stringify({version:1, approved:[{id:'old',kind:'article',title:'Old',markdown,generatedAt:NOW}],candidates:[],signals:[],ledger:[]}));
+  appendReservePages(local, [{id:'new',kind:'article',title:'New',markdown}], 'approved', NOW);
+  markVibeActivity(local, NOW);
+  assert.deepEqual(getEditorialReserve(local, NOW).approved.map(page => [page.id, page.markdown.length]), [['old',100_001]]);
+});

@@ -708,3 +708,30 @@ test('YouTube is present immediately in browser preview and public output with i
   runInNewContext(APP_JS + '\nrenderMedia({provider:"youtube",kind:"video",label:"Bad",href:"https://evil.example/watch?v=fz_UWPQYfKw"});', {document, window: {opener: null, addEventListener() {}}, URL});
   assert.equal(nodes.length, 0);
 });
+
+test('long article survives publication and over-limit text is rejected', async () => {
+  const db = new MemoryDb();
+  const env = {DB: db, VIBE_SHARE_LOCAL_DEV: 'true'};
+  const markdown = 'Complete paragraph.\n\n'.repeat(2000) + 'The final sentence survives.';
+  const post = text => handleRequest(new Request(origin + '/api/articles', {method: 'POST', headers: {origin, 'content-type': 'application/json'}, body: JSON.stringify({snapshot: {...snapshot, markdown: text}})}), env);
+  const response = await post(markdown);
+  assert.equal(response.status, 201);
+  const created = await response.json();
+  assert.equal(JSON.parse(db.rows.get(created.slug).snapshot_json).markdown, markdown);
+  const page = await handleRequest(new Request(created.url), env);
+  assert.match(await page.text(), /The final sentence survives\./);
+  const rejected = await post('x'.repeat(100_001));
+  assert.equal(rejected.status, 413);
+  assert.match((await rejected.json()).error, /100,000 character/);
+  assert.equal(db.rows.size, 1);
+});
+
+test('request byte limit applies when content-length is absent', async () => {
+  const db = new MemoryDb();
+  const body = JSON.stringify({snapshot, padding: 'x'.repeat(1_200_001)});
+  const response = await handleRequest(new Request(origin + '/api/articles', {
+    method: 'POST', headers: {origin, 'content-type': 'application/json'}, body,
+  }), {DB: db, VIBE_SHARE_LOCAL_DEV: 'true'});
+  assert.equal(response.status, 413);
+  assert.equal(db.rows.size, 0);
+});

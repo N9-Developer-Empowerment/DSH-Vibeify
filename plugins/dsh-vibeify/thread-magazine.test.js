@@ -354,3 +354,14 @@ test("the hidden background editor is never scanned into the visible magazine", 
     else Object.defineProperty(globalThis, "CustomEvent", originalCustomEvent);
   }
 });
+
+test('completed history retains a long answer through its final sentence', () => {
+  const markdown = 'Full paragraph.\n\n'.repeat(2000) + 'Final method note.';
+  const entries = [message({seq: 2, time: 200, id: 'long', content: [{type: 'text', text: markdown}]}), turnEnd({seq: 3, time: 201})];
+  assert.equal(completedHistoryMagazineChunks('session', entries)[0].markdown, markdown);
+});
+
+test('completed history refuses oversized answers rather than cutting them', () => {
+  const entries = [message({seq: 2, time: 200, id: 'long', content: [{type: 'text', text: 'x'.repeat(100_001)}]}), turnEnd({seq: 3, time: 201})];
+  assert.deepEqual(completedHistoryMagazineChunks('session', entries), []);
+});

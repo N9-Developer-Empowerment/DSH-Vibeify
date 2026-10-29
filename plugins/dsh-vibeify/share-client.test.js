@@ -248,3 +248,10 @@ test("a bundled pictorial fallback shares its canonical identity, never raw SVG"
   assert.equal(value.visual.imageUrl,`${SHARE_ORIGIN}/illustrations/doodles-reading.svg`);
   assert.doesNotMatch(JSON.stringify(value),/private-model-markup|data:image/);
 });
+
+test('share preparation preserves long articles and refuses oversized text', () => {
+  const markdown = 'Paragraph.\n\n'.repeat(2000) + 'The final sentence.';
+  const params = {chunk: {title: 'Long article', kind: 'article', publishedAt: snapshot.publishedAt}, markdown};
+  assert.equal(shareSnapshotForChunk(params, snapshot.publishedAt).markdown, markdown);
+  assert.equal(shareSnapshotForChunk({...params, markdown: 'x'.repeat(100_001)}, snapshot.publishedAt), null);
+});

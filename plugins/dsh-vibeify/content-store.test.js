@@ -286,3 +286,19 @@ test('placeholder-only cards are hidden while stored data and feedback survive w
   assert.equal(raw.chunks[0].markdown,'...markdown...');
   assert.equal(getCachedStream(storage,now).chunks[0].markdown,'Normal ...markdown... in prose');
 });
+
+test('long articles survive persistence and rehydration intact', () => {
+  const storage = memoryStorage(), now = 1_700_000_000_000;
+  const markdown = 'Full paragraph.\n\n'.repeat(2000) + 'Final method note.';
+  appendCachedChunks(storage, [chunk('long:article', markdown)], now);
+  assert.equal(getCachedStream(storage, now + 1).chunks[0].markdown, markdown);
+});
+
+test('new oversized articles are rejected without erasing oversized existing entries', () => {
+  const storage = memoryStorage(), now = 1_700_000_000_000;
+  const oversized = 'x'.repeat(100_001);
+  storage.values.set(CONTENT_STORE_KEY, JSON.stringify({version: CONTENT_STORE_VERSION, chunks: [{...chunk('old:long', oversized), publishedAt: now}], answers: []}));
+  assert.deepEqual(appendCachedChunks(storage, [chunk('new:long', oversized)], now), []);
+  appendCachedChunks(storage, [chunk('new:short')], now);
+  assert.equal(getCachedStream(storage, now).chunks[0].markdown, oversized);
+});

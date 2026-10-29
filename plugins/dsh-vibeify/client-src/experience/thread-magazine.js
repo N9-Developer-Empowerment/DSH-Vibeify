@@ -1,3 +1,4 @@
+import { MAX_SHARE_MARKDOWN } from "../../../../shared/vibe-share-contract.js";
 import { appendCachedChunks, reconcileCompletedChatChunks } from "./content-store.js";
 import { freshStreamChunksFromEvents, openLiveChatChunkStream, chatOwner } from "./live-stream-collector.js";
 import { readUpdateSessionId } from "./update-session.js";
@@ -12,7 +13,6 @@ import {
 const MAX_HISTORY_MESSAGES = 50;
 const MAX_CONCURRENT_HISTORY_READS = 4;
 const MAX_TITLE = 180;
-const MAX_MARKDOWN = 16_000;
 
 function digest(value) {
   let first = 2166136261;
@@ -72,8 +72,8 @@ function chatChunk(sessionId, event, publishedAt) {
   const blocks = messageBlocks(event, new Set(["text"]));
   const hasToolCall = Array.isArray(event?.data?.message?.content)
     && event.data.message.content.some((block) => block?.type === "tool-call");
-  const originalMarkdown = blocks.join("\n\n").trim().slice(0, MAX_MARKDOWN);
-  if (hasToolCall || originalMarkdown.length === 0) return null;
+  const originalMarkdown = blocks.join("\n\n").trim();
+  if (hasToolCall || originalMarkdown.length === 0 || originalMarkdown.length > MAX_SHARE_MARKDOWN) return null;
   const title = titleFromMarkdown(originalMarkdown);
   const markdown = stripDuplicatedLeadTitle(originalMarkdown, title);
   if (markdown.length === 0) return null;

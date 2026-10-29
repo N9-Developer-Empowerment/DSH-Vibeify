@@ -1,3 +1,5 @@
+import { hasPersistenceFailure, VIBE_PERSISTENCE_FAILURE_EVENT } from "./persistence-notice.js";
+import { shareMarkdownTooLong } from "../../../../shared/vibe-share-contract.js";
 import { hideExactLegacyDuplicates } from "./vibe-library.js";
 import { renderPublicationMasthead } from "../../../../shared/publication-masthead.js";
 import { MAGAZINE_APPEARANCE_STYLES } from "./appearance-styles.js";
@@ -392,7 +394,7 @@ function StreamChunk({ chunk, index, visualOverride, visualStatus, onVisualFailu
                 onClick={() => onShare(chunk, { media, inlineVisuals, contentLink: externalContentLink, embeddedMedia: player })}
               >
                 <Icon name="share" />
-                {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable" }[shareStatus] ?? "Preview and share"}
+                {{ opening: "Opening preview…", transferred: "Preview ready", blocked: "Allow pop-up to share", "timed-out": "Try sharing again", invalid: "Share unavailable", "too-long": "Article too long to share (100,000 character limit)" }[shareStatus] ?? "Preview and share"}
               </button>
               {restyleEligibility.reason === "private" || ["empty", "title"].includes(restyleEligibility.reason) ? null : (
                 <button
@@ -420,6 +422,12 @@ function ExperienceShell({ codexFeatures, connection }) {
   const [editorialProfile, setEditorialProfile] = React.useState(() => loadEditorialProfile(browserStorage()));
   const [appearance, setAppearance] = React.useState(() => loadAppearanceProfile(browserStorage()));
   const [updateState, setUpdateState] = React.useState("idle");
+  const [persistenceFailed, setPersistenceFailed] = React.useState(hasPersistenceFailure);
+  React.useEffect(() => {
+    const onFailure = () => setPersistenceFailed(true);
+    window.addEventListener(VIBE_PERSISTENCE_FAILURE_EVENT, onFailure);
+    return () => window.removeEventListener(VIBE_PERSISTENCE_FAILURE_EVENT, onFailure);
+  }, []);
   const [pullDistance, setPullDistance] = React.useState(0);
   const [skipped, setSkipped] = React.useState(() => new Set());
   const [shareState, setShareState] = React.useState(() => ({ chunkId: null, status: "idle" }));
@@ -636,8 +644,8 @@ function ExperienceShell({ codexFeatures, connection }) {
         invalidated: current.restyleInvalidated,
       })) return;
       const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
-      appendCachedChunks(browserStorage(), incoming);
-      const acceptedIds = new Set(getCachedStream(browserStorage()).chunks.map(({ id }) => id));
+      const appended = appendCachedChunks(browserStorage(), incoming);
+      const acceptedIds = new Set([...getCachedStream(browserStorage()).chunks, ...appended].map(({ id }) => id));
       const accepted = incoming.filter(({ id }) => acceptedIds.has(id));
       if (accepted.length === 0) return;
       setChunks((current) => {
@@ -834,7 +842,7 @@ function ExperienceShell({ codexFeatures, connection }) {
       embeddedMedia,
     });
     if (snapshot === null) {
-      setShareState({ chunkId: chunk.id, status: "invalid" });
+      setShareState({ chunkId: chunk.id, status: shareMarkdownTooLong(markdownWithoutLeadVisual(chunk.markdown)) ? "too-long" : "invalid" });
       return;
     }
     setShareState({ chunkId: chunk.id, status: "opening" });
@@ -897,6 +905,7 @@ function ExperienceShell({ codexFeatures, connection }) {
             onChat={enterChat}
           />
           <>
+            {persistenceFailed && <p role="alert" style={{ padding: "1rem", margin: 0, background: "#fff3cd", color: "#382900" }}>This edition could not be saved in this browser. New articles may not survive a reload. Your existing saved data has not been cleared.</p>}
             <div className="vfx-publication-banner" role="banner" aria-label="Publication masthead">
               <button type="button" className="vfx-masthead-home" aria-label="VIBE magazine home" onClick={goHome} dangerouslySetInnerHTML={{ __html: renderPublicationMasthead(appearance.look, appearance.mood) }} />
             </div>
@@ -908,7 +917,7 @@ function ExperienceShell({ codexFeatures, connection }) {
               <div className="vfx-library-heading">
                 <span>Your local library</span>
                 <h1 id="vfx-library-title">Find your past Vibes.</h1>
-                <p>Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.</p>
+                <p>Search Vibes made from Chat and explicit magazine updates. {persistenceFailed ? "New material may not survive a reload." : "They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically."}</p>
               </div>
               <label className="vfx-library-search">
                 <span>Search titles and article text</span>
@@ -916,7 +925,7 @@ function ExperienceShell({ codexFeatures, connection }) {
               </label>
               <div className="vfx-library-status" role="status">
                 <span>{libraryQuery.trim() === ""
-                  ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser`
+                  ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} ${persistenceFailed ? "in this edition" : "saved in this browser"}`
                   : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`}</span>
                 <button type="button" onClick={goHome}>Back to magazine</button>
               </div>
@@ -925,7 +934,7 @@ function ExperienceShell({ codexFeatures, connection }) {
             <section className="vfx-edition-intro">
               <span>Your magazine · {editorialProfile.label}</span>
               <h1>{appearance.look === "bbc-news" ? "Your latest stories" : "People. Stories. Something worth your time."}</h1>
-              <p>{appearance.look === "bbc-news" ? "People, culture and ideas, through your chosen lens." : "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return."}</p>
+              <p>{appearance.look === "bbc-news" ? "People, culture and ideas, through your chosen lens." : (persistenceFailed ? "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines." : "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return.")}</p>
               <button type="button" className="vfx-intro-cta" disabled={["starting", "submitted", "stopping"].includes(updateState)} onClick={startRun}>Update my magazine</button>
               {updateNotice === undefined ? null : <p className="vfx-update-note" role={updateState === "error" ? "alert" : "status"}>{updateNotice}</p>}
             </section>

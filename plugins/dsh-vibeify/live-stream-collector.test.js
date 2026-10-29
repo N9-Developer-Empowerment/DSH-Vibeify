@@ -256,3 +256,13 @@ test("session-scoped live and completed Chat IDs agree without colliding", async
   const partial = [{type:"assistant/message",data:{interrupted:true,message:{content:[{type:"text",text:final}]}}}, {type:"assistant/message",data:{message:{content:[{type:"text",text:final},{type:"tool-call"}]}}}];
   assert.deepEqual(freshStreamChunksFromEvents(partial,null,1234,a),[]);
 });
+
+test('live and completed envelopes retain a near-limit article', () => {
+  const markdown = 'x'.repeat(99_980) + ' Final method note.';
+  const envelope = `<vibe-chunk id="chat-long" kind="article" title="Long">${markdown}</vibe-chunk>`;
+  const collector = createLiveChunkCollector({runId: null, now: () => 1234});
+  assert.deepEqual(collector.push(delta(envelope.slice(0, 50_000))), []);
+  assert.equal(collector.push(delta(envelope.slice(50_000)))[0].markdown, markdown);
+  const entries = [{event:{type:'assistant/message',data:{message:{content:[{type:'text',text:envelope}]}}}}];
+  assert.equal(freshStreamChunksFromEvents(entries, null, 1234)[0].markdown, markdown);
+});

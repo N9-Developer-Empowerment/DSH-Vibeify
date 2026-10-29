@@ -237,3 +237,15 @@ test("shared mood appearance accepts only fixed look and mood enums", () => {
     assert.doesNotMatch(JSON.stringify(cleaned), /writingVoice|customDirection|private/);
   }
 });
+
+test('long article text survives the share contract without truncation', () => {
+  const markdown = `${'A complete paragraph.\n\n'.repeat(1000)}The final sentence survives.`;
+  const result = cleanShareSnapshot({version: 1, title: 'Long article', kind: 'article', markdown, publishedAt: NOW}, NOW);
+  assert.equal(result.markdown, markdown);
+});
+
+test('oversized article text is rejected instead of shortened', () => {
+  const base = {version: 1, title: 'Long article', kind: 'article', publishedAt: NOW};
+  assert.equal(cleanShareSnapshot({...base, markdown: 'x'.repeat(100_000)}, NOW).markdown.length, 100_000);
+  assert.equal(cleanShareSnapshot({...base, markdown: 'x'.repeat(100_001)}, NOW), null);
+});

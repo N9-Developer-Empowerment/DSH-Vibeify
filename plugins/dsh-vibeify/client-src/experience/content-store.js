@@ -1,3 +1,5 @@
+import { reportPersistenceFailure } from "./persistence-notice.js";
+import { MAX_SHARE_MARKDOWN } from "../../../../shared/vibe-share-contract.js";
 import {
   MAX_CHAT_VIBE_RESERVE,
   MAX_STREAM_CHUNKS,
@@ -10,7 +12,6 @@ export const CONTENT_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export { MAX_CHAT_VIBE_RESERVE, MAX_STREAM_CHUNKS };
 export const MAX_STREAM_ANSWERS = 32;
 
-const MAX_MARKDOWN = 16_000;
 const MAX_TITLE = 180;
 const MAX_LABEL = 72;
 const ID = /^[a-z0-9][a-z0-9_.:-]{0,95}$/;
@@ -63,7 +64,9 @@ function cleanChunk(candidate, now, preservePlaceholder = false) {
   const kind = KINDS.has(candidate.kind) ? candidate.kind : null;
   const source = SOURCES.has(candidate.source) ? candidate.source : null;
   const title = cleanText(candidate.title, MAX_TITLE);
-  const markdown = cleanText(candidate.markdown, MAX_MARKDOWN, true);
+  if (!preservePlaceholder && typeof candidate.markdown === "string" && candidate.markdown.length > MAX_SHARE_MARKDOWN) return null;
+  // Preserve previously stored oversized entries so unrelated writes cannot erase them.
+  const markdown = cleanText(candidate.markdown, preservePlaceholder ? Infinity : MAX_SHARE_MARKDOWN, true);
   const topicId = candidate.topicId === undefined ? null : cleanToken(candidate.topicId);
   const tribes = Object.freeze([...new Set((Array.isArray(candidate.tribes) ? candidate.tribes : [])
     .filter((value) => typeof value === "string" && TRIBE.test(value)))].slice(0, 8));
@@ -119,11 +122,12 @@ function readStore(storage, now = Date.now()) {
 }
 
 function writeStore(storage, store) {
-  if (storage === null || storage === undefined || typeof storage.setItem !== "function") return false;
+  if (storage === null || storage === undefined || typeof storage.setItem !== "function") { reportPersistenceFailure(); return false; }
   try {
     storage.setItem(CONTENT_STORE_KEY, JSON.stringify(store));
     return true;
   } catch {
+    reportPersistenceFailure();
     return false;
   }
 }

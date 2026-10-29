@@ -1,5 +1,5 @@
 import { faviconSvg } from "./favicon.mjs";
-import { cleanShareSnapshot, hasShareVisual } from "../../../shared/vibe-share-contract.js";
+import { cleanShareSnapshot, hasShareVisual, shareMarkdownTooLong } from "../../../shared/vibe-share-contract.js";
 import { illustrationById } from "../../../shared/editorial-illustrations.js";
 import { renderNewPage, renderNotFound, renderPublicArticle } from "./render.mjs";
 import { APP_JS, APP_SCRIPT_PATH } from "./app-source.mjs";
@@ -137,14 +137,32 @@ async function createArticle(request, env, url) {
   if (db === undefined) return json({ error: "Publishing storage is not configured" }, 503);
   const requestOrigin = request.headers.get("origin");
   if (requestOrigin !== url.origin) return json({ error: "This publish request did not come from the share preview" }, 403);
-  if (Number(request.headers.get("content-length") ?? 0) > 4_500_000) return json({ error: "Article is too large" }, 413);
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "Invalid article request" }, 400); }
+  const maxBytes = 5_500_000;
+  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) return json({ error: "Article request is too large" }, 413);
+  let body, bodyBytes = 0;
+  try {
+    const reader = request.body?.getReader();
+    const chunks = [];
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bodyBytes += value.byteLength;
+        if (bodyBytes > maxBytes) { await reader.cancel(); return json({ error: "Article request is too large" }, 413); }
+        chunks.push(value);
+      }
+    }
+    const bytes = new Uint8Array(bodyBytes);
+    let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    body = JSON.parse(new TextDecoder().decode(bytes));
+  } catch { return json({ error: "Invalid article request" }, 400); }
+  if (shareMarkdownTooLong(body?.snapshot?.markdown)) return json({ error: "Article text exceeds the 100,000 character sharing limit" }, 413);
   const snapshot = cleanShareSnapshot(body?.snapshot);
   if (snapshot === null) return json({ error: "Article failed the public-share privacy contract" }, 400);
   const generatedIllustration = snapshot.visual?.kind === "ai-generated" && snapshot.visual.imageUrl.startsWith("data:image/png;base64,");
   const bundledIllustration = snapshot.visual?.kind === "illustration";
-  if (!generatedIllustration && Number(request.headers.get("content-length") ?? 0) > 450_000) return json({ error: "Article is too large" }, 413);
+  if (!generatedIllustration && bodyBytes > 1_200_000) return json({ error: "Article is too large" }, 413);
   // A selected web image stays selected. A generated PNG is replaced by the
   // JPEG already shown in the private preview, and only that JPEG is stored.
   const generatedCover = generatedIllustration || bundledIllustration || !hasShareVisual(snapshot) ? cleanGeneratedCover(body?.generatedCover) : null;

@@ -1,3 +1,5 @@
+import { reportPersistenceFailure } from "./persistence-notice.js";
+import { MAX_SHARE_MARKDOWN } from "../../../../shared/vibe-share-contract.js";
 import { editorialProfileKey } from "./editorial-settings.js";
 
 export const RESERVE_STORE_KEY = "dsh-vibeify.reserve.v1";
@@ -39,11 +41,12 @@ function cleanSignal(candidate, now) {
   return Object.freeze({ id, headline, url, region: cleanText(candidate.region, 40) ?? "global", tribeHints: Object.freeze((Array.isArray(candidate.tribeHints) ? candidate.tribeHints : []).slice(0, 8)), momentum: Math.max(0, Math.min(100, Number(candidate.momentum) || 0)), collectedAt });
 }
 
-function cleanPage(candidate, now, state) {
+function cleanPage(candidate, now, state, preserveStored = false) {
   if (candidate === null || typeof candidate !== "object" || !KINDS.has(candidate.kind)) return null;
   const id = cleanText(candidate.id, 96);
   const title = cleanText(candidate.title, 180);
-  const markdown = cleanText(candidate.markdown, 16_000, true);
+  if (!preserveStored && typeof candidate.markdown === "string" && candidate.markdown.length > MAX_SHARE_MARKDOWN) return null;
+  const markdown = cleanText(candidate.markdown, preserveStored ? Infinity : MAX_SHARE_MARKDOWN, true);
   const generatedAt = Number(candidate.generatedAt ?? now);
   const ttl = state === "candidate" ? RESERVE_CANDIDATE_TTL_MS : RESERVE_APPROVED_TTL_MS;
   if (id === null || !ID.test(id) || title === null || markdown === null || !Number.isFinite(generatedAt) || now - generatedAt > ttl) return null;
@@ -71,16 +74,16 @@ function readStore(storage, now = Date.now()) {
       lastActivityAt: Number.isFinite(Number(parsed.lastActivityAt)) ? Number(parsed.lastActivityAt) : 0,
       radarGeneratedAt: typeof parsed.radarGeneratedAt === "string" ? parsed.radarGeneratedAt : null,
       signals: Object.freeze((Array.isArray(parsed.signals) ? parsed.signals : []).map((entry) => cleanSignal(entry, now)).filter(Boolean).slice(-MAX_RESERVE_SIGNALS)),
-      candidates: Object.freeze((Array.isArray(parsed.candidates) ? parsed.candidates : []).map((entry) => cleanPage(entry, now, "candidate")).filter(Boolean).slice(-MAX_RESERVE_CANDIDATES)),
-      approved: Object.freeze((Array.isArray(parsed.approved) ? parsed.approved : []).map((entry) => cleanPage(entry, now, "approved")).filter(Boolean).slice(-MAX_RESERVE_APPROVED)),
+      candidates: Object.freeze((Array.isArray(parsed.candidates) ? parsed.candidates : []).map((entry) => cleanPage(entry, now, "candidate", true)).filter(Boolean).slice(-MAX_RESERVE_CANDIDATES)),
+      approved: Object.freeze((Array.isArray(parsed.approved) ? parsed.approved : []).map((entry) => cleanPage(entry, now, "approved", true)).filter(Boolean).slice(-MAX_RESERVE_APPROVED)),
       ledger: cleanLedger(parsed.ledger, now),
     });
   } catch { return emptyStore(); }
 }
 
 function writeStore(storage, store) {
-  if (storage === null || storage === undefined || typeof storage.setItem !== "function") return false;
-  try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { return false; }
+  if (storage === null || storage === undefined || typeof storage.setItem !== "function") { reportPersistenceFailure(); return false; }
+  try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { reportPersistenceFailure(); return false; }
 }
 
 export function getEditorialReserve(storage, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
@@ -117,7 +120,8 @@ export function appendReservePages(storage, candidates, state, now = Date.now())
   }
   const key = state === "candidate" ? "candidates" : "approved";
   const limit = state === "candidate" ? MAX_RESERVE_CANDIDATES : MAX_RESERVE_APPROVED;
-  writeStore(storage, { ...store, [key]: [...existing, ...appended].slice(-limit) });
+  if (appended.length === 0) return Object.freeze([]);
+  if (!writeStore(storage, { ...store, [key]: [...existing, ...appended].slice(-limit) })) return Object.freeze([]);
   return Object.freeze(appended);
 }
 

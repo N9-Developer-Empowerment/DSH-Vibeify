@@ -6,7 +6,11 @@ export const SHARE_MESSAGE_READY = "vibe-share:ready";
 export const SHARE_MESSAGE_SNAPSHOT = "vibe-share:snapshot";
 
 const MAX_TITLE = 180;
-const MAX_MARKDOWN = 16_000;
+export const MAX_SHARE_MARKDOWN = 100_000;
+
+export function shareMarkdownTooLong(value) {
+  return typeof value === "string" && value.length > MAX_SHARE_MARKDOWN;
+}
 const MAX_LABEL = 160;
 const MAX_ALT = 240;
 const MAX_GENERATED_PNG_BYTES = 3_000_000;
@@ -146,7 +150,8 @@ export function cleanShareSnapshot(candidate, now = Date.now()) {
   if (candidate === null || typeof candidate !== "object" || candidate.version !== SHARE_SNAPSHOT_VERSION) return null;
   const title = cleanText(candidate.title, MAX_TITLE);
   const kind = ARTICLE_KINDS.has(candidate.kind) ? candidate.kind : null;
-  const markdown = cleanText(candidate.markdown, MAX_MARKDOWN, true);
+  if (shareMarkdownTooLong(candidate.markdown)) return null;
+  const markdown = cleanText(candidate.markdown, MAX_SHARE_MARKDOWN, true);
   const publishedAt = Number(candidate.publishedAt);
   if (title === null || kind === null || markdown === null || !Number.isFinite(publishedAt) || publishedAt <= 0) return null;
   if (!Number.isFinite(now) || now <= 0 || publishedAt > now + 5 * 60 * 1000) return null;

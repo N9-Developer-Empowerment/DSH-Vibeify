@@ -302,3 +302,17 @@ test('new oversized articles are rejected without erasing oversized existing ent
   appendCachedChunks(storage, [chunk('new:short')], now);
   assert.equal(getCachedStream(storage, now).chunks[0].markdown, oversized);
 });
+
+test('quota failure keeps the new article in memory, reports failure, and leaves stored content untouched', () => {
+  const previousWindow = globalThis.window;
+  const events = [];
+  globalThis.window = {dispatchEvent: event => events.push(event.type)};
+  try {
+    const now = 1_700_000_000_000, prior = JSON.stringify({version:CONTENT_STORE_VERSION,chunks:[{...chunk('old:one'),publishedAt:now}],answers:[]});
+    const storage = {getItem: () => prior, setItem: () => {throw new Error('quota');}};
+    const result = appendCachedChunks(storage, [chunk('new:one')], now);
+    assert.equal(result[0].markdown, 'Useful content');
+    assert.deepEqual(events, ['dsh-vibeify:persistence-failure']);
+    assert.equal(storage.getItem(CONTENT_STORE_KEY), prior);
+  } finally { globalThis.window = previousWindow; }
+});

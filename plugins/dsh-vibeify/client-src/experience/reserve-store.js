@@ -1,3 +1,4 @@
+import { reportPersistenceFailure } from "./persistence-notice.js";
 import { MAX_SHARE_MARKDOWN } from "../../../../shared/vibe-share-contract.js";
 import { editorialProfileKey } from "./editorial-settings.js";
 
@@ -81,8 +82,8 @@ function readStore(storage, now = Date.now()) {
 }
 
 function writeStore(storage, store) {
-  if (storage === null || storage === undefined || typeof storage.setItem !== "function") return false;
-  try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { return false; }
+  if (storage === null || storage === undefined || typeof storage.setItem !== "function") { reportPersistenceFailure(); return false; }
+  try { storage.setItem(RESERVE_STORE_KEY, JSON.stringify(store)); return true; } catch { reportPersistenceFailure(); return false; }
 }
 
 export function getEditorialReserve(storage, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
@@ -119,7 +120,8 @@ export function appendReservePages(storage, candidates, state, now = Date.now())
   }
   const key = state === "candidate" ? "candidates" : "approved";
   const limit = state === "candidate" ? MAX_RESERVE_CANDIDATES : MAX_RESERVE_APPROVED;
-  writeStore(storage, { ...store, [key]: [...existing, ...appended].slice(-limit) });
+  if (appended.length === 0) return Object.freeze([]);
+  if (!writeStore(storage, { ...store, [key]: [...existing, ...appended].slice(-limit) })) return Object.freeze([]);
   return Object.freeze(appended);
 }
 

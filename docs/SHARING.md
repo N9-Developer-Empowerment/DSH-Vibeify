@@ -11,6 +11,8 @@ Vibe is one private, browser-local magazine across all DSH threads. Sharing does
 5. Choose **Publish public link** on the preview page.
 6. After publishing succeeds, the page shows the `share.codingforjustice.org.uk/a/...` URL in a selectable field with **Copy link** and, when supported, **Share…**. Copy failure selects the URL so it can be copied manually. Publishing does not post to a social network; any social post still needs the reader's separate action in that service.
 
+If browser storage is full or unavailable, Vibe displays a notice: new articles may not survive a reload, and existing saved data is not cleared to make room.
+
 Article text is limited to 100,000 UTF-16 characters. Longer articles are rejected with a visible message rather than shortened; review and shorten the article before trying again. Request size limits also account for images and covers. Existing published pages are not repaired automatically: a complete local article must be reviewed and explicitly published again.
 
 Opening a native share sheet is not evidence that a social post went live. The share page treats cancelling the sheet as normal and keeps the public URL available. Vibeify never schedules, queues or automatically posts a shared link.

@@ -64,6 +64,20 @@ window.__ModuleLoader__.load({
 			});
 			module.exports = __toCommonJS(index_exports);
 
+			// client-src/experience/persistence-notice.js
+			var VIBE_PERSISTENCE_FAILURE_EVENT = "dsh-vibeify:persistence-failure";
+			var persistenceFailed = false;
+			function hasPersistenceFailure() {
+			  return persistenceFailed;
+			}
+			function reportPersistenceFailure() {
+			  persistenceFailed = true;
+			  try {
+			    globalThis.window?.dispatchEvent(new Event(VIBE_PERSISTENCE_FAILURE_EVENT));
+			  } catch {
+			  }
+			}
+
 			// ../../shared/article-appearance.js
 			var VIBE_GOSSIP_VOICE = "Keep VIBE's playful, sharp gossip magazine publication voice: warm, witty and conversational, with human detail, lively headlines and sourced public gossip where it adds texture. Keep factual claims and allegations clearly attributed; never invent scandal, motives, quotes or private relationships.";
 			var WEBSITE_LOOKS = Object.freeze({
@@ -1280,11 +1294,15 @@ window.__ModuleLoader__.load({
 			  }
 			}
 			function writeStore(storage3, store) {
-			  if (storage3 === null || storage3 === void 0 || typeof storage3.setItem !== "function") return false;
+			  if (storage3 === null || storage3 === void 0 || typeof storage3.setItem !== "function") {
+			    reportPersistenceFailure();
+			    return false;
+			  }
 			  try {
 			    storage3.setItem(CONTENT_STORE_KEY, JSON.stringify(store));
 			    return true;
 			  } catch {
+			    reportPersistenceFailure();
 			    return false;
 			  }
 			}
@@ -3258,11 +3276,15 @@ window.__ModuleLoader__.load({
 			  }
 			}
 			function writeStore3(storage3, store) {
-			  if (storage3 === null || storage3 === void 0 || typeof storage3.setItem !== "function") return false;
+			  if (storage3 === null || storage3 === void 0 || typeof storage3.setItem !== "function") {
+			    reportPersistenceFailure();
+			    return false;
+			  }
 			  try {
 			    storage3.setItem(RESERVE_STORE_KEY, JSON.stringify(store));
 			    return true;
 			  } catch {
+			    reportPersistenceFailure();
 			    return false;
 			  }
 			}
@@ -3298,7 +3320,8 @@ window.__ModuleLoader__.load({
 			  }
 			  const key = state === "candidate" ? "candidates" : "approved";
 			  const limit = state === "candidate" ? MAX_RESERVE_CANDIDATES : MAX_RESERVE_APPROVED;
-			  writeStore3(storage3, { ...store, [key]: [...existing, ...appended].slice(-limit) });
+			  if (appended.length === 0) return Object.freeze([]);
+			  if (!writeStore3(storage3, { ...store, [key]: [...existing, ...appended].slice(-limit) })) return Object.freeze([]);
 			  return Object.freeze(appended);
 			}
 			function consumeApprovedPages(storage3, count = 4, now = Date.now(), profile = null, websiteLook = "vibe", publicationMood = "classic") {
@@ -5039,6 +5062,12 @@ window.__ModuleLoader__.load({
 			  const [editorialProfile, setEditorialProfile] = import_react.default.useState(() => loadEditorialProfile(browserStorage()));
 			  const [appearance, setAppearance] = import_react.default.useState(() => loadAppearanceProfile(browserStorage()));
 			  const [updateState, setUpdateState] = import_react.default.useState("idle");
+			  const [persistenceFailed2, setPersistenceFailed] = import_react.default.useState(hasPersistenceFailure);
+			  import_react.default.useEffect(() => {
+			    const onFailure = () => setPersistenceFailed(true);
+			    window.addEventListener(VIBE_PERSISTENCE_FAILURE_EVENT, onFailure);
+			    return () => window.removeEventListener(VIBE_PERSISTENCE_FAILURE_EVENT, onFailure);
+			  }, []);
 			  const [pullDistance, setPullDistance] = import_react.default.useState(0);
 			  const [skipped, setSkipped] = import_react.default.useState(() => /* @__PURE__ */ new Set());
 			  const [shareState, setShareState] = import_react.default.useState(() => ({ chunkId: null, status: "idle" }));
@@ -5249,8 +5278,8 @@ window.__ModuleLoader__.load({
 			        invalidated: current.restyleInvalidated
 			      })) return;
 			      const incoming = Array.isArray(event.detail?.chunks) ? event.detail.chunks : [];
-			      appendCachedChunks(browserStorage(), incoming);
-			      const acceptedIds = new Set(getCachedStream(browserStorage()).chunks.map(({ id }) => id));
+			      const appended = appendCachedChunks(browserStorage(), incoming);
+			      const acceptedIds = new Set([...getCachedStream(browserStorage()).chunks, ...appended].map(({ id }) => id));
 			      const accepted = incoming.filter(({ id }) => acceptedIds.has(id));
 			      if (accepted.length === 0) return;
 			      setChunks((current2) => {
@@ -5503,7 +5532,7 @@ window.__ModuleLoader__.load({
 			        onChat: enterChat
 			      }
 			    ),
-			    /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-publication-banner", role: "banner", "aria-label": "Publication masthead" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-masthead-home", "aria-label": "VIBE magazine home", onClick: goHome, dangerouslySetInnerHTML: { __html: renderPublicationMasthead(appearance.look, appearance.mood) } })), /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")), libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} saved in this browser` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your magazine \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, appearance.look === "bbc-news" ? "Your latest stories" : "People. Stories. Something worth your time."), /* @__PURE__ */ import_react.default.createElement("p", null, appearance.look === "bbc-news" ? "People, culture and ideas, through your chosen lens." : "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", disabled: ["starting", "submitted", "stopping"].includes(updateState), onClick: startRun }, "Update my magazine"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)), libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
+			    /* @__PURE__ */ import_react.default.createElement(import_react.default.Fragment, null, persistenceFailed2 && /* @__PURE__ */ import_react.default.createElement("p", { role: "alert", style: { padding: "1rem", margin: 0, background: "#fff3cd", color: "#382900" } }, "This edition could not be saved in this browser. New articles may not survive a reload. Your existing saved data has not been cleared."), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-publication-banner", role: "banner", "aria-label": "Publication masthead" }, /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-masthead-home", "aria-label": "VIBE magazine home", onClick: goHome, dangerouslySetInnerHTML: { __html: renderPublicationMasthead(appearance.look, appearance.mood) } })), /* @__PURE__ */ import_react.default.createElement("div", { className: `vfx-pull${pullDistance >= PULL_REFRESH_THRESHOLD ? " is-armed" : ""}`, style: { height: `${pullDistance}px` }, "aria-hidden": "true" }, /* @__PURE__ */ import_react.default.createElement("span", null, pullDistance >= PULL_REFRESH_THRESHOLD ? "Release to update" : "Pull to update")), libraryOpen ? /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-library", "aria-labelledby": "vfx-library-title" }, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-heading" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your local library"), /* @__PURE__ */ import_react.default.createElement("h1", { id: "vfx-library-title" }, "Find your past Vibes."), /* @__PURE__ */ import_react.default.createElement("p", null, "Search Vibes made from Chat and explicit magazine updates. ", persistenceFailed2 ? "New material may not survive a reload." : "They stay in this browser across DSH restarts, up to 160 cards or 30 days; older material leaves automatically.")), /* @__PURE__ */ import_react.default.createElement("label", { className: "vfx-library-search" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Search titles and article text"), /* @__PURE__ */ import_react.default.createElement("div", null, /* @__PURE__ */ import_react.default.createElement(Icon, { name: "search" }), /* @__PURE__ */ import_react.default.createElement("input", { type: "search", value: libraryQuery, maxLength: MAX_VIBE_LIBRARY_QUERY, placeholder: "Try a person, place or idea", "aria-label": "Search saved Vibes", onChange: (event) => setLibraryQuery(event.target.value) }))), /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-library-status", role: "status" }, /* @__PURE__ */ import_react.default.createElement("span", null, libraryQuery.trim() === "" ? `${librarySummary.count} ${librarySummary.count === 1 ? "Vibe" : "Vibes"} ${persistenceFailed2 ? "in this edition" : "saved in this browser"}` : `${displayChunks.length} matching ${displayChunks.length === 1 ? "Vibe" : "Vibes"}`), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", onClick: goHome }, "Back to magazine"))) : /* @__PURE__ */ import_react.default.createElement("section", { className: "vfx-edition-intro" }, /* @__PURE__ */ import_react.default.createElement("span", null, "Your magazine \xB7 ", editorialProfile.label), /* @__PURE__ */ import_react.default.createElement("h1", null, appearance.look === "bbc-news" ? "Your latest stories" : "People. Stories. Something worth your time."), /* @__PURE__ */ import_react.default.createElement("p", null, appearance.look === "bbc-news" ? "People, culture and ideas, through your chosen lens." : persistenceFailed2 ? "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines." : "Your editorial direction sets the brief. Update for a fresh read: the people, relationships and ideas behind the headlines. Your saved edition is here when you return."), /* @__PURE__ */ import_react.default.createElement("button", { type: "button", className: "vfx-intro-cta", disabled: ["starting", "submitted", "stopping"].includes(updateState), onClick: startRun }, "Update my magazine"), updateNotice === void 0 ? null : /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-update-note", role: updateState === "error" ? "alert" : "status" }, updateNotice)), libraryOpen && displayChunks.length === 0 ? /* @__PURE__ */ import_react.default.createElement("p", { className: "vfx-library-empty" }, "No saved Vibes match that search yet.") : null, /* @__PURE__ */ import_react.default.createElement("div", { className: "vfx-chunks" }, displayChunks.map((chunk, index) => /* @__PURE__ */ import_react.default.createElement(
 			      StreamChunk,
 			      {
 			        key: chunk.id,

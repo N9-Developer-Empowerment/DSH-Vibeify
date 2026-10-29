@@ -93,3 +93,17 @@ test('reserve rejects new oversized pages and preserves existing oversized pages
   markVibeActivity(local, NOW);
   assert.deepEqual(getEditorialReserve(local, NOW).approved.map(page => [page.id, page.markdown.length]), [['old',100_001]]);
 });
+
+test('quota failure reports that reserve pages were not persisted and preserves the existing store', () => {
+  const previousWindow = globalThis.window, events = [];
+  globalThis.window = {dispatchEvent: event => events.push(event.type)};
+  try {
+    const local = storage();
+    appendReservePages(local, [{id:'old',kind:'article',title:'Old',markdown:'Existing'}], 'approved', NOW);
+    const prior = local.getItem('dsh-vibeify.reserve.v1');
+    const quota = {getItem: local.getItem, setItem: () => {throw new Error('quota');}};
+    assert.deepEqual(appendReservePages(quota, [{id:'new',kind:'article',title:'New',markdown:'New'}], 'approved', NOW), []);
+    assert.equal(local.getItem('dsh-vibeify.reserve.v1'), prior);
+    assert.deepEqual(events, ['dsh-vibeify:persistence-failure']);
+  } finally { globalThis.window = previousWindow; }
+});

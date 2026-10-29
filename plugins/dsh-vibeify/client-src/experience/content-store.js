@@ -1,3 +1,4 @@
+import { reportPersistenceFailure } from "./persistence-notice.js";
 import { MAX_SHARE_MARKDOWN } from "../../../../shared/vibe-share-contract.js";
 import {
   MAX_CHAT_VIBE_RESERVE,
@@ -121,11 +122,12 @@ function readStore(storage, now = Date.now()) {
 }
 
 function writeStore(storage, store) {
-  if (storage === null || storage === undefined || typeof storage.setItem !== "function") return false;
+  if (storage === null || storage === undefined || typeof storage.setItem !== "function") { reportPersistenceFailure(); return false; }
   try {
     storage.setItem(CONTENT_STORE_KEY, JSON.stringify(store));
     return true;
   } catch {
+    reportPersistenceFailure();
     return false;
   }
 }
